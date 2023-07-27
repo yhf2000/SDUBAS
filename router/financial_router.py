@@ -6,7 +6,7 @@ from Basemodel import financial_Basemodel
 from crudapi import Resourcecrud, amountcrud
 from crudapi import accountcrud
 from utils.response import standard_response
-
+from utils.times import  getMsTime
 financial_router = APIRouter()
 
 
@@ -55,8 +55,8 @@ async def save_financial(apiSchema: financial_Basemodel.AmountAdd, user=Depends(
 @standard_response
 async def query_total(apiSchema: financial_Basemodel.ResourceDelete, user=Depends(auth_permission),
                       session=Depends(deps.get_session)):
-    num = accountcrud.api.check_byId(Id=apiSchema.id, db=session)
-    if num == 0:
+    num = accountcrud.api.check_by_id(Id=apiSchema.id, db=session)
+    if num is None:
         raise HTTPException(status_code=404, detail="Item not found")
     else:
         summ = amountcrud.api.query_total(Id=apiSchema.id, db=session)
@@ -67,8 +67,8 @@ async def query_total(apiSchema: financial_Basemodel.ResourceDelete, user=Depend
 @standard_response
 async def query_page(apiSchema: financial_Basemodel.pageRequest, user=Depends(auth_permission),
                      session=Depends(deps.get_session)):
-    num = accountcrud.api.check_byId(Id=apiSchema.id, db=session)
-    if num == 0:
+    num = accountcrud.api.check_by_id(Id=apiSchema.id, db=session)
+    if num is None:
         raise HTTPException(status_code=404, detail="Item not found")
     else:
         return amountcrud.api.query_amount(ID=apiSchema.id, pn=apiSchema.pn, pg=apiSchema.pg, db=session)
@@ -78,7 +78,7 @@ async def query_page(apiSchema: financial_Basemodel.pageRequest, user=Depends(au
 @standard_response
 async def delete_financial(apiSchema: financial_Basemodel.ResourceDelete, user=Depends(auth_permission),
                            session=Depends(deps.get_session)):
-    check_result = accountcrud.api.check_byId(Id=apiSchema.id, db=session)
+    check_result = accountcrud.api.check_by_id(Id=apiSchema.id, db=session)
     if check_result is not None:
         accountcrud.api.delete(Id=apiSchema.id, db=session)
         amountcrud.api.delete_by_financial(Id=apiSchema.id, db=session)
@@ -92,7 +92,7 @@ async def delete_financial(apiSchema: financial_Basemodel.ResourceDelete, user=D
 @standard_response
 async def delete_account(apiSchema: financial_Basemodel.ResourceDelete, user=Depends(auth_permission),
                          session=Depends(deps.get_session)):
-    check_result = amountcrud.api.check_byId(Id=apiSchema.id, db=session)
+    check_result = amountcrud.api.check_by_id(Id=apiSchema.id, db=session)
     if check_result is not None:
         amountcrud.api.delete_by_id(Id=apiSchema.id, db=session)
         return {"message": "delete success"}

@@ -75,5 +75,8 @@ class AmountApi:
         total_count = query.count()
         return total_count
 
+    def check_by_id(self, Id: int, db: Session):
+        return db.query(self.model).filter(self.model.Id == Id, self.model.has_delete == 0).first()
+
 
 api = AmountApi(Amount)

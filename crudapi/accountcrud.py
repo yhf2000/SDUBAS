@@ -18,10 +18,8 @@ class FinancialApi:
         db.refresh(obj_add)
         return jsonable_encoder(obj_add)
 
-    def check_byId(self, Id: int, db: Session):
-        query = db.query(self.model).filter_by(Id=Id, has_delete=0)
-        total_count = query.count()
-        return total_count
+    def check_by_id(self, Id: int, db: Session):
+        return db.query(self.model).filter(self.model.Id == Id, self.model.has_delete == 0).first()
 
     def delete(self, Id: int, db: Session):
         db.query(self.model).filter(self.model.Id == Id).update({"has_delete": 1})
