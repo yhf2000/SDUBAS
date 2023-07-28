@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from starlette.middleware.cors import CORSMiddleware
-from router.financial_router import financial_router
+from control.financial_router import financial_router
 from utils.auth_login import auth_login
 from utils.response import standard_response
 
