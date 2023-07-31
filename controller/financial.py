@@ -1,13 +1,10 @@
 from utils.auth_permission import auth_permission
-from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, Request, HTTPException
-from model import financial_Basemodel
-from service import accountcrud
+from fastapi import APIRouter, Depends, HTTPException
 from utils.response import standard_response, makePageResult
-from service.Resourcecrud import ResourceModel
-from service.accountcrud import FinancialModel
-from service.billcrud import BillModel
+from service.Resource import ResourceModel, FinancialModel, BillModel
 from type import page
+from type import financial as financial_Basemodel
+
 financial_router = APIRouter()
 
 
