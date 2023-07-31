@@ -1,10 +1,12 @@
 from fastapi import FastAPI, Depends
 from starlette.middleware.cors import CORSMiddleware
-from controller.financial_router import financial_router
+from controller.financial import financial_router
 from utils.auth_login import auth_login
 from utils.response import standard_response
 
 app = FastAPI()
+
+app.include_router(financial_router)
 
 origins = [
     "*",
@@ -31,4 +33,3 @@ async def root(user=Depends(auth_login)):
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}
 
-app.include_router(financial_router)

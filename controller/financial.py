@@ -7,7 +7,7 @@ from utils.response import standard_response, makePageResult
 from service.Resourcecrud import ResourceModel
 from service.accountcrud import FinancialModel
 from service.billcrud import BillModel
-
+from type import page
 financial_router = APIRouter()
 
 
@@ -20,7 +20,7 @@ async def save_api(apiSchema: financial_Basemodel.ResourceAdd, user=Depends(auth
 
 @financial_router.post("/resource/view")  # 查看所有资源项目,可能需要分页数据，，不可用
 @standard_response
-async def get_resource_by_user(apiSchema: financial_Basemodel.page, user=Depends(auth_permission)):
+async def get_resource_by_user(apiSchema: page.page, user=Depends(auth_permission)):
     db = ResourceModel()  # 目前不可用，需要权限接口返回。
     return db.get_resource_by_user(user=user, pg=apiSchema)
 
@@ -123,7 +123,7 @@ async def query_total(financial_id: int, user=Depends(auth_permission)):
 
 @financial_router.post("/financial/{financial_id}/accountbook")  # 查看账单
 @standard_response
-async def query_page(financial_id: int, apiSchema: financial_Basemodel.page, user=Depends(auth_permission)):
+async def query_page(financial_id: int, apiSchema: page.page, user=Depends(auth_permission)):
     FinancialModel_db = FinancialModel()
     BillModel_db = BillModel()
     num = FinancialModel_db.check_by_id(Id=financial_id)  # 检查资金项目有无

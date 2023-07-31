@@ -1,7 +1,22 @@
-from datetime import datetime
 from typing import List
+import time
+from pydantic import BaseModel, Field, validator, constr, ConfigDict, BaseConfig
+from datetime import datetime
+from typing import get_type_hints
 
-from pydantic import BaseModel, Field, validator, constr
+
+class Financial_Basemodel(BaseModel):
+    Id: int
+    name: str
+    note: str
+    create_dt: int
+    has_delete: int
+
+    class Config:
+        from_attributes = True
+
+
+# 将DateTime转换为时间戳
 
 
 class ResourceAdd(BaseModel):  # 资源添加请求体
@@ -38,24 +53,6 @@ class pageRequest(BaseModel):
     pg: int = Field(..., gt=0)
 
 
-class page(BaseModel):  # 定义的分页类
-    pageSize: int = Field(..., gt=0)
-    pageNow: int = Field(..., gt=0)
-
-    def offset(self):
-        return (max(1, self.pageNow) - 1) * self.pageSize
-
-    def limit(self):
-        return self.pageSize
-
-
-class pageResult(BaseModel):  # 分页结果类
-    pageIndex: int
-    pageSize: int
-    totalNum: int
-    rows: List
-
-
 class resource_count_update(BaseModel):
     count: int = Field(..., gt=0)
 
@@ -65,3 +62,17 @@ class ApplyBody(BaseModel):
     count: int = Field(..., gt=0)
     begintime: datetime
     endtime: datetime
+
+
+class Bill_basemodel(BaseModel):
+    Id: int
+    finance_id: int
+    state: int
+    amount: int
+    log_content: str
+    log_file_id: int
+    has_delete: int
+    oper_dt: int
+
+    class Config:
+        from_attributes = True

@@ -2,10 +2,9 @@ from typing import Any, Type, List
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy.orm import Session
 from model.financial_dbmodel import Financial, dbSession
-from model.financial_Basemodel import FinancialAdd
-from utils.response import page
+from model.financial_Basemodel import FinancialAdd, Financial_Basemodel
+from type.page import page, convert_result_to_model
 
 
 class FinancialModel(dbSession):
@@ -19,9 +18,10 @@ class FinancialModel(dbSession):
 
     def check_by_id(self, Id: int):  # 获取，通过主键
         Financial_list = self.session.query(Financial).filter(Financial.Id == Id, Financial.has_delete == 0).first()
+        Financial_list3 = convert_result_to_model(Financial_list, Financial_Basemodel)
         if Financial_list is None:
             raise HTTPException(status_code=404, detail="Item not found")
-        return self.dealData(data=Financial_list, timeKeys=['create_dt'], popKeys=['has_delete'])
+        return Financial_list3.model_dump(exclude={'has_delete'})
 
     def delete(self, Id: int):  # 删除，通过主键
         self.session.query(Financial).filter(Financial.Id == Id).update({"has_delete": 1})
