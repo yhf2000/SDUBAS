@@ -1,7 +1,7 @@
 from typing import Any, Type, List
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
-from db.model import Bill, dbSession
+from model.financial_dbmodel import Bill, dbSession
 from model.financial_Basemodel import AmountAdd
 from sqlalchemy import func, case
 from model.financial_Basemodel import page

@@ -1,8 +1,8 @@
 from typing import Any, Type, List
 from fastapi.encoders import jsonable_encoder
-from db.model import Resource
+from model.financial_dbmodel import Resource
 from model.financial_Basemodel import ResourceAdd, ApplyBody
-from db.model import dbSession
+from model.financial_dbmodel import dbSession
 from utils.response import page
 from fastapi import HTTPException
 

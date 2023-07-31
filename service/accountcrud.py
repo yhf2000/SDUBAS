@@ -3,7 +3,7 @@ from typing import Any, Type, List
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
-from db.model import Financial, dbSession
+from model.financial_dbmodel import Financial, dbSession
 from model.financial_Basemodel import FinancialAdd
 from utils.response import page
 
