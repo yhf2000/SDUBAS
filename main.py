@@ -1,10 +1,17 @@
+import uvicorn
 from fastapi import FastAPI, Depends
 from starlette.middleware.cors import CORSMiddleware
 
 from utils.auth_login import auth_login
 from utils.response import standard_response
+from controller import files, projects, permissions, resources, users
 
 app = FastAPI()
+app.include_router(files.files_router)
+app.include_router(permissions.permissions_router)
+app.include_router(projects.projects_router)
+app.include_router(resources.resources_router)
+app.include_router(users.files_router)
 
 origins = [
     "*",
@@ -30,3 +37,11 @@ async def root(user=Depends(auth_login)):
 @standard_response
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}
+
+
+def main():
+    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
+
+
+if __name__ == "__main__":
+    main()
