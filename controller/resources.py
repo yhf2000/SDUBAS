@@ -5,7 +5,7 @@ from service.Resource import ResourceModel, FinancialModel, BillModel
 from type import page
 from type import financial as financial_Basemodel
 
-financial_router = APIRouter()
+resources_router = APIRouter()
 
 
 @financial_router.post("/resource")  # 添加资源项目
