@@ -2,8 +2,11 @@ from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import declarative_base
 
 from const import SQLALCHEMY_DATABASE_URL
+
+Base = declarative_base()
 
 
 class dbSession:
@@ -12,8 +15,6 @@ class dbSession:
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
         self.SessionThreadLocal = scoped_session(self.SessionLocal)
 
-    def init_db(self, base):
-        base.metadata.create_all(self.engine)
 
     @contextmanager
     def get_db(self):
