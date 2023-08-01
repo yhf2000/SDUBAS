@@ -8,21 +8,21 @@ from type import financial as financial_Basemodel
 resources_router = APIRouter()
 
 
-@financial_router.post("/resource")  # 添加资源项目
+@resources_router.post("/resource")  # 添加资源项目
 @standard_response
 async def save_api(apiSchema: financial_Basemodel.ResourceAdd, user=Depends(auth_permission)):
     db = ResourceModel()  # 判断后直接添加
     return db.save_resource(obj_in=apiSchema)
 
 
-@financial_router.post("/resource/view")  # 查看所有资源项目,可能需要分页数据，，不可用
+@resources_router.post("/resource/view")  # 查看所有资源项目,可能需要分页数据，，不可用
 @standard_response
 async def get_resource_by_user(apiSchema: page.page, user=Depends(auth_permission)):
     db = ResourceModel()  # 目前不可用，需要权限接口返回。
     return db.get_resource_by_user(user=user, pg=apiSchema)
 
 
-@financial_router.put("/resource/{resource_id}")  # 修改资源数目
+@resources_router.put("/resource/{resource_id}")  # 修改资源数目
 @standard_response
 async def Update_resource_by_count(resource_id: int, apiSchema: financial_Basemodel.resource_count_update,
                                    user=Depends(auth_permission)):
@@ -34,7 +34,7 @@ async def Update_resource_by_count(resource_id: int, apiSchema: financial_Basemo
         raise HTTPException(status_code=404, detail="Item not found")
 
 
-@financial_router.get("/resource/{resource_id}")  # 查看一个具体的资源
+@resources_router.get("/resource/{resource_id}")  # 查看一个具体的资源
 @standard_response
 async def Update_resource_by_count(resource_id: int,
                                    user=Depends(auth_permission)):
@@ -42,7 +42,7 @@ async def Update_resource_by_count(resource_id: int,
     return db.check_by_id(Id=resource_id)
 
 
-@financial_router.post("/resource/{resource_id}/apply")  # 申请一个具体的资源，不可用
+@resources_router.post("/resource/{resource_id}/apply")  # 申请一个具体的资源，不可用
 @standard_response
 async def apply_Resource(resource_id: int, apiSchema: financial_Basemodel.ApplyBody,
                          user=Depends(auth_permission)):
@@ -50,7 +50,7 @@ async def apply_Resource(resource_id: int, apiSchema: financial_Basemodel.ApplyB
     return db.apply_resource(user=user, Id=resource_id, date=apiSchema)
 
 
-@financial_router.get("/resource/{resource_id}/apply")  # 获取一个资源的所有申请,不可用，可能需要分页
+@resources_router.get("/resource/{resource_id}/apply")  # 获取一个资源的所有申请,不可用，可能需要分页
 @standard_response
 async def get_Resource_apply_by_user(resource_id: int,
                                      user=Depends(auth_permission)):
@@ -58,7 +58,7 @@ async def get_Resource_apply_by_user(resource_id: int,
     return db.get_resource_apply_by_id(Id=resource_id)
 
 
-@financial_router.put("/resource/{resource_id}/{role_id}/approve")  # 通过一个资源的申请,不可用
+@resources_router.put("/resource/{resource_id}/{role_id}/approve")  # 通过一个资源的申请,不可用
 @standard_response
 async def get_Resource_apply_by_user(role_id: int,
                                      user=Depends(auth_permission)):
@@ -66,7 +66,7 @@ async def get_Resource_apply_by_user(role_id: int,
     return db.approve_apply_by_roleid(Id=role_id)
 
 
-@financial_router.put("/resource/{resource_id}/{role_id}/refuse")  # 拒绝一个资源的申请,不可用
+@resources_router.put("/resource/{resource_id}/{role_id}/refuse")  # 拒绝一个资源的申请,不可用
 @standard_response
 async def get_Resource_apply_by_user(role_id: int,
                                      user=Depends(auth_permission)):
@@ -76,7 +76,7 @@ async def get_Resource_apply_by_user(role_id: int,
 
 # 可能需要查询申请结果的url，但可以复用查询权限
 
-@financial_router.delete("/resource/{resource_id}")  # 删除资源项目
+@resources_router.delete("/resource/{resource_id}")  # 删除资源项目
 @standard_response
 async def delete(resource_id: int, user=Depends(auth_permission)):
     db = ResourceModel()
@@ -88,14 +88,14 @@ async def delete(resource_id: int, user=Depends(auth_permission)):
         raise HTTPException(status_code=404, detail="Item not found")
 
 
-@financial_router.post("/financial")  # 添加资金项目
+@resources_router.post("/financial")  # 添加资金项目
 @standard_response
 async def save_financial(apiSchema: financial_Basemodel.FinancialAdd, user=Depends(auth_permission)):
     db = FinancialModel()
     return db.save_financial(obj_in=apiSchema)
 
 
-@financial_router.post("/financial/{financial_id}/account")  # 添加收支记录
+@resources_router.post("/financial/{financial_id}/account")  # 添加收支记录
 @standard_response
 async def save_financial(financial_id: int, apiSchema: financial_Basemodel.AmountAdd, user=Depends(auth_permission)):
     db = BillModel()
@@ -108,7 +108,7 @@ async def save_financial(financial_id: int, apiSchema: financial_Basemodel.Amoun
         return db.save_amount(obj_in=apiSchema)
 
 
-@financial_router.get("/financial/{financial_id}")  # 计算总额,外加额外信息
+@resources_router.get("/financial/{financial_id}")  # 计算总额,外加额外信息
 @standard_response
 async def query_total(financial_id: int, user=Depends(auth_permission)):
     FinancialModel_db = FinancialModel()
@@ -123,7 +123,7 @@ async def query_total(financial_id: int, user=Depends(auth_permission)):
         return num
 
 
-@financial_router.post("/financial/{financial_id}/accountbook")  # 查看账单
+@resources_router.post("/financial/{financial_id}/accountbook")  # 查看账单
 @standard_response
 async def query_page(financial_id: int, apiSchema: page.page, user=Depends(auth_permission)):
     FinancialModel_db = FinancialModel()
@@ -136,7 +136,7 @@ async def query_page(financial_id: int, apiSchema: page.page, user=Depends(auth_
         return makePageResult(pg=apiSchema, tn=tn, data=res)  # 封装的函数
 
 
-@financial_router.delete("/financial/{financial_id}")  # 删除资金项目
+@resources_router.delete("/financial/{financial_id}")  # 删除资金项目
 @standard_response
 async def delete_financial(financial_id: int, user=Depends(auth_permission)):
     FinancialModel_db = FinancialModel()
@@ -151,7 +151,7 @@ async def delete_financial(financial_id: int, user=Depends(auth_permission)):
         raise HTTPException(status_code=404, detail="Item not found")
 
 
-@financial_router.delete("/financial/{financial_id}/{account_id}")  # 删除资金流水项目
+@resources_router.delete("/financial/{financial_id}/{account_id}")  # 删除资金流水项目
 @standard_response
 async def delete_account(account_id: int, user=Depends(auth_permission)):
     BillModel_db = BillModel()
@@ -163,7 +163,7 @@ async def delete_account(account_id: int, user=Depends(auth_permission)):
         raise HTTPException(status_code=404, detail="Item not found")
 
 
-@financial_router.put("/financial/{financial_id}")  # 修改资金项目
+@resources_router.put("/financial/{financial_id}")  # 修改资金项目
 @standard_response
 async def delete_financial(financial_id: int, apiSchme: financial_Basemodel.FinancialUpdate,
                            user=Depends(auth_permission)):
@@ -176,7 +176,7 @@ async def delete_financial(financial_id: int, apiSchme: financial_Basemodel.Fina
         raise HTTPException(status_code=404, detail="Item not found")
 
 
-@financial_router.get("/financial")  # 查询资金，需要权限，不可用
+@resources_router.get("/financial")  # 查询资金，需要权限，不可用
 @standard_response
 async def get_financial_by_user(user=Depends(auth_permission)):
     db = FinancialModel()

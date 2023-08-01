@@ -6,10 +6,11 @@ from const import SQLALCHEMY_DATABASE_URL
 from model.project import Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore, \
     ProjectContentUserSubmission
 from model.user import User, User_info, School, College, Major, Class, Operation, Session
-
+from model.financial import Financial, Resource, Bill
 create_table_list = [
     Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore,
-    ProjectContentUserSubmission, User, User_info, School, College, Major, Class, Operation, Session
+    ProjectContentUserSubmission, User, User_info, School, College, Major, Class, Operation, Session,
+    Financial, Resource, Bill
 
 ]
 
