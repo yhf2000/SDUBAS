@@ -3,12 +3,15 @@ from sqlalchemy import create_engine
 from const import SQLALCHEMY_DATABASE_URL
 
 # 这里需要引入所有使用 Base 的 Model
-from model.project import Project
+from model.project import Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore, \
+    ProjectContentUserSubmission
+from model.user import User, User_info, School, College, Major, Class, Operation, Session
 
 create_table_list = [
-    Project
-]
+    Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore,
+    ProjectContentUserSubmission, User, User_info, School, College, Major, Class, Operation, Session
 
+]
 
 if __name__ == "__main__":
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
