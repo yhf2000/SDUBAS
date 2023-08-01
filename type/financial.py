@@ -1,19 +1,40 @@
-from typing import List
+from typing import List, Optional
 import time
-from pydantic import BaseModel, Field, validator, constr, ConfigDict, BaseConfig
+from pydantic import BaseModel, Field, validator, constr, ConfigDict, BaseConfig, field_serializer
 from datetime import datetime
 from typing import get_type_hints
 
+from utils.times import getMsTime
+
+
+class Resource_Basemodel(BaseModel):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        from_attributes=True,
+    )
+    Id: int
+    name: str
+    count: int
+    state: int
+    has_delete: int
+
 
 class Financial_Basemodel(BaseModel):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        from_attributes=True,
+    )
     Id: int
     name: str
     note: str
-    create_dt: int
+    create_dt: datetime
     has_delete: int
 
-    class Config:
-        from_attributes = True
+
+class Financial_ModelOpt(Financial_Basemodel):
+    @field_serializer('create_dt')
+    def serialize_dt(self, dt: datetime, _info):
+        return getMsTime(dt)
 
 
 # 将DateTime转换为时间戳
@@ -65,14 +86,21 @@ class ApplyBody(BaseModel):
 
 
 class Bill_basemodel(BaseModel):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        from_attributes=True,
+    )
     Id: int
     finance_id: int
     state: int
     amount: int
     log_content: str
-    log_file_id: int
+    log_file_id: Optional[int]
     has_delete: int
-    oper_dt: int
+    oper_dt: datetime
 
-    class Config:
-        from_attributes = True
+
+class BillModelOpt(Bill_basemodel):
+    @field_serializer('oper_dt')
+    def serialize_dt(self, dt: datetime, _info):
+        return getMsTime(dt)

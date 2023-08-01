@@ -42,19 +42,3 @@ class Bill(Base):  # 流水表
     oper_dt = Column(DateTime, nullable=False, default=func.now())  # 操作时间自动填入
 
 
-class dbSession:
-    session = None
-
-    def __init__(self):
-        engine = create_engine(
-            link,
-            echo=True
-        )
-        DBSession = sessionmaker(bind=engine)
-        self.session = DBSession()
-
-    def getSession(self):
-        return self.session
-
-    def __del__(self):
-        self.session.close()

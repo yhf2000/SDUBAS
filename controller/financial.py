@@ -99,8 +99,13 @@ async def save_financial(apiSchema: financial_Basemodel.FinancialAdd, user=Depen
 @standard_response
 async def save_financial(financial_id: int, apiSchema: financial_Basemodel.AmountAdd, user=Depends(auth_permission)):
     db = BillModel()
-    apiSchema.finance_id = financial_id
-    return db.save_amount(obj_in=apiSchema)
+    FinancialModel_db = FinancialModel()
+    num = FinancialModel_db.check_by_id(Id=financial_id)  # 所有信息，处理总额之外所有信息
+    if num is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+    else:
+        apiSchema.finance_id = financial_id
+        return db.save_amount(obj_in=apiSchema)
 
 
 @financial_router.get("/financial/{financial_id}")  # 计算总额,外加额外信息
