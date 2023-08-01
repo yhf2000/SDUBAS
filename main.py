@@ -7,11 +7,11 @@ from utils.response import standard_response
 from controller import files, projects, permissions, resources, users
 
 app = FastAPI()
-app.include_router(files.files_router)
-app.include_router(permissions.permissions_router)
-app.include_router(projects.projects_router)
-app.include_router(resources.resources_router)
-app.include_router(users.files_router)
+app.include_router(files.files_router, prefix="/files")
+app.include_router(permissions.permissions_router, prefix="/permissions")
+app.include_router(projects.projects_router, prefix="/projects")
+app.include_router(resources.resources_router, prefix="/resources")
+app.include_router(users.files_router, prefix="/users")
 
 origins = [
     "*",

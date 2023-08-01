@@ -3,12 +3,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 from sqlalchemy import Column, Integer, VARCHAR, DateTime
-from sqlalchemy.orm import declarative_base
 
-from model.db import dbSession
+
+from model.db import dbSession, Base
 from utils.times import getMsTime
 
-Base = declarative_base()
+
 
 
 class User(Base):
@@ -44,7 +44,6 @@ class UserInfoModelOpt(UserModelOpt, IdModel):
 
 if __name__ == "__main__":
     db = dbSession()
-    db.init_db(Base)
     user = UserModel(
         name="user_name0",
         created_at=datetime.now()
