@@ -12,7 +12,6 @@ session_db = redis.Redis(connection_pool=pool1)  # 根据token缓存有效sessio
 user_information_db = redis.Redis(connection_pool=pool2)  # 根据token缓存用户基本信息
 
 Base = declarative_base()
-Base = declarative_base()
 
 
 class dbSession:
