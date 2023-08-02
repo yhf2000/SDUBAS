@@ -26,7 +26,7 @@ college_model = CollegeModel()
 major_model = MajorModel()
 class_model = ClassModel()
 
-@users_router.post("/user/register")  # 用户自己注册
+@users_router.post("/register")  # 用户自己注册
 @user_standard_response
 async def user_register(user=Depends(auth_register)):
     user.password = MD5(user.password)  # 使用MD5对密码进行加密
@@ -34,7 +34,7 @@ async def user_register(user=Depends(auth_register)):
     return {'message': '注册成功,请前往进行邮箱验证', 'status': 1, 'data': {'user_id': id}}
 
 
-@users_router.post("/user/send_email_code")  # 发送邮件验证码
+@users_router.post("/send_email_code")  # 发送邮件验证码
 @user_standard_response
 async def user_send_email_code(email: nothing, request: Request, token1=Depends(auth_not_login),
                                user_agent: str = Header(None), update: int = 0):
@@ -66,7 +66,7 @@ async def user_send_email_code(email: nothing, request: Request, token1=Depends(
     return {'data': {'session_id': id}, 'message': '验证码已发送，请前往验证！', 'token_header': token, 'email_header': email.email}
 
 
-@users_router.post("/user/verify_email_code")  # 验证用户输入的验证码是否正确
+@users_router.post("/verify_email_code")  # 验证用户输入的验证码是否正确
 @user_standard_response
 async def user_verify_email_code(token_s6: nothing, email: str, token=Depends(auth_not_login), update: int = 0):
     if token_s6 is None:  # 没输入验证码
@@ -107,7 +107,7 @@ async def user_verify_email_code(token_s6: nothing, email: str, token=Depends(au
             )
 
 
-@users_router.get("/user/login")  # 登录
+@users_router.get("/login")  # 登录
 @user_standard_response
 async def user_login(username: str, password: str, request: Request, user_agent: str = Header(None),
                      token=Depends(auth_not_login)):
@@ -140,7 +140,7 @@ async def user_login(username: str, password: str, request: Request, user_agent:
             )
 
 
-@users_router.put("/user/logout")  # 下线
+@users_router.put("/logout")  # 下线
 @user_standard_response
 async def user_logout(session=Depends(auth_login)):
     token = session['token']
@@ -149,7 +149,7 @@ async def user_logout(session=Depends(auth_login)):
     return {'message': '下线成功', 'data': {'result': mes}, 'token': '-1'}
 
 
-@users_router.post("/user/user_bind_information")  # 自己注册的用户绑定个人信息
+@users_router.post("/user_bind_information")  # 自己注册的用户绑定个人信息
 @user_standard_response
 async def user_bind_information(user_data: user_info_interface, request: Request, session=Depends(auth_login)):
     user_model.update_user_card_id(session['user_id'], user_data.card_id)
@@ -157,7 +157,7 @@ async def user_bind_information(user_data: user_info_interface, request: Request
     return {'message': '绑定成功', 'data': {'user_id': id}}
 
 
-@users_router.put("/user/email_update")  # 修改绑定邮箱
+@users_router.put("/email_update")  # 修改绑定邮箱
 @user_standard_response
 async def user_email_update(email: nothing, request: Request, session=Depends(auth_login),
                             user_agent: str = Header(None)):
@@ -168,7 +168,7 @@ async def user_email_update(email: nothing, request: Request, session=Depends(au
             'token_header': token_header['token']}
 
 
-@users_router.post("/user/verify_update_email")  # 验证用户输入的验证码是否正确
+@users_router.post("/verify_update_email")  # 验证用户输入的验证码是否正确
 @user_standard_response
 async def user_verify_update_email(token_s6: nothing, email: str = Header(None), token=Depends(auth_not_login)):
     result = await user_verify_email_code(token_s6, email, token, 1)
@@ -176,7 +176,7 @@ async def user_verify_update_email(token_s6: nothing, email: str = Header(None),
     return {'data': {'session_id': ans['data']['session_id']}, 'message': ans['message']}
 
 
-@users_router.post("/user/school_add")  # 管理员添加学校(未添加权限认证)
+@users_router.post("/school_add")  # 管理员添加学校(未添加权限认证)
 @user_standard_response
 async def user_school_add(school_data=Depends(auth_school_exist), exist=Depends()):
     # 判断是否有权限
@@ -185,7 +185,7 @@ async def user_school_add(school_data=Depends(auth_school_exist), exist=Depends(
     return {'message': '建立成功', 'data': {'school_id': id}}
 
 
-@users_router.get("/user/school_view")  # 查看管理员所能操作的所有学校(未添加权限认证)
+@users_router.get("/school_view")  # 查看管理员所能操作的所有学校(未添加权限认证)
 @page_response
 async def user_school_view(pageNow: int, pageSize: int):
     # 判断是否有权限
@@ -208,7 +208,7 @@ async def user_school_view(pageNow: int, pageSize: int):
             "rows": school_data}
 
 
-@users_router.delete("/user/school_delete/{school_id}")  # 管理员删除学校(未添加权限认证)
+@users_router.delete("/school_delete/{school_id}")  # 管理员删除学校(未添加权限认证)
 @user_standard_response
 async def user_school_delete(school_id=Depends(auth_school_not_exist)):
     # 判断是否有权限
@@ -217,7 +217,7 @@ async def user_school_delete(school_id=Depends(auth_school_not_exist)):
     return {'message': '删除成功', 'data': {'school_id': id}}
 
 
-@users_router.put("/user/school_update/{school_id}")  # 管理员修改学校信息(未添加权限认证)
+@users_router.put("/school_update/{school_id}")  # 管理员修改学校信息(未添加权限认证)
 @user_standard_response
 async def user_school_update(school_id=Depends(auth_school_not_exist), school_data=Depends(auth_school_exist)):
     # 判断是否有权限
@@ -230,7 +230,7 @@ async def user_school_update(school_id=Depends(auth_school_not_exist), school_da
     return {'message': '修改成功', 'data': {'school_id': school_id}}
 
 
-@users_router.post("/user/college_add")  # 管理员添加学院(未添加权限认证)
+@users_router.post("/college_add")  # 管理员添加学院(未添加权限认证)
 @user_standard_response
 async def user_college_add(college_data=Depends(auth_college_exist)):
     # 判断是否有权限
@@ -239,7 +239,7 @@ async def user_college_add(college_data=Depends(auth_college_exist)):
     return {'message': '建立成功', 'data': {'college_id': id}}
 
 
-@users_router.delete("/user/college_delete/{college_id}")  # 管理员删除学院(未添加权限认证)
+@users_router.delete("/college_delete/{college_id}")  # 管理员删除学院(未添加权限认证)
 @user_standard_response
 async def user_college_delete(college_id=Depends(auth_college_not_exist)):
     # 判断是否有权限
@@ -248,7 +248,7 @@ async def user_college_delete(college_id=Depends(auth_college_not_exist)):
     return {'message': '删除成功', 'data': {'college_id': id}}
 
 
-@users_router.get("/user/college_view")  # 查看管理员所能操作的所有学院(未添加权限认证)
+@users_router.get("/college_view")  # 查看管理员所能操作的所有学院(未添加权限认证)
 @page_response
 async def user_college_view(pageNow: int, pageSize: int):
     # 判断是否有权限
@@ -274,7 +274,7 @@ async def user_college_view(pageNow: int, pageSize: int):
             "rows": college_data}
 
 
-@users_router.put("/user/college_update/{college_id}")  # 管理员修改学院信息(未添加权限认证)
+@users_router.put("/college_update/{college_id}")  # 管理员修改学院信息(未添加权限认证)
 @user_standard_response
 async def user_college_update(college_id=Depends(auth_college_not_exist), college_data=Depends(auth_college_exist)):
     # 判断是否有权限
@@ -283,7 +283,7 @@ async def user_college_update(college_id=Depends(auth_college_not_exist), colleg
     return {'message': '修改成功', 'data': {'college_id': college_id}}
 
 
-@users_router.post("/user/major_add")  # 管理员添加专业(未添加权限认证)
+@users_router.post("/major_add")  # 管理员添加专业(未添加权限认证)
 @user_standard_response
 async def user_major_add(major_data=Depends(auth_major_exist)):
     # 判断是否有权限
@@ -292,7 +292,7 @@ async def user_major_add(major_data=Depends(auth_major_exist)):
     return {'message': '建立成功', 'data': {'major_id': id}}
 
 
-@users_router.delete("/user/major_delete/{major_id}")  # 管理员删除专业(未添加权限认证)
+@users_router.delete("/major_delete/{major_id}")  # 管理员删除专业(未添加权限认证)
 @user_standard_response
 async def user_major_delete(major_id=Depends(auth_major_not_exist)):
     # 判断是否有权限
@@ -301,7 +301,7 @@ async def user_major_delete(major_id=Depends(auth_major_not_exist)):
     return {'message': '删除成功', 'data': {'major_id': id}}
 
 
-@users_router.put("/user/major_update/{major_id}")  # 管理员修改专业信息(未添加权限认证)
+@users_router.put("/major_update/{major_id}")  # 管理员修改专业信息(未添加权限认证)
 @user_standard_response
 async def user_major_update(major_id=Depends(auth_major_not_exist), major_data=Depends(auth_major_exist)):
     # 判断是否有权限
@@ -310,7 +310,7 @@ async def user_major_update(major_id=Depends(auth_major_not_exist), major_data=D
     return {'message': '修改成功', 'data': {'major_id': id}}
 
 
-@users_router.get("/user/major_view")  # 查看管理员所能操作的所有专业(未添加权限认证)
+@users_router.get("/major_view")  # 查看管理员所能操作的所有专业(未添加权限认证)
 @page_response
 async def user_major_view(pageNow: int, pageSize: int):
     # 判断是否有权限
@@ -342,7 +342,7 @@ async def user_major_view(pageNow: int, pageSize: int):
 
 
 
-@users_router.post("/user/class_add")  # 管理员添加班级(未添加权限认证)
+@users_router.post("/class_add")  # 管理员添加班级(未添加权限认证)
 @user_standard_response
 async def user_class_add(class_data=Depends(auth_class_exist)):
     # 判断是否有权限
@@ -351,7 +351,7 @@ async def user_class_add(class_data=Depends(auth_class_exist)):
     return {'message': '建立成功', 'data': {'class_id': id}}
 
 
-@users_router.delete("/user/class_delete/{class_id}")  # 管理员删除班级(未添加权限认证)
+@users_router.delete("/class_delete/{class_id}")  # 管理员删除班级(未添加权限认证)
 @user_standard_response
 async def user_class_delete(class_id=Depends(auth_class_not_exist)):
     # 判断是否有权限
@@ -360,7 +360,7 @@ async def user_class_delete(class_id=Depends(auth_class_not_exist)):
     return {'message': '删除成功', 'data': {'class_id': id}}
 
 
-@users_router.put("/user/class_update/{class_id}")  # 管理员修改班级信息(未添加权限认证)
+@users_router.put("/class_update/{class_id}")  # 管理员修改班级信息(未添加权限认证)
 @user_standard_response
 async def user_class_update(class_id=Depends(auth_class_not_exist), class_data=Depends(auth_class_exist)):
     # 判断是否有权限
@@ -369,7 +369,7 @@ async def user_class_update(class_id=Depends(auth_class_not_exist), class_data=D
     return {'message': '修改成功', 'data': {'class_id': id}}
 
 
-@users_router.get("/user/class_view")  # 查看管理员所能操作的所有班级(未添加权限认证)
+@users_router.get("/class_view")  # 查看管理员所能操作的所有班级(未添加权限认证)
 @page_response
 async def user_class_view(pageNow: int, pageSize: int):
     # 判断是否有权限
