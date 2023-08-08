@@ -53,6 +53,7 @@ class School(Base):  # 学校表
     __tablename__ = 'school'
     __table_args__ = (
         Index('ix_school_has_delete_name', "has_delete", "name"),  # 非唯一的联合索引
+        Index('ix_school_has_delete_abbreviation', "has_delete", "school_abbreviation"),  # 非唯一的联合索引
     )
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     name = Column(VARCHAR(64), nullable=False, unique=True, comment='学校名称')  # 学校名称，非空，唯一
