@@ -4,11 +4,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_serializer
 from sqlalchemy import Column, Integer, VARCHAR, DateTime
 
-
 from model.db import dbSession, Base
 from utils.times import getMsTime
-
-
 
 
 class User(Base):

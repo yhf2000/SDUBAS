@@ -2,8 +2,11 @@ from model.db import dbSession
 
 from sqlalchemy.orm import Session
 from typing import List
-from model.project import Project, ProjectContent
-from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate
+from model.project import Project, ProjectContent, ProjectCredit, ProjectContentSubmission, \
+    ProjectContentUserSubmission, ProjectContentUserScore
+from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate, ProjectBase_Opt, \
+    ProjectContentBaseOpt, user_submission, user_submission_Opt
+from type.page import page, dealDataList
 
 
 class ProjectService(dbSession):
@@ -17,59 +20,110 @@ class ProjectService(dbSession):
             session.commit()
             # Refresh the instance
             session.refresh(db_project)
-
+            first_inserted_id = None
             # Create the project contents
             for content in project.contents:
-                db_content = ProjectContent(project_id=db_project.id, **content.model_dump())
+                content.project_id = db_project.id
+                db_content = ProjectContent(**content.model_dump())
+                if first_inserted_id is not None and db_content.fa_id is not None:
+                    db_content.fa_id = db_content.fa_id + first_inserted_id
+                    print(db_content.fa_id)
                 session.add(db_content)
-            session.commit()
-
+                session.commit()
+                print(db_content.id)
+                if first_inserted_id is None:
+                    first_inserted_id = db_content.id - 1
+                    print(first_inserted_id)
             return db_project.id
 
-    def update_project(self, project: ProjectUpdate) -> int:
+    def update_project(self, project_id: int, newproject: ProjectUpdate) -> int:
         with self.get_db() as session:
-            # 实现具体的业务逻辑
-            # ...
-            project_id = 0
+            session.query(Project).filter(Project.id == project_id).update({"name": newproject.name,
+                                                                            "tag": newproject.tag,
+                                                                            "active": newproject.active})
+            session.commit()
             return project_id
 
     def delete_project(self, project_id: int) -> int:
         with self.get_db() as session:
-            # 实现具体的业务逻辑
-            # ...
+            session.query(Project).filter_by(Project.id == project_id).update({'has_delete': 1})
+            session.commit()
+            # session.query(ProjectContent).filter_by(ProjectContent.project_id == project_id).update({'has_delete': 1})
             return project_id
 
-    def list_projects(self) -> List[Project]:
+    def list_projects(self, pg: page):
         with self.get_db() as session:
-            # 实现具体的业务逻辑
-            # ...
-            projects = []
-            return projects
+            query = session.query(Project).filter_by(has_delete=0)
+            total_count = query.count()  # 总共
+            # 执行分页查询
+            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+            # 序列化结
+            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'tag', 'img_id'})
 
-    def get_project(self, project_id: int) -> Project:
+    def get_project(self, project_id: int):
         with self.get_db() as session:
-            # 实现具体的业务逻辑
-            # ...
-            project = Project()
-            return project
+            project = session.query(Project).filter(Project.id == project_id).first()
+            project = ProjectBase_Opt.model_validate(project)
+            return project.model_dump(exclude={'has_delete'})
+
+    def list_projects_content(self, project_id: int, parent_id=None):
+        with self.get_db() as session:
+            children = []
+            query = session.query(ProjectContent).filter_by(project_id=project_id, fa_id=parent_id).all()
+            for item in query:
+                children.append({
+                    'id': item.id,
+                    'type': item.type,
+                    'fa_id': item.fa_id,
+                    'name': item.name,
+                    'weight': item.weight,
+                    'children': self.list_projects_content(project_id, item.id)
+                })
+            return children
+
+    def get_projects_content(self, content_id: int, project_id: int):
+        with self.get_db() as session:
+            project_content = session.query(ProjectContent).filter_by(id=content_id, project_id=project_id).first()
+            project_content = ProjectContentBaseOpt.model_validate(project_content)
+            return project_content.model_dump()
 
     def create_credit(self, credit: CreditCreate) -> int:
         with self.get_db() as session:
-            # 实现具体的业务逻辑
-            # ...
-            credit_id = 0
-            return credit_id
+            db_credit = ProjectCredit(**credit.model_dump())
+            session.add(db_credit)
+            session.commit()
+            session.refresh(db_credit)
+            return db_credit.id
 
     def create_submission(self, submission: SubmissionCreate) -> int:
         with self.get_db() as session:
-            # 实现具体的业务逻辑
-            # ...
-            submission_id = 0
-            return submission_id
+            db_submission = ProjectContentSubmission(**submission.model_dump())
+            session.add(db_submission)
+            session.commit()
+            session.refresh(db_submission)
+            return db_submission.id
 
     def create_score(self, score: ScoreCreate) -> int:
         with self.get_db() as session:
-            # 实现具体的业务逻辑
-            # ...
-            score_id = 0
-            return score_id
+            db_score = ProjectContentUserScore(**score.model_dump())
+            session.add(db_score)
+            session.commit()
+            session.refresh(db_score)
+            return db_score.id
+
+    def create_user_submission(self, uer_submission: user_submission):
+        with self.get_db() as session:
+            db_user_submission = ProjectContentUserSubmission(**uer_submission.model_dump())
+            session.add(db_user_submission)
+            session.commit()
+            session.refresh(db_user_submission)
+            return db_user_submission.id
+
+    def get_user_submission_list(self, project_id: int, content_id: int, user_id: int):
+        with self.get_db() as session:
+            list_user_submission = session.query(ProjectContentUserSubmission) \
+                .join(ProjectContentSubmission,
+                      ProjectContentUserSubmission.pc_submit_id == ProjectContentSubmission.id) \
+                .filter(ProjectContentSubmission.pro_content_id == content_id,
+                        ProjectContentUserSubmission.user_id == user_id).all()
+            return dealDataList(list_user_submission, user_submission_Opt)

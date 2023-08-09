@@ -8,7 +8,6 @@ def auth_login(request: Request):
     db = None
 
     user = crud.get_user_by_token(db, token)
-
     if not user:
         raise HTTPException(
             status_code=401,

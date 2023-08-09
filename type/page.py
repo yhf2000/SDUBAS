@@ -27,7 +27,6 @@ class page(BaseModel):  # 定义的分页类
 
 
 class pageResult(BaseModel):  # 分页结果类
-    pageIndex: int
-    pageSize: int
     totalNum: int
+    totalPage:int
     rows: List

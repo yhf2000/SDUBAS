@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Index, Float, Text
 from sqlalchemy.sql import func
-from db import Base
+from model.db import Base
 
 
 class Project(Base):
@@ -78,7 +78,7 @@ class ProjectContentUserSubmission(Base):
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)  # 用户id，外键，不能为空
     file_id = Column(Integer, ForeignKey('user_file.id'), nullable=True)  # 文件id，外键，可以为空
     content = Column(Text, nullable=True)  # 提交内容，可以为空，最大32Kb
-    submit_dt = Column(DateTime, nullable=False)  # 提交时间，不能为空
+    submit_dt = Column(DateTime, default=func.now(), nullable=False)  # 提交时间，不能为空
 
 
 class ProjectContentUserScore(Base):
@@ -86,7 +86,7 @@ class ProjectContentUserScore(Base):
     __table_args__ = (
         Index('ix_project_content_user_score_user_pcs_id', "user_pcs_id"),  # 非唯一的索引
         Index('ix_project_content_user_score_user_id', "user_id"),  # 非唯一的索引
-        Index('ix_project_content_user_score_pass', "pass"),  # 非唯一的索引
+        Index('ix_project_content_user_score_pass', "is_pass"),  # 非唯一的索引
     )
 
     id = Column(Integer, primary_key=True, unique=True, index=True)  # 主键，唯一，有索引
@@ -97,4 +97,4 @@ class ProjectContentUserScore(Base):
     is_pass = Column(Integer, nullable=False)  # 是否通过，不能为空，-1 待确定, 0 通过, 1 不通过
     score = Column(Float, nullable=True)  # 百分制分数，可以为空
     comment = Column(Text, nullable=False)  # 评测评论，不能为空，最大4Kb
-    judge_dt = Column(DateTime, nullable=False)  # 打分时间，不能为空
+    judge_dt = Column(DateTime, default=func.now(), nullable=False)  # 打分时间，不能为空
