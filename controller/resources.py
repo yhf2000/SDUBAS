@@ -1,8 +1,8 @@
 from utils.auth_permission import auth_permission
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from utils.response import standard_response, makePageResult
 from service.Resource import ResourceModel, FinancialModel, BillModel
-from type import page
+from type.page import page
 from type import financial as financial_Basemodel
 
 resources_router = APIRouter()
@@ -17,7 +17,7 @@ async def save_api(apiSchema: financial_Basemodel.ResourceAdd, user=Depends(auth
 
 @resources_router.post("/resource/view")  # 查看所有资源项目,可能需要分页数据，，不可用
 @standard_response
-async def get_resource_by_user(apiSchema: page.page, user=Depends(auth_permission)):
+async def get_resource_by_user(apiSchema: page, user=Depends(auth_permission)):
     db = ResourceModel()  # 目前不可用，需要权限接口返回。
     return db.get_resource_by_user(user=user, pg=apiSchema)
 
@@ -123,17 +123,19 @@ async def query_total(financial_id: int, user=Depends(auth_permission)):
         return num
 
 
-@resources_router.post("/financial/{financial_id}/accountbook")  # 查看账单
+@resources_router.get("/financial/{financial_id}/accountbook")  # 查看账单
 @standard_response
-async def query_page(financial_id: int, apiSchema: page.page, user=Depends(auth_permission)):
+async def query_page(financial_id: int, pageNow: int = Query(description="页码", gt=0),
+                     pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
     FinancialModel_db = FinancialModel()
     BillModel_db = BillModel()
     num = FinancialModel_db.check_by_id(Id=financial_id)  # 检查资金项目有无
     if num is None:
         raise HTTPException(status_code=404, detail="Item not found")
     else:
-        tn, res = BillModel_db.query_amount(ID=financial_id, pg=apiSchema)  # 返回总额，分页数据
-        return makePageResult(pg=apiSchema, tn=tn, data=res)  # 封装的函数
+        tn, res = BillModel_db.query_amount(ID=financial_id, pg=Page)  # 返回总额，分页数据
+        return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
 
 
 @resources_router.delete("/financial/{financial_id}")  # 删除资金项目

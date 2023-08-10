@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, TEXT, create_engine, func, Index
 from sqlalchemy.sql import func
-from db import Base
+from model.db import Base
 
 
 class Resource(Base):  # 资源表

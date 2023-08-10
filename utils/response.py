@@ -23,9 +23,8 @@ def standard_response(func: Callable):
 
 def makePageResult(pg: page, tn: int, data: List):  # 处理分页数据
     return pageResult(
-        pageIndex=pg.pageNow,
-        pageSize=pg.pageSize,
         totalNum=tn,
+        totalPage=(tn + pg.pageSize - 1) // pg.pageSize,
         rows=data
     ).model_dump()
 
