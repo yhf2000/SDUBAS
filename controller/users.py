@@ -10,8 +10,8 @@ import random
 
 from model.db import session_db
 from service.user import UserModel, SessionModel, UserinfoModel, SchoolModel, CollegeModel, MajorModel, ClassModel, \
-    OperationModel
-from type.celery import send_email
+    OperationModel,encrypted_password
+from type.Celery import send_email
 from type.page import page
 from type.user import user_info_interface, \
     session_interface, email_interface, school_interface, class_interface, college_interface, major_interface, \
@@ -31,19 +31,6 @@ major_model = MajorModel()
 class_model = ClassModel()
 operation_model = OperationModel()
 
-'''
-def MD5(password):  # MD5
-    m = hashlib.md5()
-    m.update(password.encode("utf8"))
-    return m.hexdigest()
-'''
-
-
-def encrypted_password(password, salt):  # 对密码进行加密
-    res = hashlib.sha256()
-    password += salt
-    res.update(password.encode())
-    return res.hexdigest()
 
 
 def get_email_token():  # 生成email的验证码

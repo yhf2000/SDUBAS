@@ -11,7 +11,7 @@ app.include_router(files.files_router, prefix="/files")
 app.include_router(permissions.permissions_router, prefix="/permissions")
 app.include_router(projects.projects_router, prefix="/projects")
 app.include_router(resources.resources_router, prefix="/resources")
-app.include_router(users.files_router, prefix="/users")
+app.include_router(users.users_router, prefix="/users")
 
 origins = [
     "*",

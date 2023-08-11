@@ -10,7 +10,6 @@ from type.user import register_interface, school_interface, \
 
 def auth_login(request: Request):  # 用来判断用户是否登录
     token = request.cookies.get("SESSION")
-    token = '8c101a17c1644b06b9cb3f11371542e8'
     if token is not None:
         session = session_db.get(token)  # 有效session中没有
         if session is None:

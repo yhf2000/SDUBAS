@@ -7,10 +7,11 @@ from model.project import Project, ProjectCredit, ProjectContentSubmission, Proj
     ProjectContentUserSubmission
 from model.user import User, User_info, School, College, Major, Class, Operation, Session
 from model.financial import Financial, Resource, Bill
+from model.file import File, User_File
 create_table_list = [
     Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore,
     ProjectContentUserSubmission, User, User_info, School, College, Major, Class, Operation, Session,
-    Financial, Resource, Bill
+    File, User_File,Financial, Resource, Bill
 
 ]
 
