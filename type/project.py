@@ -72,6 +72,7 @@ class SubmissionCreate(BaseModel):
 
 class ScoreCreate(BaseModel):
     user_pcs_id: int
+    judger: int
     user_id: int
     honesty: str
     honesty_weight: float

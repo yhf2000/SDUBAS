@@ -1,3 +1,5 @@
+from sqlalchemy import func
+
 from model.db import dbSession
 
 from sqlalchemy.orm import Session
@@ -46,7 +48,7 @@ class ProjectService(dbSession):
 
     def delete_project(self, project_id: int) -> int:
         with self.get_db() as session:
-            session.query(Project).filter_by(Project.id == project_id).update({'has_delete': 1})
+            session.query(Project).filter(Project.id == project_id).update({'has_delete': 1})
             session.commit()
             # session.query(ProjectContent).filter_by(ProjectContent.project_id == project_id).update({'has_delete': 1})
             return project_id
@@ -76,6 +78,7 @@ class ProjectService(dbSession):
                     'type': item.type,
                     'fa_id': item.fa_id,
                     'name': item.name,
+                    'project_id': item.project_id,
                     'weight': item.weight,
                     'children': self.list_projects_content(project_id, item.id)
                 })
@@ -122,8 +125,73 @@ class ProjectService(dbSession):
     def get_user_submission_list(self, project_id: int, content_id: int, user_id: int):
         with self.get_db() as session:
             list_user_submission = session.query(ProjectContentUserSubmission) \
-                .join(ProjectContentSubmission,
-                      ProjectContentUserSubmission.pc_submit_id == ProjectContentSubmission.id) \
-                .filter(ProjectContentSubmission.pro_content_id == content_id,
+                .join(ProjectContent,
+                      ProjectContentUserSubmission.pc_submit_id == ProjectContent.id) \
+                .filter(ProjectContent.id == content_id,
                         ProjectContentUserSubmission.user_id == user_id).all()
             return dealDataList(list_user_submission, user_submission_Opt)
+
+    def get_project_progress(self, project_id: int, user_id: int):
+        with self.get_db() as session:
+            total_count = session.query(func.count()).select_from(ProjectContentSubmission) \
+                .join(ProjectContent,
+                      ProjectContentSubmission.pro_content_id == ProjectContent.id) \
+                .filter(ProjectContent.project_id == project_id) \
+                .scalar()
+            finish_count = session.query(func.count(ProjectContentSubmission.id)) \
+                .join(ProjectContent,
+                      ProjectContentSubmission.pro_content_id == ProjectContent.id) \
+                .join(ProjectContentUserSubmission,
+                      ProjectContentUserSubmission.pc_submit_id == ProjectContentSubmission.id) \
+                .filter(ProjectContent.project_id == project_id,
+                        ProjectContentUserSubmission.user_id == user_id) \
+                .scalar()
+
+            return {"finish_count": finish_count, "total_count": total_count}
+
+    def get_user_project_score(self, project_id: int, user_id: int):
+        with self.get_db() as session:
+            def calculate_content_score(pcs_id):
+                content_score = 0
+
+                # 查询当前项目内容
+                content = session.query(ProjectContent).filter(ProjectContent.id == pcs_id).first()
+
+                # 查询当前项目内容的所有子节点
+                sub_nodes = session.query(ProjectContent).filter(ProjectContent.fa_id == pcs_id).all()
+
+                # 如果当前项目内容有子节点，则计算子节点分数并加到项目内容分数上
+                if sub_nodes:
+                    for sub_node in sub_nodes:
+                        content_score += calculate_content_score(sub_node.id)
+                else:
+                    content_score = session.query(ProjectContentUserScore.score) \
+                        .filter(ProjectContentUserScore.user_id == user_id,
+                                ProjectContentUserScore.user_pcs_id == pcs_id).scalar()
+                    if content_score is None:
+                        content_score = 0
+                content_score = content_score * content.weight
+                print(pcs_id)
+                print(content_score)
+                return content_score
+
+            total_score = 0
+
+            # 查询该项目下的所有项目内容
+            project_contents = session.query(ProjectContent).filter(ProjectContent.project_id == project_id,
+                                                                    ProjectContent.fa_id.is_(None)).all()
+
+            # 遍历项目内容并计算总分
+            for project_content in project_contents:
+                total_score += calculate_content_score(project_content.id)
+
+            return total_score
+
+    def get_projects_by_type(self, project_type: str, pg: page):
+        with self.get_db() as session:
+            query = session.query(Project).filter(Project.type == project_type, Project.has_delete == 0)
+            total_count = query.count()  # 总共
+            # 执行分页查询
+            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+            # 序列化结
+            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'tag', 'img_id'})

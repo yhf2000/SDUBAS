@@ -90,8 +90,9 @@ class ProjectContentUserScore(Base):
     )
 
     id = Column(Integer, primary_key=True, unique=True, index=True)  # 主键，唯一，有索引
-    user_pcs_id = Column(Integer, ForeignKey('project_content_user_submission.id'), nullable=False)  # 用户提交id，外键，不能为空
+    user_pcs_id = Column(Integer, ForeignKey('project_content.id'), nullable=False)  # 用户提交id，外键，不能为空
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)  # 批阅用户id，外键，不能为空
+    judger = Column(Integer, nullable=False)  # 批阅用户id，外键，不能为空
     honesty = Column(String(4096), nullable=False)  # 诚信数据，不能为空
     honesty_weight = Column(Float, nullable=False)  # 诚信扣分权重，不能为空
     is_pass = Column(Integer, nullable=False)  # 是否通过，不能为空，-1 待确定, 0 通过, 1 不通过
