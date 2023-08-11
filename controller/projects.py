@@ -101,3 +101,30 @@ async def create_user_submission(project_id: int, content_id: int,
                                  User_submission: user_submission, user=Depends(auth_login)):
     return project_service.create_user_submission(uer_submission=User_submission)
     # 实现用户提交的逻辑
+
+
+@projects_router.get("/{project_id}/progress/{user_id}")
+@standard_response
+async def create_user_submission(project_id: int, user_id: int,
+                                 user=Depends(auth_login)):
+    return project_service.get_project_progress(project_id=project_id, user_id=user_id)
+    # 实现查询项目进度的逻辑
+
+
+@projects_router.get("/{project_id}/score/{user_id}")
+@standard_response
+async def create_user_submission(project_id: int, user_id: int,
+                                 user=Depends(auth_login)):
+    return project_service.get_user_project_score(project_id=project_id, user_id=user_id)
+    # 实现查询项目成绩的逻辑
+
+
+@projects_router.get("/project/type")
+@standard_response
+async def list_projects(projectType: str = Query(),
+                        pageNow: int = Query(description="页码", gt=0),
+                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
+    tn, res = project_service.get_projects_by_type(project_type=projectType, pg=Page)  # 返回总额，分页数据
+    return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
+    # 实现分类查询项目列表的逻辑

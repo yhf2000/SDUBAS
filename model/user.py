@@ -9,7 +9,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from db import Base
+from model.db import Base
 
 
 class User(Base):  # 用户表
