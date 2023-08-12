@@ -37,9 +37,6 @@ class Financial_ModelOpt(Financial_Basemodel):
         return getMsTime(dt)
 
 
-# 将DateTime转换为时间戳
-
-
 class ResourceAdd(BaseModel):  # 资源添加请求体
     Id: int = None
     name: constr(strip_whitespace=True, min_length=1)  # 字符串类型的字段，去除首尾空格，最小长度为1
