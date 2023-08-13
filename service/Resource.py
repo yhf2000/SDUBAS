@@ -37,10 +37,13 @@ class ResourceModel(dbSession):
             raise HTTPException(status_code=404, detail="Item not found")
 
     def get_resource_by_user(self, user: Any, pg: page):  # 获取当前用户所有可用资源
-        # query=调用权限函数   返回一个query,可用
-        # 分页相关 result=query.offset(pg.offset).limit(pg.limit())  使用直接获取
-        # 整理函数  返回结果
-        return
+        with self.get_db() as session:
+            query = session.query(Resource).filter_by(has_delete=0)
+            total_count = query.count()  # 总共
+        # 执行分页查询
+            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+        # 序列化结
+            return total_count, dealDataList(data, Resource_Basemodel, {'has_delete'})
 
     def apply_resource(self, user: Any, Id: int, date: ApplyBody):
         # 权限查询相关的业务类型，业务Id,角色类型，查询模板角色id
@@ -153,7 +156,9 @@ class FinancialModel(dbSession):
             return Id
 
     def get_financial_by_user(self, user: Any, pg: page):  # 获取当前用户所有可用资金
-        # query=调用权限函数   返回一个query,可用
-        # 分页相关 result=query.offset(offset).limit(pg)  使用直接获取
-        # 整理函数  返回结果
-        return
+        with self.get_db() as session:
+            query = session.query(Financial).filter_by(has_delete=0)
+            total_count = query.count()  # 总共
+            # 执行分页查询
+            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+            return total_count, dealDataList(data, Financial_ModelOpt, {'has_delete'})

@@ -15,11 +15,14 @@ async def save_api(apiSchema: financial_Basemodel.ResourceAdd, user=Depends(auth
     return db.save_resource(obj_in=apiSchema)
 
 
-@resources_router.post("/resource/view")  # 查看所有资源项目,可能需要分页数据，，不可用
+@resources_router.get("/resource/view")  # 查看所有资源项目,可能需要分页数据，，不可用
 @standard_response
-async def get_resource_by_user(apiSchema: page, user=Depends(auth_permission)):
+async def get_resource_by_user(pageNow: int = Query(description="页码", gt=0),
+                               pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
     db = ResourceModel()  # 目前不可用，需要权限接口返回。
-    return db.get_resource_by_user(user=user, pg=apiSchema)
+    tn, res = db.get_resource_by_user(user=user, pg=Page)
+    return makePageResult(pg=Page, tn=tn, data=res)
 
 
 @resources_router.put("/resource/{resource_id}")  # 修改资源数目
@@ -180,8 +183,10 @@ async def delete_financial(financial_id: int, apiSchme: financial_Basemodel.Fina
 
 @resources_router.get("/financial")  # 查询资金，需要权限，不可用
 @standard_response
-async def get_financial_by_user(user=Depends(auth_permission)):
+async def get_financial_by_user(pageNow: int = Query(description="页码", gt=0),
+                                pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
     db = FinancialModel()
     # 调用函数
-    # tn, result = db.get_financial_list_by_user(user,pg)获取分页
-    return 0  # makepage()
+    tn, result = db.get_financial_by_user(user=user, pg=Page)
+    return makePageResult(pg=Page, tn=tn, data=result)

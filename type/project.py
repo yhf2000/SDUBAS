@@ -63,11 +63,19 @@ class CreditCreate(BaseModel):
 
 
 class SubmissionCreate(BaseModel):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        from_attributes=True,
+    )
     pro_content_id: int
     type: int
     count_limit: Optional[int] = None
     size_limit: Optional[int] = None
     type_limit: Optional[str] = None
+
+
+class Submission_Opt(SubmissionCreate):
+    id: int
 
 
 class ScoreCreate(BaseModel):

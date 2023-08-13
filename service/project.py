@@ -7,7 +7,7 @@ from typing import List
 from model.project import Project, ProjectContent, ProjectCredit, ProjectContentSubmission, \
     ProjectContentUserSubmission, ProjectContentUserScore
 from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate, ProjectBase_Opt, \
-    ProjectContentBaseOpt, user_submission, user_submission_Opt
+    ProjectContentBaseOpt, user_submission, user_submission_Opt, Submission_Opt
 from type.page import page, dealDataList
 
 
@@ -66,7 +66,9 @@ class ProjectService(dbSession):
         with self.get_db() as session:
             project = session.query(Project).filter(Project.id == project_id).first()
             project = ProjectBase_Opt.model_validate(project)
-            return project.model_dump(exclude={'has_delete'})
+            date = project.model_dump(exclude={'has_delete'})
+            date['content'] = self.list_projects_content(project_id=project_id)
+            return date
 
     def list_projects_content(self, project_id: int, parent_id=None):
         with self.get_db() as session:
@@ -195,3 +197,21 @@ class ProjectService(dbSession):
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
             return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'tag', 'img_id'})
+
+    def get_content_by_projectcontentid_userid(self, user_id: int, content_id: int, pg: page):
+        with self.get_db() as session:
+            query = session.query(ProjectContentSubmission)\
+                .filter(ProjectContentSubmission.pro_content_id == content_id)
+            total_count = query.count()  # 总共
+            # 执行分页查询
+            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+            finial_dates = dealDataList(data, Submission_Opt, {})
+            for finial_date in finial_dates:
+                flag_commit = session.query(ProjectContentUserSubmission)\
+                    .filter(ProjectContentUserSubmission.pc_submit_id == finial_date['id'],
+                            ProjectContentUserSubmission.user_id == user_id).first()
+                if flag_commit is None:
+                    finial_date['commit'] = 0
+                else:
+                    finial_date['commit'] = 1
+            return total_count, finial_dates
