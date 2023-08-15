@@ -122,10 +122,11 @@ async def create_user_submission(project_id: int, user_id: int,
 @projects_router.get("/project/type")
 @standard_response
 async def list_projects(projectType: str = Query(),
+                        tag: str = Query(),
                         pageNow: int = Query(description="页码", gt=0),
                         pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = project_service.get_projects_by_type(project_type=projectType, pg=Page)  # 返回总额，分页数据
+    tn, res = project_service.get_projects_by_type(project_type=projectType, pg=Page, tags=tag)  # 返回总额，分页数据
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
     # 实现分类查询项目列表的逻辑
 

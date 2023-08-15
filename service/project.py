@@ -1,4 +1,4 @@
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from model.db import dbSession
 
@@ -9,6 +9,7 @@ from model.project import Project, ProjectContent, ProjectCredit, ProjectContent
 from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate, ProjectBase_Opt, \
     ProjectContentBaseOpt, user_submission, user_submission_Opt, Submission_Opt
 from type.page import page, dealDataList
+from sqlalchemy import and_
 
 
 class ProjectService(dbSession):
@@ -22,20 +23,21 @@ class ProjectService(dbSession):
             session.commit()
             # Refresh the instance
             session.refresh(db_project)
-            first_inserted_id = None
+            tree_dict = {}
             # Create the project contents
             for content in project.contents:
                 content.project_id = db_project.id
+                model_id = content.id
+                content.id = None
                 db_content = ProjectContent(**content.model_dump())
-                if first_inserted_id is not None and db_content.fa_id is not None:
-                    db_content.fa_id = db_content.fa_id + first_inserted_id
-                    print(db_content.fa_id)
+                print(db_content.id)
+                if db_content.fa_id is not None:
+                    db_content.fa_id = tree_dict[db_content.fa_id]
+                    # print(db_content.fa_id)
                 session.add(db_content)
                 session.commit()
                 print(db_content.id)
-                if first_inserted_id is None:
-                    first_inserted_id = db_content.id - 1
-                    print(first_inserted_id)
+                tree_dict[model_id] = db_content.id
             return db_project.id
 
     def update_project(self, project_id: int, newproject: ProjectUpdate) -> int:
@@ -189,25 +191,30 @@ class ProjectService(dbSession):
 
             return total_score
 
-    def get_projects_by_type(self, project_type: str, pg: page):
+    def get_projects_by_type(self, project_type: str, pg: page, tags: str):
         with self.get_db() as session:
             query = session.query(Project).filter(Project.type == project_type, Project.has_delete == 0)
+            if tags:
+                tag_list = tags.split(',')
+                print(tag_list)
+                conditions = [Project.tag.like(f"%{tag}%") for tag in tag_list]
+                query = query.filter(and_(*conditions))
             total_count = query.count()  # 总共
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'tag', 'img_id'})
+            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'img_id'})
 
     def get_content_by_projectcontentid_userid(self, user_id: int, content_id: int, pg: page):
         with self.get_db() as session:
-            query = session.query(ProjectContentSubmission)\
+            query = session.query(ProjectContentSubmission) \
                 .filter(ProjectContentSubmission.pro_content_id == content_id)
             total_count = query.count()  # 总共
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             finial_dates = dealDataList(data, Submission_Opt, {})
             for finial_date in finial_dates:
-                flag_commit = session.query(ProjectContentUserSubmission)\
+                flag_commit = session.query(ProjectContentUserSubmission) \
                     .filter(ProjectContentUserSubmission.pc_submit_id == finial_date['id'],
                             ProjectContentUserSubmission.user_id == user_id).first()
                 if flag_commit is None:

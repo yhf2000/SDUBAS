@@ -59,6 +59,7 @@ class ProjectContentSubmission(Base):
     )
 
     id = Column(Integer, primary_key=True, unique=True, index=True)  # 主键，唯一，有索引
+    name = Column(String(64), nullable=False)
     pro_content_id = Column(Integer, ForeignKey('project_content.id'), nullable=False)  # 项目内容id，外键，不能为空
     type = Column(Integer, nullable=False)  # 提交内容类型，不能为空，0 文件, 1 文本
     count_limit = Column(Integer, nullable=True)  # 字数限制，可以为空
