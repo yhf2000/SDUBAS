@@ -47,7 +47,7 @@ class ProjectBase_Opt(ProjectBase):
 
 
 class ProjectCreate(ProjectBase):
-    contents: List[ProjectContentBase]
+    contents: List[ProjectContentBaseOpt]
 
 
 class ProjectUpdate(BaseModel):
@@ -67,6 +67,7 @@ class SubmissionCreate(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
+    name: str
     pro_content_id: int
     type: int
     count_limit: Optional[int] = None
