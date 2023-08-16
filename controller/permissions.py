@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, FastAPI, Request
+import json
 
 import type.permissions
 from service.permissions import roleModel
 from utils.response import standard_response
-from utils.auth_permission1 import permission
 
 permissions_router = APIRouter()
 
@@ -41,12 +41,18 @@ async def login(request: Request):
     return {"message": f"欢迎回来，{token}！"}
 
 
-@permissions_router.post("/test_permission")
-async def login(request: Request):
-    token = request.headers.get("SESSION")
+@permissions_router.post("/auth_privilege")  # 权限验证
+@standard_response
+async def auth_privilege(request: Request):
+    db = roleModel()
+    user_id = int(request.headers.get("user_id"))
+    # user = auth_login(request)
+    permission_key = request.url.path.replace('/', '_')
+    permission = None
+    role_list = db.search_role_by_user(user_id)
+    privilege_set = db.search_privilege_by_role(role_list)
+    json_string = json.dumps(list(privilege_set))
+    return{"privilege": json_string}
 
-    permi = permission()
-    result = permi.auth_permission(request)
 
-    return {"message": result}
-tijiao
+

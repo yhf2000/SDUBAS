@@ -1,1 +1,1 @@
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://sdubas:sdubas@localhost:3306/sdubas"
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:318253shimima@localhost:3306/sdubas"

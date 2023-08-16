@@ -2,16 +2,16 @@ import uvicorn
 from fastapi import FastAPI, Depends
 from starlette.middleware.cors import CORSMiddleware
 
-from utils.auth_login import auth_login
+# from utils.auth_login import auth_login
 from utils.response import standard_response
-from controller import files, projects, permissions, resources, users
+from controller import permissions
 
 app = FastAPI()
-app.include_router(files.files_router, prefix="/files")
+# app.include_router(files.files_router, prefix="/files")
 app.include_router(permissions.permissions_router, prefix="/permissions")
-app.include_router(projects.projects_router, prefix="/projects")
-app.include_router(resources.resources_router, prefix="/resources")
-app.include_router(users.users_router, prefix="/users")
+# app.include_router(projects.projects_router, prefix="/projects")
+# app.include_router(resources.resources_router, prefix="/resources")
+# app.include_router(users.users_router, prefix="/users")
 
 origins = [
     "*",
@@ -27,10 +27,10 @@ app.add_middleware(
 )
 
 
-@app.get("/")
-@standard_response
-async def root(user=Depends(auth_login)):
-    return {"message": "Hello World"}
+# @app.get("/")
+# @standard_response
+# async def root(user=Depends(auth_login)):
+#     return {"message": "Hello World"}
 
 
 @app.get("/hello/{name}")
@@ -40,7 +40,7 @@ async def say_hello(name: str):
 
 
 def main():
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 
 if __name__ == "__main__":
