@@ -5,13 +5,13 @@ from const import SQLALCHEMY_DATABASE_URL
 # 这里需要引入所有使用 Base 的 Model
 from model.project import Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore, \
     ProjectContentUserSubmission
-from model.user import User, User_info, School, College, Major, Class, Operation, Session
+from model.user import User, User_info, School, College, Major, Class, Operation, Session,Captcha
 from model.financial import Financial, Resource, Bill
 from model.file import File, User_File
 create_table_list = [
-    Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore,
-    ProjectContentUserSubmission, User, User_info, School, College, Major, Class, Operation, Session,
-    File, User_File,Financial, Resource, Bill
+    Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore,ProjectContentUserSubmission,
+     Captcha,User, School, College, Major, Class, User_info, File, User_File, Operation, Session,
+    Financial, Resource, Bill
 
 ]
 

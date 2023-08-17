@@ -134,3 +134,10 @@ class Session(Base):  # session表
     create_dt = Column(DateTime, comment='创建时间', default=func.now())  # 创建时间
     func_type = Column(Integer, comment='0 用户登录 session:1 用户邮箱验证 session,2 文件下载 session,3 文件上传 session')  # 操作类型
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否已经删除
+
+
+class Captcha(Base):  # 验证码表
+    __tablename__ = 'captcha'
+    id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
+    value = Column(VARCHAR(8), nullable=False, comment='验证码值')  # 验证码值，非空
+    has_delete = Column(Integer, nullable=False, index=True, comment='是否已经删除', default=0)  # 是否已经删除
