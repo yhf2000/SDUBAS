@@ -37,18 +37,18 @@ class ProjectContent(Base):
     __table_args__ = (
         Index('ix_project_content_project_id', "project_id"),  # 非唯一的索引
         Index('ix_project_content_type', "type"),  # 非唯一的索引
-        Index('ix_project_content_fa_id', "fa_id"),  # 非唯一的索引
     )
 
     id = Column(Integer, primary_key=True, unique=True, index=True)  # 主键，唯一，有索引
     project_id = Column(Integer, ForeignKey('project.id'), nullable=False)  # 项目id，外键，不能为空
     type = Column(Integer, nullable=False)  # 项目类别，不能为空，0 通知/规则, 1 学习资料, 2 作业/实验/考试
-    fa_id = Column(Integer, ForeignKey('project_content.id'), nullable=True)  # 多级内容的父级项目id，可以为空
+    prefix = Column(String(64), nullable=True)  # 项目名称前缀，可以为空
     name = Column(String(64), nullable=False)  # 项目名称，不能为空
     file_id = Column(Integer, ForeignKey('user_file.id'), nullable=True)  # 文件id，外键，可以为空
     content = Column(Text, nullable=True)  # 项目内容，可以为空，最大4Kb
     weight = Column(Float, nullable=False)  # 项目权重，不能为空
     feature = Column(Text, nullable=True)  # 额外信息，可以为空，最大4Kb
+    has_delete = Column(Integer, nullable=False)  # 是否已删除，不能为空
 
 
 class ProjectContentSubmission(Base):

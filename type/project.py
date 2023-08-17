@@ -12,16 +12,17 @@ class ProjectContentBase(BaseModel):
     )
     project_id: int = None
     type: int
-    fa_id: Optional[int] = None
     name: str
+    prefix: Optional[str] = None
     file_id: Optional[int] = None
     content: Optional[str] = None
     weight: float
     feature: Optional[str] = None
+    has_delete: int = 0
 
 
 class ProjectContentBaseOpt(ProjectContentBase):
-    id: int
+    id: int = None
 
 
 class ProjectBase(BaseModel):
@@ -47,7 +48,7 @@ class ProjectBase_Opt(ProjectBase):
 
 
 class ProjectCreate(ProjectBase):
-    contents: List[ProjectContentBaseOpt]
+    contents: List[ProjectContentBase]
 
 
 class ProjectUpdate(BaseModel):
@@ -73,6 +74,10 @@ class SubmissionCreate(BaseModel):
     count_limit: Optional[int] = None
     size_limit: Optional[int] = None
     type_limit: Optional[str] = None
+
+
+class SubmissionListCreate(BaseModel):
+    addSubmissions: List[SubmissionCreate]
 
 
 class Submission_Opt(SubmissionCreate):
@@ -109,3 +114,7 @@ class user_submission_Opt(user_submission):
     @field_serializer('submit_dt')
     def serialize_dt(self, dt: datetime, _info):
         return getMsTime(dt)
+
+
+class project_content_renew(BaseModel):
+    contents: List[ProjectContentBaseOpt]
