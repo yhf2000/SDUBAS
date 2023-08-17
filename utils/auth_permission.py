@@ -5,8 +5,7 @@ from utils.auth_login import auth_login
 
 
 def auth_permission(request: Request):
-    user = 1
-    # user = auth_login(request)
+    user = auth_login(request)
 
     permission_key = request.url.path.replace('/', '_')
     permission = None

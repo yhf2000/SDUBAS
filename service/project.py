@@ -7,7 +7,8 @@ from typing import List
 from model.project import Project, ProjectContent, ProjectCredit, ProjectContentSubmission, \
     ProjectContentUserSubmission, ProjectContentUserScore
 from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate, ProjectBase_Opt, \
-    ProjectContentBaseOpt, user_submission, user_submission_Opt, Submission_Opt
+    ProjectContentBaseOpt, user_submission, user_submission_Opt, Submission_Opt, SubmissionListCreate, \
+    project_content_renew
 from type.page import page, dealDataList
 from sqlalchemy import and_
 
@@ -23,21 +24,12 @@ class ProjectService(dbSession):
             session.commit()
             # Refresh the instance
             session.refresh(db_project)
-            tree_dict = {}
             # Create the project contents
             for content in project.contents:
                 content.project_id = db_project.id
-                model_id = content.id
-                content.id = None
                 db_content = ProjectContent(**content.model_dump())
-                print(db_content.id)
-                if db_content.fa_id is not None:
-                    db_content.fa_id = tree_dict[db_content.fa_id]
-                    # print(db_content.fa_id)
                 session.add(db_content)
                 session.commit()
-                print(db_content.id)
-                tree_dict[model_id] = db_content.id
             return db_project.id
 
     def update_project(self, project_id: int, newproject: ProjectUpdate) -> int:
@@ -51,6 +43,7 @@ class ProjectService(dbSession):
     def delete_project(self, project_id: int) -> int:
         with self.get_db() as session:
             session.query(Project).filter(Project.id == project_id).update({'has_delete': 1})
+            session.query(ProjectContent).filter(ProjectContent.project_id == project_id).update({'has_delete': 1})
             session.commit()
             # session.query(ProjectContent).filter_by(ProjectContent.project_id == project_id).update({'has_delete': 1})
             return project_id
@@ -62,7 +55,7 @@ class ProjectService(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'tag', 'img_id'})
+            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'img_id'})
 
     def get_project(self, project_id: int):
         with self.get_db() as session:
@@ -72,21 +65,11 @@ class ProjectService(dbSession):
             date['content'] = self.list_projects_content(project_id=project_id)
             return date
 
-    def list_projects_content(self, project_id: int, parent_id=None):
+    def list_projects_content(self, project_id: int, ):
         with self.get_db() as session:
-            children = []
-            query = session.query(ProjectContent).filter_by(project_id=project_id, fa_id=parent_id).all()
-            for item in query:
-                children.append({
-                    'id': item.id,
-                    'type': item.type,
-                    'fa_id': item.fa_id,
-                    'name': item.name,
-                    'project_id': item.project_id,
-                    'weight': item.weight,
-                    'children': self.list_projects_content(project_id, item.id)
-                })
-            return children
+            query = session.query(ProjectContent).filter_by(project_id=project_id,
+                                                            has_delete=0).all()
+            return dealDataList(query, ProjectContentBaseOpt, {})
 
     def get_projects_content(self, content_id: int, project_id: int):
         with self.get_db() as session:
@@ -102,12 +85,13 @@ class ProjectService(dbSession):
             session.refresh(db_credit)
             return db_credit.id
 
-    def create_submission(self, submission: SubmissionCreate) -> int:
+    def create_submission(self, submission: SubmissionListCreate) -> int:
         with self.get_db() as session:
-            db_submission = ProjectContentSubmission(**submission.model_dump())
-            session.add(db_submission)
-            session.commit()
-            session.refresh(db_submission)
+            for sub in submission.addSubmissions:
+                db_submission = ProjectContentSubmission(**sub.model_dump())
+                session.add(db_submission)
+                session.commit()
+                session.refresh(db_submission)
             return db_submission.id
 
     def create_score(self, score: ScoreCreate) -> int:
@@ -129,9 +113,9 @@ class ProjectService(dbSession):
     def get_user_submission_list(self, project_id: int, content_id: int, user_id: int):
         with self.get_db() as session:
             list_user_submission = session.query(ProjectContentUserSubmission) \
-                .join(ProjectContent,
-                      ProjectContentUserSubmission.pc_submit_id == ProjectContent.id) \
-                .filter(ProjectContent.id == content_id,
+                .join(ProjectContentSubmission,
+                      ProjectContentUserSubmission.pc_submit_id == ProjectContentSubmission.id) \
+                .filter(ProjectContentSubmission.pro_content_id == content_id,
                         ProjectContentUserSubmission.user_id == user_id).all()
             return dealDataList(list_user_submission, user_submission_Opt)
 
@@ -155,39 +139,25 @@ class ProjectService(dbSession):
 
     def get_user_project_score(self, project_id: int, user_id: int):
         with self.get_db() as session:
-            def calculate_content_score(pcs_id):
-                content_score = 0
-
+            def calculate_content_score(pcs_id: int, content_weight: float):
                 # 查询当前项目内容
-                content = session.query(ProjectContent).filter(ProjectContent.id == pcs_id).first()
-
-                # 查询当前项目内容的所有子节点
-                sub_nodes = session.query(ProjectContent).filter(ProjectContent.fa_id == pcs_id).all()
-
-                # 如果当前项目内容有子节点，则计算子节点分数并加到项目内容分数上
-                if sub_nodes:
-                    for sub_node in sub_nodes:
-                        content_score += calculate_content_score(sub_node.id)
-                else:
-                    content_score = session.query(ProjectContentUserScore.score) \
-                        .filter(ProjectContentUserScore.user_id == user_id,
-                                ProjectContentUserScore.user_pcs_id == pcs_id).scalar()
-                    if content_score is None:
-                        content_score = 0
-                content_score = content_score * content.weight
-                print(pcs_id)
-                print(content_score)
+                content_score = session.query(ProjectContentUserScore.score) \
+                    .filter(ProjectContentUserScore.user_id == user_id,
+                            ProjectContentUserScore.user_pcs_id == pcs_id).scalar()
+                if content_score is None:
+                    content_score = 0
+                content_score = content_score * content_weight
                 return content_score
 
             total_score = 0
 
             # 查询该项目下的所有项目内容
             project_contents = session.query(ProjectContent).filter(ProjectContent.project_id == project_id,
-                                                                    ProjectContent.fa_id.is_(None)).all()
+                                                                    ProjectContent.has_delete == 0).all()
 
             # 遍历项目内容并计算总分
             for project_content in project_contents:
-                total_score += calculate_content_score(project_content.id)
+                total_score += calculate_content_score(project_content.id, project_content.weight)
 
             return total_score
 
@@ -222,3 +192,28 @@ class ProjectService(dbSession):
                 else:
                     finial_date['commit'] = 1
             return total_count, finial_dates
+
+    def renew_project_content(self, project_id: int, project_contents: project_content_renew):
+        with self.get_db() as session:
+            data = session.query(ProjectContent).filter(ProjectContent.project_id == project_id,
+                                                        ProjectContent.has_delete == 0).all()
+            data = dealDataList(data, ProjectContentBaseOpt, {})
+            contents = []
+            for da in project_contents.contents:
+                da = da.model_dump()
+                contents.append(da)
+            delete_list = []
+            add_list = []
+            for content in contents:
+                if content['id'] is None:
+                    add_list.append(content)
+                    db_submission = ProjectContent(**content)
+                    session.add(db_submission)
+                    session.commit()
+                    session.refresh(db_submission)
+            for da in data:
+                if da not in contents:
+                    delete_list.append(da)
+                    session.query(ProjectContent).filter(ProjectContent.id == da['id']).update({'has_delete': 1})
+                    session.commit()
+        return project_id
