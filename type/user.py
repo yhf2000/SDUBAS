@@ -18,6 +18,11 @@ class register_interface(login_interface):
     registration_dt: datetime = datetime.now()
 
 
+class forget_interface(register_interface):
+    captchaId: str = None
+    captcha: str = None
+
+
 class user_add_interface(register_interface):
     card_id: str
 
@@ -80,8 +85,8 @@ class class_interface(college_interface):
 
 
 class password_interface(BaseModel):
-    new_password: str
-    old_password: str
+    new_password: str = None
+    old_password: str = None
 
 
 class email_interface(register_interface):

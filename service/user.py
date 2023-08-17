@@ -4,7 +4,7 @@ from fastapi.encoders import jsonable_encoder
 
 import model.user
 from model.db import dbSession
-from model.user import User, User_info, Session, School, College, Major, Class, Operation
+from model.user import User, User_info, Session, School, College, Major, Class, Operation, Captcha
 from type.user import register_interface, user_info_interface, session_interface, \
     school_interface, college_interface, class_interface, major_interface, operation_interface, user_add_interface
 
@@ -18,6 +18,8 @@ def encrypted_password(password, salt):  # 对密码进行加密
 
 class UserModel(dbSession):
     def register_user(self, obj: register_interface):  # 用户自己注册(在user表中添加一个用户)
+        obj.registration_dt = obj.registration_dt.strftime(
+            "%Y-%m-%d %H:%M:%S")
         obj_dict = jsonable_encoder(obj)
         obj_add = User(**obj_dict)
         obj_add.password = encrypted_password(obj_add.password, obj_add.registration_dt)
@@ -91,11 +93,32 @@ class UserModel(dbSession):
             session.commit()
             return user
 
+    def get_user_id_by_email(self, email):  # 根据email查询user_id
+        with self.get_db() as session:
+            user = session.query(User.id).filter(User.has_delete == 0, User.email == email).first()
+            session.commit()
+            return user
+
     def get_user_by_user_id(self, user_id):  # 根据user_id查询user的基本信息
         with self.get_db() as session:
             user = session.query(User).filter(User.id == user_id, User.has_delete == 0).first()
             session.commit()
             return user
+
+    def get_user_information_by_id(self, user_id):  # 根据user_id查询user的所有信息
+        with self.get_db() as session:
+            user = session.query(User, User_info).outerjoin(User_info, User_info.user_id == User.id).filter(
+                User.id == user_id,
+                User.has_delete == 0
+            ).first()
+            session.commit()
+            return user
+
+    def get_user_status_by_user_id(self, user_id):  # 根据user_id查询user的帐号状态
+        with self.get_db() as session:
+            status = session.query(User.status).filter(User.id == user_id, User.has_delete == 0).first()
+            session.commit()
+            return status
 
 
 class SessionModel(dbSession):
@@ -126,11 +149,17 @@ class SessionModel(dbSession):
             session.commit()
             return ses
 
-    def get_session_by_token_force(self, token):  # 根据token查询session的基本信息（不论是否有效）
+    def get_user_id_by_token(self, token):  # 根据token查询user_id
         with self.get_db() as session:
-            ses = session.query(Session).filter(Session.token == token).first()
+            user_id = session.query(Session.user_id).filter(Session.has_delete == 0, Session.token == token).first()
             session.commit()
-            return ses
+            return user_id
+
+    def get_user_id_by_token_force(self, token):  # 根据token查询session的user_id（不论是否有效）
+        with self.get_db() as session:
+            user_id = session.query(Session.user_id).filter(Session.token == token).first()
+            session.commit()
+            return user_id
 
     def get_session_by_id(self, id):  # 根据id查询session的基本信息
         with self.get_db() as session:
@@ -454,3 +483,25 @@ class OperationModel(dbSession):
             operation = session.query(Operation).filter(Operation.id == id).first()
             session.commit()
             return operation
+
+
+class CaptchaModel(dbSession):
+    def add_captcha(self, value):  # 添加一个验证码
+        obj_add = Captcha(value=value)
+        with self.get_db() as session:
+            session.add(obj_add)
+            session.flush()
+            session.commit()
+            return obj_add.id
+
+    def delete_captcha(self, id: int):  # 删除一个captcha
+        with self.get_db() as session:
+            session.query(Captcha).filter(Captcha.id == id).update({"has_delete": 1})
+            session.commit()
+            return id
+
+    def get_captcha_by_id(self, id):  # 根据id查询captcha的基本信息
+        with self.get_db() as session:
+            value = session.query(Captcha.value).filter(Captcha.id == id, Captcha.has_delete == 0).first()
+            session.commit()
+            return value
