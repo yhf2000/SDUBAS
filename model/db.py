@@ -6,6 +6,7 @@ from sqlalchemy.orm import declarative_base
 
 from const import SQLALCHEMY_DATABASE_URL
 import redis
+
 pool1 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, encoding='UTF-8')
 pool2 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=2, encoding='UTF-8')
 session_db = redis.Redis(connection_pool=pool1)  # 根据token缓存有效session
@@ -17,9 +18,8 @@ Base = declarative_base()
 class dbSession:
     def __init__(self, db_url=SQLALCHEMY_DATABASE_URL):
         self.engine = create_engine(db_url)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine, expire_on_commit=False)
         self.SessionThreadLocal = scoped_session(self.SessionLocal)
-
 
     @contextmanager
     def get_db(self):
