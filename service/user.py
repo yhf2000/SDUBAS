@@ -155,9 +155,9 @@ class SessionModel(dbSession):
             session.commit()
             return user_id
 
-    def get_user_id_by_token_force(self, token):  # 根据token查询session的user_id（不论是否有效）
+    def get_user_id_by_token_s6(self, token_s6):  # 根据token查询session的user_id（不论是否有效）
         with self.get_db() as session:
-            user_id = session.query(Session.user_id).filter(Session.token == token).first()
+            user_id = session.query(Session.user_id).filter(Session.token_s6 == token_s6).first()
             session.commit()
             return user_id
 
