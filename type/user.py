@@ -1,6 +1,5 @@
 import hashlib
 import json
-import random
 from datetime import datetime, date
 
 from pydantic import BaseModel, ConfigDict, field_serializer
@@ -18,9 +17,10 @@ class register_interface(login_interface):
     registration_dt: datetime = datetime.now()
 
 
-class forget_interface(register_interface):
+class captcha_interface(register_interface):
     captchaId: str = None
     captcha: str = None
+    type: int = 0
 
 
 class user_add_interface(register_interface):

@@ -1,20 +1,15 @@
 import datetime
-import hashlib
 import json
+import random
+import string
 import time
 import uuid
 from io import BytesIO
 
+from captcha.image import ImageCaptcha
 from fastapi import APIRouter
 from fastapi import Request, Header, HTTPException, Depends
-import random
-from captcha.image import ImageCaptcha
-import matplotlib.pyplot as plt
-import numpy as np
-import random
-import string
-from PIL import Image
-from starlette.responses import FileResponse, StreamingResponse, Response
+from starlette.responses import Response
 
 from model.db import session_db, user_information_db
 from service.user import UserModel, SessionModel, UserinfoModel, SchoolModel, CollegeModel, MajorModel, ClassModel, \
@@ -24,8 +19,8 @@ from type.page import page
 from type.user import user_info_interface, \
     session_interface, email_interface, school_interface, class_interface, college_interface, major_interface, \
     password_interface, operation_interface, user_add_interface, admin_user_add_interface, login_interface, \
-    register_interface, forget_interface
-from utils.auth_login import auth_login, auth_register, auth_not_login, auth_school_exist, auth_college_exist, \
+    register_interface, captcha_interface
+from utils.auth_login import auth_login, auth_not_login, auth_school_exist, auth_college_exist, \
     auth_school_not_exist, auth_college_not_exist, auth_major_exist, auth_major_not_exist, auth_class_exist, \
     auth_class_not_exist
 from utils.response import user_standard_response, page_response, status_response
@@ -51,27 +46,74 @@ def get_user_id(request: Request):  # 获取user_id
         return session_model.get_user_id_by_token(token)[0]
 
 
-def make_captcha():  # 生成验证码
-    characters = string.digits + string.ascii_uppercase  # characters为验证码上的字符集，10个数字加26个大写英文字母
-    width, height, n_len, n_class = 170, 80, 4, len(characters)
-    generator = ImageCaptcha(width=width, height=height)
-    random_str = ''.join([random.choice(characters) for j in range(4)])
-    img = generator.generate_image(random_str)
-    return img, random_str
-
-
-def get_email_token():  # 生成email的验证码
-    email_token = ''
-    for i in range(6):
-        email_token += str(random.randint(0, 9))  # 生成八位随机验证码
-    return email_token
-
-
 def add_operation(service_type, service_id, func, parameters, oper_user_id):  # 添加一个操作的接口
     operation = operation_interface(service_type=service_type, service_id=service_id, func=func,
                                     parameters=parameters,
                                     oper_user_id=oper_user_id)
     operation_model.add_operation(operation)
+
+
+def get_email_token():  # 生成email的验证码
+    email_token = ''
+    for i in range(6):
+        email_token += str(random.randint(0, 9))  # 生成六位随机验证码
+    return email_token
+
+
+@users_router.get("/get_captcha")  # 获得图片验证码
+async def get_captcha():
+    characters = string.digits + string.ascii_uppercase  # characters为验证码上的字符集，10个数字加26个大写英文字母
+    width, height, n_len, n_class = 170, 80, 4, len(characters)
+    generator = ImageCaptcha(width=width, height=height)
+    random_str = ''.join([random.choice(characters) for j in range(4)])
+    img = generator.generate_image(random_str)
+    img_byte = BytesIO()
+    img.save(img_byte, format='JPEG')  # format: PNG or JPEG
+    binary_content = img_byte.getvalue()  # im对象转为二进制流
+    captcha = random_str
+    id = captcha_model.add_captcha(captcha)
+    return Response(content=binary_content, media_type="image/jpeg", headers={'captchaId': str(id)})
+
+
+@users_router.post("/send_captcha")  # 验证图片验证码是否正确并发送邮箱验证码
+@user_standard_response
+async def send_captcha(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None)):
+    value = captcha_model.get_captcha_by_id(int(captcha_data.captchaId))
+    if value[0] != captcha_data.captcha:
+        raise HTTPException(
+            status_code=400,
+            detail="验证码输入错误"
+        )
+    token = str(uuid.uuid4().hex)  # 生成token
+    email_token = get_email_token()
+    id = user_model.get_user_id_by_email(captcha_data.email)[0]
+    if captcha_data.type == 0:  # 用户注册时发邮件
+        add_operation(0, id, '用户注册时发送验证码', '用户注册并向其发送邮件', id)
+    elif captcha_data.type == 1:  # 更改邮箱时发邮件
+        old_email = user_model.get_user_by_user_id(int(id))  # 新更改邮箱不能与原邮箱相同
+        if old_email.email == captcha_data.email:
+            raise HTTPException(
+                status_code=409,
+                detail="不能与原邮箱相同！",
+            )
+        add_operation(0, id, '修改绑定邮箱', '用户修改绑定邮箱并向新邮箱发送邮件', id)
+    elif captcha_data.type == 2:  # 找回密码时发邮件
+        add_operation(0, id, '找回密码', '找回密码时向绑定邮箱发送邮件', id)
+    session = session_interface(user_id=int(id), ip=request.client.host,
+                                func_type=1,
+                                token=token, user_agent=user_agent, token_s6=email_token,
+                                use_limit=1, exp_dt=(
+                datetime.datetime.now() + datetime.timedelta(minutes=5)))  # 新建一个session
+    id = session_model.add_session(session)
+    if captcha_data.type == 2:
+        send_email.delay(captcha_data.email, token, captcha_data.type)  # 异步发送邮件
+    else:
+        send_email.delay(captcha_data.email, email_token, captcha_data.type)  # 异步发送邮件
+    session.exp_dt = time.strptime(session.exp_dt.strftime(
+        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+    user_session = json.dumps(session.model_dump())
+    session_db.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
+    return {'data': True, 'message': '验证码已发送，请前往验证！'}
 
 
 @users_router.post("/user_add")  # 管理员添加一个用户(未添加权限认证)
@@ -86,7 +128,7 @@ async def user_add(user_information: admin_user_add_interface, session=Depends(a
                                     graduation_dt=user_information.graduation_dt)
     user_info_model.add_userinfo(user_info)
     add_operation(0, user_id, '添加用户', '管理员添加一个用户', session['user_id'])
-    return {'message': '添加成功', 'data': {'user_id': user_id}}
+    return {'message': '添加成功', 'data': True}
 
 
 @users_router.post("/register")  # 用户自己注册
@@ -114,44 +156,7 @@ async def user_register(reg_data: register_interface, request: Request, token=De
         id = user_model.register_user(reg_data)  # 添加一个user
         add_operation(0, id, '用户注册', '用户注册', id)
         token_s6 = get_email_token()
-        return {'message': '满足条件,请前往进行邮箱验证', 'data': {'token_s6': token_s6}}
-
-
-# 发送邮箱验证码
-@users_router.post("/register/send_email")  # 向用户发送验证码
-@user_standard_response
-async def user_send_email_code(email_data: email_interface, request: Request, token1=Depends(auth_not_login),
-                               user_agent: str = Header(None), update: int = 0):
-    token = str(uuid.uuid4().hex)  # 生成token
-    email_token = email_data.token_s6
-    id = 0
-    if update == 0:  # 用户注册时发邮件
-        id = user_model.get_user_by_email(email_data.email).id  # 查询出刚存进user表里数据的id
-        add_operation(0, id, '用户注册时发送验证码', '用户注册并向其发送邮件', id)
-    elif update == 1:  # 更改邮箱时发邮件
-        id = token1['user_id']
-        old_email = user_model.get_user_by_user_id(int(id))  # 新更改邮箱不能与原邮箱相同
-        if old_email.email == email_data.email:
-            raise HTTPException(
-                status_code=409,
-                detail="不能与原邮箱相同！",
-            )
-        add_operation(0, id, '修改绑定邮箱', '用户修改绑定邮箱并向新邮箱发送邮件', id)
-    elif update == 2:  # 找回密码时发邮件
-        id = token1
-        add_operation(0, id, '找回密码', '找回密码时向绑定邮箱发送邮件', id)
-    session = session_interface(user_id=int(id), ip=request.client.host,
-                                func_type=1,
-                                token=token, user_agent=user_agent, token_s6=email_token,
-                                use_limit=1, exp_dt=(
-                datetime.datetime.now() + datetime.timedelta(minutes=5)))  # 新建一个session
-    id = session_model.add_session(session)
-    send_email.delay(email_data.email, email_token)  # 异步发送邮件
-    session.exp_dt = time.strptime(session.exp_dt.strftime(
-        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-    user_session = json.dumps(session.model_dump())
-    session_db.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
-    return {'data': {'token': token}, 'message': '验证码已发送，请前往验证！'}
+        return {'message': '满足条件,请前往进行邮箱验证', 'data': True}
 
 
 @users_router.post("/register/verify_email_code")  # 验证用户输入的验证码是否正确
@@ -179,14 +184,14 @@ async def user_verify_email_code(token_s6: email_interface, token=Depends(auth_n
                 if update == 0:
                     user_model.update_user_status(user_session.user_id, 0)
                     add_operation(0, user_session.user_id, '注册成功', '用户注册时输入了正确的邮箱验证码通过验证', user_session.user_id)
-                    return {'message': '验证成功', 'status': 0, 'data': {'session_id': user_session.id}}
+                    return {'message': '验证成功', 'data': True}
                 elif update == 1:
                     user_model.update_user_email(user_session.user_id, token_s6.email)
                     add_operation(0, user_session.user_id, '修改邮箱成功', '修改邮箱时输入了正确的邮箱验证码通过验证', user_session.user_id)
-                    return {'message': '验证成功', 'data': {'session_id': user_session.id}}
+                    return {'message': '验证成功', 'data': True}
                 elif update == 2:
                     add_operation(0, user_session.user_id, '找回密码成功', '找回密码时输入了正确的邮箱验证码通过验证', user_session.user_id)
-                    return {'message': '验证成功', 'data': {'session_id': user_session.id}}
+                    return {'message': '验证成功', 'data': True}
             else:
                 raise HTTPException(
                     status_code=400,
@@ -225,7 +230,7 @@ async def user_login(username: str, password: str, request: Request, user_agent:
             user_session = json.dumps(session.model_dump())
             session_db.set(token, user_session, ex=1209600)  # 缓存有效session
             add_operation(0, int(user_information.id), '用户登录', '用户通过输入用户名和密码成功登录', int(user_information.id))
-            return {'message': '登陆成功', 'token': token, 'data': None}
+            return {'message': '登陆成功', 'token': token, 'data': True}
         else:
             raise HTTPException(
                 status_code=401,
@@ -251,14 +256,14 @@ async def user_bind_information(user_data: user_info_interface, request: Request
     id = user_info_model.add_userinfo(user_data)  # 在user_info表里添加
     add_operation(0, session['user_id'], '用户绑定个人信息', '用户通过输入学号，真实姓名，性别，专业，班级，入学时间与毕业时间进行绑定',
                   session['user_id'])  # 添加一个绑定个人信息的操作
-    return {'message': '绑定成功', 'data': {'user_id': id}}
+    return {'message': '绑定成功', 'data': True}
 
 
 @users_router.put("/email_update")  # 修改绑定邮箱
 @user_standard_response
-async def user_email_update(email: email_interface, request: Request, session=Depends(auth_login),
+async def user_email_update(email: captcha_interface, request: Request, session=Depends(auth_login),
                             user_agent: str = Header(None)):
-    result = await user_send_email_code(email, request, session, user_agent, 1)  # 向新邮箱发送验证码
+    result = await send_captcha(email, request, session, user_agent)  # 向新邮箱发送验证码
     ans = json.loads(result.body)
     token_header = result.headers  # 将新生成的session的token加入到header里
     return {'data': {'session_id': ans['data']['session_id']}, 'message': ans['message'],
@@ -286,7 +291,7 @@ async def username_update(username: login_interface, session=Depends(auth_login)
 async def user_verify_update_email(token_s6: email_interface, token: str = Header(None), session=Depends(auth_login)):
     result = await user_verify_email_code(token_s6, token, 1)  # 验证验证码是否输入正确
     ans = json.loads(result.body)
-    return {'data': {'session_id': ans['data']['session_id']}, 'message': ans['message']}
+    return {'data': True, 'message': ans['message']}
 
 
 @users_router.put("/password_update")  # 更改密码
@@ -311,60 +316,34 @@ async def user_password_update(password: password_interface, session=Depends(aut
 
 
 @users_router.post("/get_back_password")  # 找回密码
-async def user_password_get_back(forget_data: forget_interface, request: Request, user_agent: str = Header(None)):
-    user_information = user_model.get_user_by_username(forget_data.username)
+@user_standard_response
+async def user_password_get_back(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None)):
+    user_information = user_model.get_user_by_username(captcha_data.username)
     if user_information is None:  # 看看有没有这个用户名
         raise HTTPException(
             status_code=404,
             detail="没有该用户"
         )
-    if user_information.email != forget_data.email:  # 看看有没有这个邮箱
+    if user_information.email != captcha_data.email:  # 看看有没有这个邮箱
         raise HTTPException(
             status_code=400,
             detail="邮箱不正确，不是之前绑定的邮箱"
         )
-    if forget_data.captchaId is None:
-        img, captcha = make_captcha()
-        img_byte = BytesIO()
-        img.save(img_byte, format='JPEG')  # format: PNG or JPEG
-        binary_content = img_byte.getvalue()  # im对象转为二进制流
-        id = captcha_model.add_captcha(captcha)
-        # 返回图像作为响应
-        return Response(content=binary_content, media_type="image/jpeg", headers={'captchaId': str(id)})
-    else:
-        value = captcha_model.get_captcha_by_id(int(forget_data.captchaId))
-        if value[0] != forget_data.captcha:
-            raise HTTPException(
-                status_code=400,
-                detail="验证码输入错误"
-            )
-        else:
-            token_s6 = get_email_token()
-            return Response(headers={'token_s6': token_s6})
-
-
-@users_router.post("/get_back_password/send_email")  # 找回密码
-@user_standard_response
-async def user_get_back_password_send_email(email_data: email_interface, request: Request,
-                                            user_agent: str = Header(None)):
-    user_id = user_model.get_user_id_by_email(email_data.email)[0]
-    result = await user_send_email_code(email_data, request, int(user_id), user_agent, 2)
+    result = await send_captcha(captcha_data, request, user_agent)
     ans = json.loads(result.body)
-    return {'data': {'token': ans['data']['token']}, 'message': ans['message']}
+    return {'data': True, 'message': ans['message']}
 
 
-@users_router.post("/get_back_password/verify_email_code")  # 验证找回密码时用户输入的验证码是否正确
+@users_router.put("/set_password/{token}")  # 找回密码后用户设置密码
 @user_standard_response
-async def user_get_back_password_verify(token_s6: email_interface, token: str = Header(None)):
-    result = await user_verify_email_code(token_s6, token, 2)
-    ans = json.loads(result.body)
-    return {'data': {'token': token}, 'message': ans['message']}
-
-
-@users_router.put("/get_back_password/set_password")  # 找回密码后用户设置密码
-@user_standard_response
-async def user_set_password(password: password_interface, token: str = Header(None)):
-    user_id = session_model.get_user_id_by_token_force(token)[0]  # 查出user_id
+async def user_set_password(password: password_interface, token: str):
+    user_id = session_model.get_user_id_by_token(token)  # 查出user_id
+    if user_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail="无法找到该页面"
+        )
+    user_id = user_id[0]
     user_information = user_model.get_user_by_user_id(user_id)
     new_password = encrypted_password(password.new_password, user_information.registration_dt.strftime(
         "%Y-%m-%d %H:%M:%S"))
@@ -374,8 +353,8 @@ async def user_set_password(password: password_interface, token: str = Header(No
             detail="新密码不能与原密码相同"
         )
     user_model.update_user_password(user_id, new_password)  # 设置密码
-    add_operation(0, user_id, '用户重设密码', '用户通过输入新密码进行更改密码', user_id)  # 重设密码
-    return {'data': None, 'message': '修改成功'}
+    add_operation(0, user_id, '用户重设密码', '用户通过输入新密码进行重设密码', user_id)  # 重设密码
+    return {'data': True, 'message': '修改成功'}
 
 
 @users_router.get("/getProfile")  # 查看用户信息
@@ -387,9 +366,10 @@ async def user_get_Profile(session=Depends(auth_login)):
         data = dict(user_information[0].__dict__)
         data.update(user_information[1].__dict__)
         data.pop('_sa_instance_state')
-        data['registration_dt'] = time.mktime(time.strptime(data['registration_dt'].strftime("%Y-%m-%d %H:%M:%S"),"%Y-%m-%d %H:%M:%S"))
-        data['enrollment_dt'] = time.mktime(time.strptime(data['enrollment_dt'].strftime("%Y-%m-%d"),"%Y-%m-%d"))
-        data['graduation_dt'] = time.mktime(time.strptime(data['graduation_dt'].strftime("%Y-%m-%d"),"%Y-%m-%d"))
+        data['registration_dt'] = time.mktime(
+            time.strptime(data['registration_dt'].strftime("%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S"))
+        data['enrollment_dt'] = time.mktime(time.strptime(data['enrollment_dt'].strftime("%Y-%m-%d"), "%Y-%m-%d"))
+        data['graduation_dt'] = time.mktime(time.strptime(data['graduation_dt'].strftime("%Y-%m-%d"), "%Y-%m-%d"))
         Json = json.dumps(data)
         user_information_db.set(session['token'], Json, ex=1209600)
         return {'data': data, 'message': '结果如下'}
@@ -433,7 +413,7 @@ async def user_school_add(session=Depends(auth_login), school_data=Depends(auth_
     # 如果有权限
     id = school_model.add_school(school_data)
     add_operation(1, id, '添加学校', '管理员通过输入学校名称和学校简称添加一个学校', session['user_id'])  # 添加一个学校
-    return {'message': '建立成功', 'data': {'school_id': id}}
+    return {'message': '建立成功', 'data': True}
 
 
 @users_router.get("/school_view")  # 查看管理员所能操作的所有学校(未添加权限认证)
@@ -491,7 +471,7 @@ async def user_college_add(session=Depends(user_login), college_data=Depends(aut
     # 如果有权限
     id = college_model.add_college(college_data)
     add_operation(2, id, '添加学院', '管理员通过选择学校和输入学院名称添加一个学院', session['user_id'])  # 添加一个学院
-    return {'message': '建立成功', 'data': {'college_id': id}}
+    return {'message': '建立成功', 'data': True}
 
 
 @users_router.delete("/college_delete/{college_id}")  # 管理员删除学院(未添加权限认证)
@@ -548,7 +528,7 @@ async def user_major_add(session=Depends(user_login), major_data=Depends(auth_ma
     # 如果有权限
     id = major_model.add_major(major_data)
     add_operation(3, id, '添加专业', '管理员通过选择学校和学院并输入专业名称添加一个专业', session['user_id'])  # 添加一个专业
-    return {'message': '建立成功', 'data': {'major_id': id}}
+    return {'message': '建立成功', 'data': True}
 
 
 @users_router.delete("/major_delete/{major_id}")  # 管理员删除专业(未添加权限认证)
@@ -610,7 +590,7 @@ async def user_class_add(session=Depends(user_login), class_data=Depends(auth_cl
     # 如果有权限
     id = class_model.add_class(class_data)
     add_operation(4, id, '添加班级', '管理员通过选择学校和学院并输入班级名称添加一个班级', session['user_id'])  # 添加一个班级
-    return {'message': '建立成功', 'data': {'class_id': id}}
+    return {'message': '建立成功', 'data': True}
 
 
 @users_router.delete("/class_delete/{class_id}")  # 管理员删除班级(未添加权限认证)
