@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy import func, or_
 
 from model.db import dbSession
@@ -73,7 +74,8 @@ class ProjectService(dbSession):
 
     def get_projects_content(self, content_id: int, project_id: int):
         with self.get_db() as session:
-            project_content = session.query(ProjectContent).filter_by(id=content_id, project_id=project_id).first()
+            project_content = session.query(ProjectContent).filter_by(id=content_id, project_id=project_id,
+                                                                      has_delete=0).first()
             project_content = ProjectContentBaseOpt.model_validate(project_content)
             return project_content.model_dump()
 
@@ -217,3 +219,21 @@ class ProjectService(dbSession):
                     session.query(ProjectContent).filter(ProjectContent.id == da['id']).update({'has_delete': 1})
                     session.commit()
         return project_id
+
+    def check_project_exist(self, project_id: int):
+        with self.get_db() as session:
+            project_model = session.query(Project).filter(Project.id == project_id, Project.has_delete == 0).first()
+            if project_model is None:
+                raise HTTPException(status_code=404, detail="Item not found")
+            else:
+                return project_model
+
+    def check_projectContent_exist(self, project_id: int, content_id: int):
+        with self.get_db() as session:
+            projectCount_model = session.query(ProjectContent).filter(ProjectContent.id == content_id,
+                                                                      ProjectContent.has_delete == 0,
+                                                                      ProjectContent.project_id == project_id).first()
+            if projectCount_model is None:
+                raise HTTPException(status_code=404, detail="Item not found")
+            else:
+                return projectCount_model

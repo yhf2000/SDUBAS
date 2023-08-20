@@ -22,12 +22,14 @@ async def create_project(project: ProjectCreate, user=Depends(auth_permission)) 
 @projects_router.put("/{project_id}")
 @standard_response
 async def update_project(project_id: int, project: ProjectUpdate, user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
     return project_service.update_project(project_id=project_id, newproject=project)
 
 
 @projects_router.delete("/{project_id}")
 @standard_response
 async def delete_project(project_id: int, user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
     return project_service.delete_project(project_id=project_id)
 
 
@@ -44,6 +46,7 @@ async def list_projects(pageNow: int = Query(description="页码", gt=0),
 @projects_router.get("/{project_id}")
 @standard_response
 async def get_project(project_id: int, user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
     return project_service.get_project(project_id=project_id)
     # 实现查询某一项目
 
@@ -51,6 +54,7 @@ async def get_project(project_id: int, user=Depends(auth_permission)):
 @projects_router.get("/{project_id}/contents")
 @standard_response
 async def get_project_content(project_id: int, user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
     return project_service.list_projects_content(project_id=project_id)
     # 实现查询项目内容结构表的逻辑
 
@@ -58,12 +62,15 @@ async def get_project_content(project_id: int, user=Depends(auth_permission)):
 @projects_router.get("/{project_id}/contents/{content_id}")
 @standard_response
 async def get_specific_project_content(project_id: int, content_id: int, user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
+    project_service.check_projectContent_exist(project_id=project_id,content_id=content_id)
     return project_service.get_projects_content(content_id=content_id, project_id=project_id)
 
 
 @projects_router.post("/{project_id}/credits")
 @standard_response
 async def add_project_credit(project_id: int, credit: CreditCreate, user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
     return project_service.create_credit(credit=credit)
     # 实现添加项目学分认定的逻辑
 
@@ -73,6 +80,8 @@ async def add_project_credit(project_id: int, credit: CreditCreate, user=Depends
 async def submit_project_content(project_id: int, content_id: int, submission: SubmissionListCreate,
                                  user=Depends(auth_permission)):
     # 可能需要增加对提交权限的处理
+    project_service.check_project_exist(project_id=project_id)
+    project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     return project_service.create_submission(submission=submission)
     # 实现提交项目要求内容的逻辑
 
@@ -80,6 +89,8 @@ async def submit_project_content(project_id: int, content_id: int, submission: S
 @projects_router.post("/{project_id}/contents/{content_id}/scores")
 @standard_response
 async def score_project_content(project_id: int, content_id: int, score: ScoreCreate, user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
+    project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     return project_service.create_score(score=score)
     # 实现对项目内容打分的逻辑
 
@@ -87,6 +98,8 @@ async def score_project_content(project_id: int, content_id: int, score: ScoreCr
 @projects_router.get("/{project_id}/contents/{content_id}/submissions/{user_id}")
 @standard_response
 async def view_user_submission(project_id: int, content_id: int, user_id: int, viewer=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
+    project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     return project_service.get_user_submission_list(project_id=project_id, content_id=content_id, user_id=user_id)
     # 实现查看用户在一个内容下的提交内容的逻辑
 
@@ -101,6 +114,8 @@ async def list_project_members(project_id: int, user=Depends(auth_permission)):
 @standard_response
 async def create_user_submission(project_id: int, content_id: int,
                                  User_submission: user_submission, user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
+    project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     return project_service.create_user_submission(uer_submission=User_submission)
     # 实现用户提交的逻辑
 
@@ -109,6 +124,7 @@ async def create_user_submission(project_id: int, content_id: int,
 @standard_response
 async def create_user_submission(project_id: int, user_id: int,
                                  user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
     return project_service.get_project_progress(project_id=project_id, user_id=user_id)
     # 实现查询项目进度的逻辑
 
@@ -117,6 +133,7 @@ async def create_user_submission(project_id: int, user_id: int,
 @standard_response
 async def create_user_submission(project_id: int, user_id: int,
                                  user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
     return project_service.get_user_project_score(project_id=project_id, user_id=user_id)
     # 实现查询项目成绩的逻辑
 
@@ -151,4 +168,5 @@ async def list_projects(userId: int = Query(description="页码", gt=0),
 @standard_response
 async def list_projects(project_id: int, project_content: project_content_renew,
                         user=Depends(auth_permission)):
+    project_service.check_project_exist(project_id=project_id)
     return project_service.renew_project_content(project_id=project_id, project_contents=project_content)
