@@ -64,6 +64,8 @@ def page_response(func: Callable):
         return response
 
     return decorator
+
+
 def status_response(func: Callable):
     @functools.wraps(func)
     async def decorator(*args, **kwargs):
