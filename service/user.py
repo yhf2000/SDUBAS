@@ -105,6 +105,12 @@ class UserModel(dbSession):
             session.commit()
             return user
 
+    def get_user_status_by_card_id(self, card_id):  # 根据card_id查询user的帐号状态
+        with self.get_db() as session:
+            user = session.query(User.status).filter(User.has_delete == 0, User.card_id == card_id).first()
+            session.commit()
+            return user
+
     def get_user_id_by_email(self, email):  # 根据email查询user_id
         with self.get_db() as session:
             user = session.query(User.id).filter(User.has_delete == 0, User.email == email).first()

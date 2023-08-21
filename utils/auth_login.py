@@ -25,10 +25,9 @@ def auth_login(request: Request):  # 用来判断用户是否登录
         )
 
 
-def auth_not_login(request: Request, token: str = Header(None)):  # 用来判断用户是否登录
+def auth_not_login(request: Request):  # 用来判断用户是否登录
+    token = request.cookies.get("SESSION")
     if token is None:
-        token = request.cookies.get("SESSION")
-        if token is None:
             return token
     user = session_db.get(token)  # 有效session中有
     if user is not None and json.loads(user)['func_type'] == 0:
@@ -37,15 +36,11 @@ def auth_not_login(request: Request, token: str = Header(None)):  # 用来判断
             detail="用户已登录"
         )
     elif user is not None:
+        user = json.loads(user)
         user_id = user['user_id']
         db = UserModel()
-        status = db.get_user_status_by_user_id(int(user_id))
-        if status == 1:
-            raise HTTPException(
-                status_code=401,
-                detail="账号未激活"
-            )
-        elif status == 2:
+        status = db.get_user_status_by_user_id(int(user_id))[0]
+        if status == 2:
             raise HTTPException(
                 status_code=401,
                 detail="账号已注销"

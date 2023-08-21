@@ -104,7 +104,7 @@ class Operation(Base):  # 操作表
     __tablename__ = 'operation'
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     service_type = Column(Integer, nullable=False, index=True, comment='业务类型')  # 业务类型，非空，索引
-    service_id = Column(Integer, nullable=False, unique=True, comment='业务id')  # 业务id，非空，唯一
+    service_id = Column(Integer, nullable=False,  comment='业务id')  # 业务id，非空
     func = Column(VARCHAR(128), comment='操作')  # 操作
     parameters = Column(VARCHAR(4 * 1024), comment='操作参数')  # 操作参数
     oper_user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True,
@@ -130,7 +130,7 @@ class Session(Base):  # session表
     use_limit = Column(Integer, nullable=True, comment='限制次数，没有限制即为NULL')  # 限制次数，可空
     exp_dt = Column(DateTime, comment='过期时间', nullable=False)  # 过期时间，非空
     ip = Column(VARCHAR(32), comment='客户端ip')  # ip
-    user_agent = Column(VARCHAR(128), comment='客户端信息')  # 客户端信息
+    user_agent = Column(VARCHAR(256), comment='客户端信息')  # 客户端信息
     create_dt = Column(DateTime, comment='创建时间', default=func.now())  # 创建时间
     func_type = Column(Integer, comment='0 用户登录 session:1 用户邮箱验证 session,2 文件下载 session,3 文件上传 session')  # 操作类型
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否已经删除
