@@ -32,7 +32,7 @@ class Role(Base):
     has_delete = Column(Integer, nullable=False, index=True)  # 是否已经删除
 
 
-class Privilege(Base):
+class WorkRole(Base):
     __tablename__ = "work-role"
 
     # 定义字段
