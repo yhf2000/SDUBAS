@@ -64,26 +64,9 @@ def get_email_token():  # 生成email的验证码
 @users_router.post("/user_add")  # 管理员添加一个用户(未添加权限认证)
 @user_standard_response
 async def user_add(user_information: admin_user_add_interface, session=Depends(auth_login)):
-    exist_username = user_model.get_user_status_by_username(user_information.username)
-    if exist_username is not None:  # 查看该用户名是否已经被注册过
-        raise HTTPException(
-            status_code=400,
-            detail="用户名已存在",
-        )
-    exist_email = user_model.get_user_status_by_email(user_information.email)
-    if exist_email is not None:  # 查看该邮箱是否已经被注册过
-        raise HTTPException(
-            status_code=400,
-            detail="邮箱已存在",
-        )
-    exist_card_id = user_model.get_user_status_by_card_id(user_information.card_id)
-    if exist_card_id is not None:  # 查看该学号是否已经被注册过
-        raise HTTPException(
-            status_code=400,
-            detail="学号已存在",
-        )
     user = user_add_interface(username=user_information.username, password=user_information.password,
                               email=user_information.email, card_id=user_information.card_id)
+    await user_unique_verify(user)
     user_id = user_model.add_user(user)
     user_info = user_info_interface(user_id=user_id, realname=user_information.realname, gender=user_information.gender,
                                     major_id=user_information.major_id, class_id=user_information.class_id,
@@ -96,25 +79,42 @@ async def user_add(user_information: admin_user_add_interface, session=Depends(a
 
 @users_router.post("/unique_verify")  # 注册时验证用户用户名和邮箱的唯一性
 @user_standard_response
-async def user_unique_verify(reg_data: register_interface, token=Depends(auth_not_login)):
-    if reg_data.username is not None and reg_data.email is None:
+async def user_unique_verify(reg_data: user_add_interface):
+    flag = 0
+    if reg_data.username is not None:
         exist_username = user_model.get_user_status_by_username(reg_data.username)
-        if exist_username is not None and exist_username[0] != 1:  # 查看该用户名是否已经被注册过
+        if exist_username is not None:
+            if reg_data.type == 0:  # 注册时验证唯一性
+                if exist_username[0] != 1:
+                    flag = 1
+            elif reg_data.type == 1:
+                flag = 1
+        if flag:
             raise HTTPException(
                 status_code=400,
                 detail="用户名已存在",
             )
-        else:
-            return {'message': '满足条件', 'code': 200, 'data': True}
-    if reg_data.email is not None and reg_data.username is None:
+    if reg_data.email is not None:
         exist_email = user_model.get_user_status_by_email(reg_data.email)
-        if exist_email is not None and exist_email[0] != 1:  # 查看该邮箱是否已经被注册过
+        if exist_email is not None:
+            if reg_data.type == 0:  # 注册时验证唯一性
+                if exist_email[0] != 1:
+                    flag = 1
+            elif reg_data.type == 1:
+                flag = 1
+        if flag:
             raise HTTPException(
                 status_code=400,
                 detail="邮箱已存在",
             )
-        else:
-            return {'message': '满足条件', 'code': 200, 'data': True}
+    if reg_data.card_id is not None:
+        exist_card_id = user_model.get_user_status_by_card_id(reg_data.card_id)
+        if exist_card_id is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="学号已存在",
+            )
+    return {'message': '满足条件', 'code': 200, 'data': True}
 
 
 @users_router.get("/get_captcha")  # 获得图片验证码
@@ -225,7 +225,7 @@ async def user_register(email_data: email_interface, request: Request, token=Dep
 
 @users_router.post("/login")  # 登录
 @user_standard_response
-async def user_login(log_data: login_interface,  request: Request, user_agent: str = Header(None),
+async def user_login(log_data: login_interface, request: Request, user_agent: str = Header(None),
                      token=Depends(auth_not_login)):
     user_information = user_model.get_user_by_username(log_data.username)  # 先查看要登录的用户名是否存在
     if user_information is None:  # 用户名不存在
@@ -268,13 +268,9 @@ async def user_logout(session=Depends(auth_login)):
 
 @users_router.post("/user_bind_information")  # 自己注册的用户绑定个人信息
 @user_standard_response
-async def user_bind_information(user_data: user_info_interface, request: Request, session=Depends(auth_login)):
-    exist_card_id = user_model.get_user_status_by_card_id(user_data.card_id)
-    if exist_card_id is not None:  # 查看该学号是否已经被注册过
-        raise HTTPException(
-            status_code=400,
-            detail="学号已存在",
-        )
+async def user_bind_information(user_data: user_info_interface, session=Depends(auth_login)):
+    card_data = user_add_interface(card_id=user_data.card_id, type=1)
+    await user_unique_verify(card_data)
     user_model.update_user_card_id(session['user_id'], user_data.card_id)  # 更新用户的card_id
     user_data.user_id = session['user_id']
     id = user_info_model.add_userinfo(user_data)  # 在user_info表里添加
@@ -285,17 +281,16 @@ async def user_bind_information(user_data: user_info_interface, request: Request
 
 @users_router.put("/username_update")  # 修改用户名
 @user_standard_response
-async def user_username_update(username: login_interface, session=Depends(auth_login)):
+async def user_username_update(log_data: login_interface, session=Depends(auth_login)):
+    user_data = user_add_interface(username=log_data.username, type=1)
+    await user_unique_verify(user_data)
     user_id = session['user_id']
-    exist_username = user_model.get_user_by_username(username.username)
-    if exist_username is not None:
-        raise HTTPException(
-            status_code=401,
-            detail="用户名重复，请重新输入"
-        )
-    user_model.update_user_username(user_id, username.username)  # 更新username
+    user_model.update_user_username(user_id, log_data.username)  # 更新username
     add_operation(0, user_id, '用户修改用户名', '用户通过输入新用户名进行修改',
                   user_id)  # 添加一个修改用户名的操作
+    user_information = json.loads(user_information_db.get(session["token"]))
+    user_information['username'] = log_data.username
+    user_information_db.set(session["token"], json.dumps(user_information), ex=1209600)  # 缓存有效session
     return {'message': '修改成功', 'data': {'user_id': user_id}}
 
 
@@ -327,6 +322,9 @@ async def user_email_update(email_data: email_interface, request: Request, sessi
     token = request.cookies.get("TOKEN")
     result = await user_register(email_data, request, token, 1)  # 验证验证码是否输入正确
     ans = json.loads(result.body)
+    user_information = json.loads(user_information_db.get(session["token"]))
+    user_information['email'] = email_data.email
+    user_information_db.set(session["token"], json.dumps(user_information), ex=1209600)  # 缓存有效session
     return {'data': True, 'message': ans['message']}
 
 

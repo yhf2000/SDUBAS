@@ -14,17 +14,18 @@ class login_interface(BaseModel):
 
 class register_interface(login_interface):
     email: str = None
+    type: int = None
     registration_dt: datetime = datetime.now()
 
 
 class captcha_interface(register_interface):
     captchaId: str = None
     captcha: str = None
-    type: int = 0
+    type: int = None
 
 
 class user_add_interface(register_interface):
-    card_id: str
+    card_id: str = None
 
 
 class session_interface(BaseModel):
