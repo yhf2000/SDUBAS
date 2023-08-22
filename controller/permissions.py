@@ -35,11 +35,13 @@ async def attribute_privilege(data: type.permissions.attribute_privilege_base):
     return {"status": db.attribute_privilege(data)}
 
 
-@permissions_router.post("/login")
-async def login(request: Request):
-    token = request.headers.get("SESSION")
-
-    return {"message": f"欢迎回来，{token}！"}
+@permissions_router.post("/test")
+@standard_response
+async def test(request: Request):
+    db = roleModel()
+    user_id = int(request.headers.get("user_id"))
+    role_list = db.search_role_by_user(user_id)
+    return {"role": role_list}
 
 
 @permissions_router.post("/auth_privilege")  # 权限验证
@@ -59,7 +61,7 @@ async def auth_privilege(request: Request):
             status_code=403,
             detail="No permission",
         )
-    return{"privilege": json_string}
+    return {"privilege": json_string}
 
 
 @permissions_router.post("/work_id")  # 返回业务id
@@ -71,3 +73,25 @@ async def return_work_id(request: Request):
     work_list = db.search_work_by_role(role_list)
     json_string = json.dumps(work_list)
     return {"work_id": json_string}
+
+
+@permissions_router.post("/search_service_id")  # 返回业务id
+@standard_response
+async def return_service_id(request: Request, data: type.permissions.Return_Service_Id):
+    db = roleModel()
+    user_id = int(request.headers.get("user_id"))
+    permission_key = request.url.path
+    permission = None
+    role_list = db.search_role_by_user(user_id)
+    service_id = db.search_service_id(role_list, data.service_type, data.name)
+    return {"service_id": service_id}
+
+
+@permissions_router.post("/search_user_id")  # 返回用户id
+@standard_response
+async def return_user_id(request: Request, data: type.permissions.Return_User_Id):
+    db = roleModel()
+    permission_key = request.url.path
+    permission = None
+    user_list = db.search_user_id_by_service(data.service_type, data.service_id)
+    return {"user_id": user_list}
