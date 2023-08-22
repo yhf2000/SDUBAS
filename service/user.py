@@ -31,6 +31,7 @@ class UserModel(dbSession):
 
     def add_user(self, obj: user_add_interface):  # 管理员添加一个用户(在user表中添加一个用户)
         obj_dict = jsonable_encoder(obj)
+        obj_dict.pop('type')
         obj_add = User(**obj_dict)
         obj_add.password = encrypted_password(obj_add.password, obj_add.registration_dt)
         with self.get_db() as session:
