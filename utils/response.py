@@ -39,6 +39,11 @@ def user_standard_response(func: Callable):
             "data": result['data'],
             "timestamp": getMsTime(datetime.now())
         }, status_code=200)
+        if 'token_header' in result:
+            if result['token_header'] == '-1':
+                response.delete_cookie(key="TOKEN")  # 删除cookie
+            else:
+                response.set_cookie(key="TOKEN", value=str(result['token_header']))  # 添加cookie
         if 'token' in result:  # 判断是否有token项，如果有且不为-1就把它添加到cookie里
             if result['token'] == '-1':
                 response.delete_cookie(key="SESSION")  # 删除cookie
@@ -64,6 +69,8 @@ def page_response(func: Callable):
         return response
 
     return decorator
+
+
 def status_response(func: Callable):
     @functools.wraps(func)
     async def decorator(*args, **kwargs):

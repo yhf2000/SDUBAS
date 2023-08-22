@@ -92,6 +92,7 @@ class password_interface(BaseModel):
 class email_interface(register_interface):
     token_s6: str = None
     card_id: str = None
+    type: int = 0
 
 
 class operation_interface(BaseModel):
