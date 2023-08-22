@@ -223,18 +223,18 @@ async def user_register(email_data: email_interface, request: Request, token=Dep
         )
 
 
-@users_router.get("/login")  # 登录
+@users_router.post("/login")  # 登录
 @user_standard_response
-async def user_login(username: str, password: str, request: Request, user_agent: str = Header(None),
+async def user_login(log_data: login_interface,  request: Request, user_agent: str = Header(None),
                      token=Depends(auth_not_login)):
-    user_information = user_model.get_user_by_username(username)  # 先查看要登录的用户名是否存在
+    user_information = user_model.get_user_by_username(log_data.username)  # 先查看要登录的用户名是否存在
     if user_information is None:  # 用户名不存在
         raise HTTPException(
             status_code=404,
             detail="用户名或密码不正确，请重新输入"
         )
     else:  # 用户名存在
-        new_password = encrypted_password(password, user_information.registration_dt.strftime(
+        new_password = encrypted_password(log_data.password, user_information.registration_dt.strftime(
             "%Y-%m-%d %H:%M:%S"))  # 判定输入的密码是否正确
         if new_password == user_information.password:
             token = str(uuid.uuid4().hex)
@@ -380,12 +380,15 @@ async def user_get_Profile(session=Depends(auth_login)):
     if user_information is None:
         user_information = user_model.get_user_information_by_id(session['user_id'])
         data = dict(user_information[0].__dict__)
-        data.update(user_information[1].__dict__)
+        data['is_bind'] = 0
+        if user_information[1] != None:
+            data.update(user_information[1].__dict__)
+            data['enrollment_dt'] = time.mktime(time.strptime(data['enrollment_dt'].strftime("%Y-%m-%d"), "%Y-%m-%d"))
+            data['graduation_dt'] = time.mktime(time.strptime(data['graduation_dt'].strftime("%Y-%m-%d"), "%Y-%m-%d"))
+            data['is_bind'] = 1
         data.pop('_sa_instance_state')
         data['registration_dt'] = time.mktime(
             time.strptime(data['registration_dt'].strftime("%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S"))
-        data['enrollment_dt'] = time.mktime(time.strptime(data['enrollment_dt'].strftime("%Y-%m-%d"), "%Y-%m-%d"))
-        data['graduation_dt'] = time.mktime(time.strptime(data['graduation_dt'].strftime("%Y-%m-%d"), "%Y-%m-%d"))
         Json = json.dumps(data)
         user_information_db.set(session['token'], Json, ex=1209600)
         return {'data': data, 'message': '结果如下'}
@@ -394,7 +397,8 @@ async def user_get_Profile(session=Depends(auth_login)):
 
 @users_router.get("/status")  # 检查用户登录状态
 @status_response
-async def user_get_status(token: str = Header(None)):
+async def user_get_status(request: Request):
+    token = request.cookies.get("SESSION")
     login_status = 1
     session = session_db.get(token)
     if session is not None:  # 有效session中有，说明登录了
@@ -415,8 +419,7 @@ async def user_get_status(token: str = Header(None)):
 
 @users_router.get("/error")  # 检查用户异常状态原因
 @user_standard_response
-async def user_get_error(token: str = Header(None)):
-    user_id = session_model.get_session_by_token(token).user_id
+async def user_get_error(user_id: int):
     reason = operation_model.get_operation_by_service_func(0, user_id, '用户封禁')  # 查看被封禁原因
     username = user_model.get_user_by_user_id(reason.oper_user_id).username  # 看被谁封禁
     return {'message': '用户异常状态原因', 'data': {'封禁原因': reason.parameters, '封禁人': username}}
