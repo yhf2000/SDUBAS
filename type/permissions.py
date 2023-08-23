@@ -18,9 +18,19 @@ class attribute_role_base(BaseModel):  # 分配用户角色信息
     user_id: int
     role_name: str
 
+
 class attribute_privilege_base(BaseModel):  # 为角色添加权限信息
     user_id: int
     privilege_name: str
+
+
+class Return_Service_Id(BaseModel):  # 返回业务id
+    service_type: int
+    name: str
+
+class Return_User_Id(BaseModel):  # 返回用户id
+    service_type: int
+    service_id: int
 
 
 class RolePydantic(BaseModel):  # 将数据库查询结果转化为字典的模型（对应Role表）

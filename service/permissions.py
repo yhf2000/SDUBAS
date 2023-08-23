@@ -103,13 +103,11 @@ class roleModel(dbSession):
 
     def search_role_by_user(self, user_id: int):
         with self.get_db() as session:
-            user_role = session.query(UserRole).filter(
+            user_role = session.query(UserRole.role_id).filter(
                 UserRole.user_id == user_id
             ).all()
-            role_list = []
-            for item in user_role:
-                role_list.append(item.role_id)
-            return role_list
+            role_ids = [row[0] for row in user_role]
+            return role_ids
 
     def search_privilege_by_role(self, role_list: list):
         with self.get_db() as session:
@@ -134,7 +132,7 @@ class roleModel(dbSession):
                     work_list.append(item.id)
             return work_list
 
-    def check_permission(self, permission_key, privilege_set):
+    def check_permission(self, permission_key: str, privilege_set: set):
         with self.get_db() as session:
             for item in privilege_set:
                 privilege = session.query(Privilege).filter(
@@ -143,3 +141,35 @@ class roleModel(dbSession):
                 if privilege.key == permission_key:
                     return True
             return False
+
+    def search_service_id(self, role_list: list, service_type: int, name: str):
+        with self.get_db() as session:
+            service_ids = []
+            role_set = self.get_son_role(role_list)
+            for i in role_set:
+                role_privilege = session.query(RolePrivilege).filter(
+                    RolePrivilege.role_id == i
+                ).all()
+                for item in role_privilege:
+                    privilege = session.query(Privilege).filter(
+                        Privilege.id == item.privilege_id,
+                        Privilege.service_type == service_type,
+                        Privilege.name == name
+                    ).first()
+                    if privilege is not None:
+                        service_ids.append(privilege.service_id)
+            return service_ids
+
+    def search_user_id_by_service(self, service_type: int, service_id: int):
+        with self.get_db() as session:
+            user_list = []
+            query = session.query(WorkRole, UserRole).join(
+                UserRole,
+                WorkRole.role_id == UserRole.role_id,
+            ).filter(
+                WorkRole.service_type == service_type,
+                WorkRole.service_id == service_id
+            ).all()
+            for item in query:
+                user_list.append(item[1].user_id)
+            return user_list
