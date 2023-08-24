@@ -103,11 +103,13 @@ class operation_interface(BaseModel):
     parameters: str
     oper_user_id: int
     oper_hash: str = None
+    url: str = None
 
     def get_oper_hash(self):
-        operation_json = json.dumps(operation_interface.model_dump(self))
-        sha256_hash = hashlib.sha256(operation_json.encode()).hexdigest()
-        return sha256_hash
+        hash_object = hashlib.sha256()
+        hash_object.update(self.url.encode('utf-8'))
+        hash_hex = hash_object.hexdigest()
+        return hash_hex
 
 
 class user_info_interface(BaseModel):

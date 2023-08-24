@@ -344,14 +344,22 @@ class CollegeModel(dbSession):
 
     def get_college_by_name(self, obj: college_interface):  # 根据school_id,name查询college的基本信息
         with self.get_db() as session:
-            college = session.query(College).filter(College.has_delete == 0, College.school_id == obj.school_id,
-                                                    College.name == obj.name).first()
+            college = session.query(College.id).filter(College.has_delete == 0, College.school_id == obj.school_id,
+                                                       College.name == obj.name).first()
             session.commit()
             return college
 
     def get_college_by_id(self, id):  # 根据id查询college的基本信息
         with self.get_db() as session:
             college = session.query(College).filter(College.has_delete == 0, College.id == id).first()
+            session.commit()
+            return college
+
+    def get_college_by_school_id(self, school_id, page):  # 根据school_id查询college的基本信息
+        with self.get_db() as session:
+            college = session.query(College).filter(College.has_delete == 0, College.school_id == school_id).order_by(
+                College.id).offset(
+                page.offset()).limit(page.limit()).all()
             session.commit()
             return college
 
@@ -393,14 +401,22 @@ class MajorModel(dbSession):
             session.commit()
             return major
 
+    def get_major_by_college_id(self, college_id, page):  # 根据college_id查询major的基本信息
+        with self.get_db() as session:
+            major = session.query(Major).filter(Major.has_delete == 0, Major.college_id == college_id).order_by(
+                Major.id).offset(
+                page.offset()).limit(page.limit()).all()
+            session.commit()
+            return major
+
     def get_major_by_name(self, obj: major_interface):  # 根据专业名和学院id和学校id查询专业
         with self.get_db() as session:
-            major = session.query(Major).outerjoin(College, Major.college_id == College.id).outerjoin(School,
-                                                                                                      Major.has_delete == 0,
+            major = session.query(Major.id).outerjoin(College, Major.college_id == College.id).outerjoin(School,
                                                                                                       College.school_id == School.id).filter(
                 College.id == obj.college_id,
                 Major.name == obj.name,
-                School.id == obj.school_id
+                School.id == obj.school_id,
+                Major.has_delete == 0
 
             ).first()
             session.commit()
@@ -444,14 +460,23 @@ class ClassModel(dbSession):
             session.commit()
             return clas
 
+    def get_class_by_college_id(self, college_id, page):  # 根据college_id查询class的基本信息
+        with self.get_db() as session:
+            clas = session.query(Class).filter(Class.has_delete == 0, Class.college_id == college_id).order_by(
+                Class.id).offset(
+                page.offset()).limit(page.limit()).all()
+            session.commit()
+            return clas
+
     def get_class_by_name(self, obj: class_interface):  # 根据班级名和学院id和学校id查询班级
         with self.get_db() as session:
-            clas = session.query(Class).outerjoin(College, Class.college_id == College.id).outerjoin(School,
-                                                                                                     Class.has_delete == 0,
+            clas = session.query(Class.id).outerjoin(College, Class.college_id == College.id).outerjoin(School,
+
                                                                                                      College.school_id == School.id).filter(
                 College.id == obj.college_id,
                 Class.name == obj.name,
-                School.id == obj.school_id
+                School.id == obj.school_id,
+                Class.has_delete == 0
 
             ).first()
             session.commit()
@@ -476,6 +501,7 @@ class OperationModel(dbSession):
     def add_operation(self, obj: operation_interface):  # 添加一个操作(在operation表中添加一个操作)
         obj.oper_hash = obj.get_oper_hash()
         obj_dict = jsonable_encoder(obj)
+        obj_dict.pop('url')
         obj_add = Operation(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
