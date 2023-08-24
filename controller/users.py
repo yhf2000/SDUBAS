@@ -24,7 +24,7 @@ from type.user import user_info_interface, \
 from utils.auth_login import auth_login, auth_not_login, auth_school_exist, auth_college_exist, \
     auth_school_not_exist, auth_college_not_exist, auth_major_exist, auth_major_not_exist, auth_class_exist, \
     auth_class_not_exist
-from utils.response import user_standard_response, page_response, status_response
+from utils.response import user_standard_response, page_response, status_response, makePageResult
 
 users_router = APIRouter()
 user_model = UserModel()
@@ -458,20 +458,17 @@ async def user_school_view(pageNow: int, pageSize: int):
     # 如果有权限
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_school = school_model.get_school_by_admin(Page)  # 以分页形式返回
-    if all_school == []:
-        raise HTTPException(
-            status_code=404,
-            detail="没有可操作学校"
-        )
-    school_data = []
-    for school in all_school:
-        temp = school_interface()
-        temp_dict = temp.model_validate(school).model_dump()
-        id = school_model.get_school_by_name(temp_dict['name']).id
-        temp_dict['id'] = id
-        school_data.append(temp_dict)
-    return {'message': '学校如下', 'pageIndex': pageNow, "pageSize": pageSize, "totalNum": len(all_school),
-            "rows": school_data}
+    result = None
+    if all_school != []:
+        school_data = []
+        for school in all_school:
+            temp = school_interface()
+            temp_dict = temp.model_validate(school).model_dump()
+            id = school_model.get_school_by_name(temp_dict['name']).id
+            temp_dict['id'] = id
+            school_data.append(temp_dict)
+        result = makePageResult(Page, len(all_school), school_data)
+    return {'message': '学校如下', "data": result}
 
 
 @users_router.delete("/school_delete/{school_id}")  # 管理员删除学校(未添加权限认证)
@@ -556,22 +553,19 @@ async def get_college_by_school_id(school_id: int, pageNow: int, pageSize: int):
     # 如果有权限
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_college = college_model.get_college_by_school_id(school_id, Page)  # 以分页形式返回
-    if all_college == []:
-        raise HTTPException(
-            status_code=404,
-            detail="没有可操作专业"
-        )
-    college_data = []
-    for college in all_college:
-        temp = college_interface()
-        temp_dict = temp.model_validate(college).model_dump()
-        ttt = college_interface(name=temp_dict['name'], school_id=temp_dict['school_id'])
-        id = college_model.get_college_by_name(ttt)[0]
-        temp_dict['id'] = id
-        temp_dict.pop('school_id')
-        college_data.append(temp_dict)
-    return {'message': '学院如下', 'pageIndex': pageNow, "pageSize": pageSize, "totalNum": len(all_college),
-            "rows": college_data}
+    result = None
+    if all_college != []:
+        college_data = []
+        for college in all_college:
+            temp = college_interface()
+            temp_dict = temp.model_validate(college).model_dump()
+            ttt = college_interface(name=temp_dict['name'], school_id=temp_dict['school_id'])
+            id = college_model.get_college_by_name(ttt)[0]
+            temp_dict['id'] = id
+            temp_dict.pop('school_id')
+            college_data.append(temp_dict)
+        result = makePageResult(Page, len(all_college), college_data)
+    return {'message': '学院如下', "data": result}
 
 
 @users_router.put("/college_update/{college_id}")  # 管理员修改学院信息(未添加权限认证)
@@ -657,26 +651,23 @@ async def get_major_by_college_id(college_id: int, pageNow: int, pageSize: int):
     # 如果有权限
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_major = major_model.get_major_by_college_id(college_id, Page)  # 以分页形式返回
-    if all_major == []:
-        raise HTTPException(
-            status_code=404,
-            detail="该学校目前没有专业"
-        )
-    major_data = []
-    for major in all_major:  # 遍历查询结果
-        temp = major_interface()
-        temp_dict = temp.model_validate(major).model_dump()  # 查询出来的结果转字典
-        school_id = college_model.get_college_by_id(temp_dict['college_id']).school_id  # 查出school_id
-        temp_dict['school_id'] = school_id
-        ttt = major_interface(name=temp_dict['name'], school_id=school_id,
-                              college_id=temp_dict['college_id'])  # 初始化一个major_interface
-        id = major_model.get_major_by_name(ttt)[0]  # 查找出当major的id
-        temp_dict['id'] = id  # 加入到结果里
-        temp_dict.pop('school_id')
-        temp_dict.pop('college_id')
-        major_data.append(temp_dict)
-    return {'message': '专业如下', 'pageIndex': pageNow, "pageSize": pageSize, "totalNum": len(all_major),
-            "rows": major_data}
+    result = None
+    if all_major != []:
+        major_data = []
+        for major in all_major:  # 遍历查询结果
+            temp = major_interface()
+            temp_dict = temp.model_validate(major).model_dump()  # 查询出来的结果转字典
+            school_id = college_model.get_college_by_id(temp_dict['college_id']).school_id  # 查出school_id
+            temp_dict['school_id'] = school_id
+            ttt = major_interface(name=temp_dict['name'], school_id=school_id,
+                                  college_id=temp_dict['college_id'])  # 初始化一个major_interface
+            id = major_model.get_major_by_name(ttt)[0]  # 查找出当major的id
+            temp_dict['id'] = id  # 加入到结果里
+            temp_dict.pop('school_id')
+            temp_dict.pop('college_id')
+            major_data.append(temp_dict)
+        result = makePageResult(Page, len(all_major), major_data)
+    return {'message': '专业如下', "data": result}
 
 
 @users_router.post("/class_add")  # 管理员添加班级(未添加权限认证)
@@ -745,38 +736,35 @@ async def user_class_view(pageNow: int, pageSize: int):
 
 
 @page_response
-async def get_class_by_major_id(major_id, pageNow: int, pageSize: int):
+async def get_class_by_college_id(college_id, pageNow: int, pageSize: int):
     # 判断是否有权限
     # 如果有权限
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_class = class_model.get_class_by_admin(Page)  # 以分页形式返回
-    if all_class == []:
-        raise HTTPException(
-            status_code=404,
-            detail="该专业目前没有班级"
-        )
-    class_data = []
-    for clas in all_class:  # 遍历查询结果
-        temp = class_interface()
-        temp_dict = temp.model_validate(clas).model_dump()  # 查询出来的结果转字典
-        school_id = college_model.get_college_by_id(temp_dict['college_id']).school_id  # 查出school_id
-        temp_dict['school_id'] = school_id
-        ttt = class_interface(name=temp_dict['name'], school_id=school_id,
-                              college_id=temp_dict['college_id'])  # 初始化一个class_interface
-        id = class_model.get_class_by_name(ttt)[0]  # 查找出当class的id
-        temp_dict['id'] = id  # 加入到结果里
-        temp_dict.pop('school_id')
-        temp_dict.pop('college_id')
-        class_data.append(temp_dict)
-    return {'message': '班级如下', 'pageIndex': pageNow, "pageSize": pageSize, "totalNum": len(all_class),
-            "rows": class_data}
+    all_class = class_model.get_class_by_college_id(college_id, Page)  # 以分页形式返回
+    result = None
+    if all_class != []:
+        class_data = []
+        for clas in all_class:  # 遍历查询结果
+            temp = class_interface()
+            temp_dict = temp.model_validate(clas).model_dump()  # 查询出来的结果转字典
+            school_id = college_model.get_college_by_id(temp_dict['college_id']).school_id  # 查出school_id
+            temp_dict['school_id'] = school_id
+            ttt = class_interface(name=temp_dict['name'], school_id=school_id,
+                                  college_id=temp_dict['college_id'])  # 初始化一个class_interface
+            id = class_model.get_class_by_name(ttt)[0]  # 查找出当class的id
+            temp_dict['id'] = id  # 加入到结果里
+            temp_dict.pop('school_id')
+            temp_dict.pop('college_id')
+            class_data.append(temp_dict)
+        result = makePageResult(Page, len(all_class), class_data)
+    return {'message': '班级如下', "data": result}
 
 
 @users_router.get("/user_add_education")  # 管理员添加用户时选择用户的学校信息(未添加权限认证)
 @page_response
-async def user_add_education(request: Request, school_id: int = None, college_id: int = None, major_id: int = None,
+async def user_add_education(request: Request, school_id: int = None, college_id: int = None, type: int = None,
                              pageNow: int = None, pageSize: int = None, session=Depends(auth_login)):
-    if school_id is None and college_id is None and major_id is None:
+    if school_id is None and college_id is None:
         result = await user_school_view(pageNow, pageSize)
         ans = json.loads(result.body)
         return ans
@@ -785,11 +773,11 @@ async def user_add_education(request: Request, school_id: int = None, college_id
         ans = json.loads(result.body)
         return ans
     if college_id is not None:
-        result = await get_major_by_college_id(college_id, pageNow, pageSize)
-        ans = json.loads(result.body)
-        return ans
-    if major_id is not None:
-        result = await get_class_by_major_id(major_id, pageNow, pageSize)
-        ans = json.loads(result.body)
-        return ans
-
+        if type == 0:
+            result = await get_major_by_college_id(college_id, pageNow, pageSize)
+            ans = json.loads(result.body)
+            return ans
+        elif type == 1:
+            result = await get_class_by_college_id(college_id, pageNow, pageSize)
+            ans = json.loads(result.body)
+            return ans

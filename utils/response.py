@@ -60,10 +60,7 @@ def page_response(func: Callable):
         result = await func(*args, **kwargs)
         response = JSONResponse({
             "message": result['message'],
-            "pageIndex": result['pageIndex'],
-            "pageSize": result['pageSize'],
-            "totalNum": result['totalNum'],
-            "rows": result['rows'],
+            "data": result['data'],
             "timestamp": getMsTime(datetime.now())
         }, status_code=200)
         return response

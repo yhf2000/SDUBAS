@@ -460,9 +460,9 @@ class ClassModel(dbSession):
             session.commit()
             return clas
 
-    def get_class_by_major_id(self, major_id, page):  # 根据major_id查询class的基本信息
+    def get_class_by_college_id(self, college_id, page):  # 根据college_id查询class的基本信息
         with self.get_db() as session:
-            clas = session.query(Class).filter(Class.has_delete == 0, Class.major_id == major_id).order_by(
+            clas = session.query(Class).filter(Class.has_delete == 0, Class.college_id == college_id).order_by(
                 Class.id).offset(
                 page.offset()).limit(page.limit()).all()
             session.commit()
