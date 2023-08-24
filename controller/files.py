@@ -76,7 +76,7 @@ async def file_upload(request: Request, file: UploadFile = File(...)):
                                            name=file.filename, type=file.content_type)
     id = user_file_model.add_user_file(file_information)  # 添加一条user_file的记录
     current_path = request.url.path
-    add_operation(service_type=7, service_id=id, func='上传文件', parameters='用户上传了一个文件',
+    add_operation.delay(service_type=7, service_id=id, func='上传文件', parameters='用户上传了一个文件',
                   oper_user_id=file_information.user_id, url=current_path)  # 添加一个文件上传的操作
     data = dict()
     data['file_size'] = file.size
@@ -126,7 +126,7 @@ async def file_download_files(request: Request, token: str):
         file = file_model.get_file_by_id(user_file.file_id)
         folder = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:] + '/' + user_file.name  # 先找到路径
         current_path = request.url.path
-        add_operation(service_type=7, service_id=old_session['file_id'], func='下载文件', parameters='用户下载了一个文件',
+        add_operation.delay(service_type=7, service_id=old_session['file_id'], func='下载文件', parameters='用户下载了一个文件',
                       oper_user_id=old_session['user_id'], url=current_path)
         return FileResponse(folder, filename=user_file.name)
     raise HTTPException(
@@ -137,12 +137,15 @@ async def file_download_files(request: Request, token: str):
 
 @files_router.get("/preview")  # 文件预览,用户查看所有他可以进行下载的文件
 @page_response
-async def file_preview(pageNow: int, pageSize: int, session=Depends(auth_login)):
+async def file_preview(request:Request,pageNow: int, pageSize: int, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_file = user_file_model.get_user_file_by_admin(Page, session['user_id'])  # 以分页形式返回
     result = None
+    current_path = request.url.path
+    add_operation.delay(service_type=7, service_id=session['user_id'], func='查看文件', parameters='用户查看他能下载的文件',
+                        oper_user_id=session['user_id'], url=current_path)
     if all_file != []:
         file_data = []
         for file in all_file:  # 遍历查询结果

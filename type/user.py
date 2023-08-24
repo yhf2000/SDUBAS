@@ -2,7 +2,7 @@ import hashlib
 import json
 from datetime import datetime, date
 
-from pydantic import BaseModel, ConfigDict, field_serializer
+from pydantic import BaseModel, ConfigDict
 
 from utils.times import getMsTime
 
@@ -45,10 +45,6 @@ class session_interface(BaseModel):
     func_type: int
 
 
-class session_interface_Opt(session_interface):
-    @field_serializer('exp_dt')
-    def serialize_dt(self, dt: datetime, _info):
-        return getMsTime(dt)
 
 
 class school_interface(BaseModel):
@@ -122,12 +118,6 @@ class user_info_interface(BaseModel):
     enrollment_dt: date
     graduation_dt: date
 
-
-class user_info_interface_Opt(user_info_interface):
-    @field_serializer('enrollment_dt')
-    @field_serializer('graduation_dt')
-    def serialize_dt(self, dt: date, _info):
-        return getMsTime(dt)
 
 
 class admin_user_add_interface(user_add_interface, user_info_interface):

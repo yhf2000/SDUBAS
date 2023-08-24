@@ -21,6 +21,7 @@ class UserModel(dbSession):
         obj.registration_dt = obj.registration_dt.strftime(
             "%Y-%m-%d %H:%M:%S")
         obj_dict = jsonable_encoder(obj)
+        obj_dict.pop('type')
         obj_add = User(**obj_dict)
         obj_add.password = encrypted_password(obj_add.password, obj_add.registration_dt)
         with self.get_db() as session:

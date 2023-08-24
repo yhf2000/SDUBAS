@@ -15,7 +15,8 @@ from starlette.responses import Response
 from model.db import session_db, user_information_db
 from service.user import UserModel, SessionModel, UserinfoModel, SchoolModel, CollegeModel, MajorModel, ClassModel, \
     OperationModel, encrypted_password, CaptchaModel
-from type.Celery import send_email
+from Celery.send_email import send_email
+from Celery.add_operation import add_operation
 from type.page import page
 from type.user import user_info_interface, \
     session_interface, email_interface, school_interface, class_interface, college_interface, major_interface, \
@@ -47,12 +48,6 @@ def get_user_id(request: Request):  # 获取user_id
         return session_model.get_user_id_by_token(token)[0]
 
 
-def add_operation(service_type, service_id, func, parameters, oper_user_id,
-                  url):  # 添加一个操作的接口,url可通过current_path = request.url.path获得
-    operation = operation_interface(service_type=service_type, service_id=service_id, func=func,
-                                    parameters=parameters,
-                                    oper_user_id=oper_user_id, url='http://127.0.0.1:8000' + url)
-    operation_model.add_operation(operation)
 
 
 def get_email_token():  # 生成email的验证码
@@ -75,7 +70,7 @@ async def user_add(user_information: admin_user_add_interface, request: Request,
                                     graduation_dt=user_information.graduation_dt)
     user_info_model.add_userinfo(user_info)
     current_path = request.url.path
-    add_operation(0, user_id, '添加用户', '管理员添加一个用户', session['user_id'], current_path)
+    add_operation.delay(0, user_id, '添加用户', '管理员添加一个用户', session['user_id'], current_path)
     return {'message': '添加成功', 'data': True}
 
 
@@ -157,11 +152,11 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
                                           email=captcha_data.email)
             id = user_model.register_user(reg_data)  # 添加一个user
 
-            add_operation(0, id, '用户注册', '用户注册', id, current_path)
+            add_operation.delay(0, id, '用户注册', '用户注册', id, current_path)
         else:
             id = user_model.get_user_id_by_email(captcha_data.email)[0]
         send_email.delay(captcha_data.email, email_token, 0)  # 异步发送邮件
-        add_operation(0, id, '用户注册时发送验证码', '用户注册并向其发送邮件', id, current_path)
+        add_operation.delay(0, id, '用户注册时发送验证码', '用户注册并向其发送邮件', id, current_path)
     elif captcha_data.type == 1:  # 更改邮箱时发邮件
         id = get_user_id(request)
         old_email = user_model.get_user_by_user_id(int(id))  # 新更改邮箱不能与原邮箱相同
@@ -171,11 +166,11 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
                 detail="不能与原邮箱相同！",
             )
         send_email.delay(captcha_data.email, email_token, 1)  # 异步发送邮件
-        add_operation(0, id, '修改绑定邮箱', '用户修改绑定邮箱并向新邮箱发送邮件', id, current_path)
+        add_operation.delay(0, id, '修改绑定邮箱', '用户修改绑定邮箱并向新邮箱发送邮件', id, current_path)
     elif captcha_data.type == 2:  # 找回密码时发邮件
         id = user_model.get_user_id_by_email(captcha_data.email)[0]
         send_email.delay(captcha_data.email, token, 2)  # 异步发送邮件
-        add_operation(0, id, '找回密码', '找回密码时向绑定邮箱发送邮件', id, current_path)
+        add_operation.delay(0, id, '找回密码', '找回密码时向绑定邮箱发送邮件', id, current_path)
     session = session_interface(user_id=int(id), ip=request.client.host,
                                 func_type=1,
                                 token=token, user_agent=user_agent, token_s6=email_token,
@@ -209,12 +204,12 @@ async def user_register(email_data: email_interface, request: Request, token=Dep
             current_path = request.url.path
             if type == 0:
                 user_model.update_user_status(user_session.user_id, 0)
-                add_operation(0, user_session.user_id, '注册成功', '用户注册时输入了正确的邮箱验证码通过验证', user_session.user_id,
+                add_operation.delay(0, user_session.user_id, '注册成功', '用户注册时输入了正确的邮箱验证码通过验证', user_session.user_id,
                               current_path)
                 return {'message': '验证成功', 'data': True, 'token_header': '-1'}
             elif type == 1:
                 user_model.update_user_email(user_session.user_id, email_data.email)
-                add_operation(0, user_session.user_id, '修改邮箱成功', '修改邮箱时输入了正确的邮箱验证码通过验证', user_session.user_id,
+                add_operation.delay(0, user_session.user_id, '修改邮箱成功', '修改邮箱时输入了正确的邮箱验证码通过验证', user_session.user_id,
                               current_path)
                 return {'message': '验证成功', 'data': True, 'token_header': '-1'}
         else:
@@ -255,7 +250,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             user_session = json.dumps(session.model_dump())
             session_db.set(token, user_session, ex=1209600)  # 缓存有效session
             current_path = request.url.path
-            add_operation(0, int(user_information.id), '用户登录', '用户通过输入用户名和密码成功登录', int(user_information.id),
+            add_operation.delay(0, int(user_information.id), '用户登录', '用户通过输入用户名和密码成功登录', int(user_information.id),
                           current_path)
             return {'message': '登陆成功', 'token': token, 'data': True}
         else:
@@ -272,7 +267,7 @@ async def user_logout(request: Request, session=Depends(auth_login)):
     mes = session_model.delete_session_by_token(token)  # 将session标记为已失效
     session_db.delete(token)  # 在缓存中删除
     current_path = request.url.path
-    add_operation(0, session['user_id'], '用户退出登录', '用户退出了登录', session['user_id'], current_path)
+    add_operation.delay(0, session['user_id'], '用户退出登录', '用户退出了登录', session['user_id'], current_path)
     return {'message': '下线成功', 'data': {'result': mes}, 'token': '-1'}
 
 
@@ -288,7 +283,7 @@ async def user_bind_information(request: Request, user_data: user_info_interface
     if user_information is not None:
         user_information_db.delete(session["token"])
     current_path = request.url.path
-    add_operation(0, session['user_id'], '用户绑定个人信息', '用户通过输入学号，真实姓名，性别，专业，班级，入学时间与毕业时间进行绑定',
+    add_operation.delay(0, session['user_id'], '用户绑定个人信息', '用户通过输入学号，真实姓名，性别，专业，班级，入学时间与毕业时间进行绑定',
                   session['user_id'], current_path)  # 添加一个绑定个人信息的操作
     return {'message': '绑定成功', 'data': True}
 
@@ -301,7 +296,7 @@ async def user_username_update(request: Request, log_data: login_interface, sess
     user_id = session['user_id']
     user_model.update_user_username(user_id, log_data.username)  # 更新username
     current_path = request.url.path
-    add_operation(0, user_id, '用户修改用户名', '用户通过输入新用户名进行修改',
+    add_operation.delay(0, user_id, '用户修改用户名', '用户通过输入新用户名进行修改',
                   user_id, current_path)  # 添加一个修改用户名的操作
     user_information = json.loads(user_information_db.get(session["token"]))
     user_information['username'] = log_data.username
@@ -328,7 +323,7 @@ async def user_password_update(request: Request, password: password_interface, s
         )
     id = user_model.update_user_password(user_id, new_password)  # 更新新密码
     current_path = request.url.path
-    add_operation(0, id, '用户更改密码', '用户通过输入原密码，新密码进行更改密码', id, current_path)  # 更改密码
+    add_operation.delay(0, id, '用户更改密码', '用户通过输入原密码，新密码进行更改密码', id, current_path)  # 更改密码
     return {'data': {'user_id': id}, 'message': '修改成功'}
 
 
@@ -384,7 +379,7 @@ async def user_set_password(request: Request, new_password: str, token: str):
 
     user_model.update_user_password(user_id, new_password)  # 设置密码
     current_path = request.url.path
-    add_operation(0, user_id, '用户重设密码', '用户通过输入新密码进行重设密码', user_id, current_path)  # 重设密码
+    add_operation.delay(0, user_id, '用户重设密码', '用户通过输入新密码进行重设密码', user_id, current_path)  # 重设密码
     return {'data': True, 'message': '修改成功'}
 
 
@@ -447,7 +442,7 @@ async def user_school_add(request: Request, session=Depends(auth_login), school_
     # 如果有权限
     id = school_model.add_school(school_data)
     current_path = request.url.path
-    add_operation(1, id, '添加学校', '管理员通过输入学校名称和学校简称添加一个学校', session['user_id'], current_path)  # 添加一个学校
+    add_operation.delay(1, id, '添加学校', '管理员通过输入学校名称和学校简称添加一个学校', session['user_id'], current_path)  # 添加一个学校
     return {'message': '建立成功', 'data': True}
 
 
@@ -478,7 +473,7 @@ async def user_school_delete(request: Request, session=Depends(auth_login), scho
     # 如果有权限
     id = school_model.delete_school(school_id)  # 在school表中将这个学校has_delete设为1
     current_path = request.url.path
-    add_operation(1, id, '删除学校', '管理员通过选择学校来删除一个学校', session['user_id'], current_path)  # 删除一个学校
+    add_operation.delay(1, id, '删除学校', '管理员通过选择学校来删除一个学校', session['user_id'], current_path)  # 删除一个学校
     return {'message': '删除成功', 'data': {'school_id': id}}
 
 
@@ -491,10 +486,10 @@ async def user_school_update(request: Request, session=Depends(auth_login), scho
     current_path = request.url.path
     if school_data.name is not None:
         school_model.update_school_name(school_id, school_data.name)
-        add_operation(1, school_id, '修改学校名字', '管理员通过选择学校来修改学校名字', session['user_id'], current_path)  # 修改学校名字
+        add_operation.delay(1, school_id, '修改学校名字', '管理员通过选择学校来修改学校名字', session['user_id'], current_path)  # 修改学校名字
     if school_data.school_abbreviation is not None:
         school_model.update_school_abbreviation(school_id, school_data.school_abbreviation)
-        add_operation(1, school_id, '修改学校昵称', '管理员通过选择学校来修改学校昵称', session['user_id'], current_path)  # 修改学校昵称
+        add_operation.delay(1, school_id, '修改学校昵称', '管理员通过选择学校来修改学校昵称', session['user_id'], current_path)  # 修改学校昵称
     return {'message': '修改成功', 'data': {'school_id': school_id}}
 
 
@@ -505,7 +500,7 @@ async def user_college_add(request: Request, session=Depends(user_login), colleg
     # 如果有权限
     id = college_model.add_college(college_data)
     current_path = request.url.path
-    add_operation(2, id, '添加学院', '管理员通过选择学校和输入学院名称添加一个学院', session['user_id'], current_path)  # 添加一个学院
+    add_operation.delay(2, id, '添加学院', '管理员通过选择学校和输入学院名称添加一个学院', session['user_id'], current_path)  # 添加一个学院
     return {'message': '建立成功', 'data': True}
 
 
@@ -517,7 +512,7 @@ async def user_college_delete(request: Request, session=Depends(user_login),
     # 如果有权限
     id = college_model.delete_college(college_id)
     current_path = request.url.path
-    add_operation(2, id, '删除学院', '管理员通过选择学院删除一个学院', session['user_id'], current_path)  # 删除一个学院
+    add_operation.delay(2, id, '删除学院', '管理员通过选择学院删除一个学院', session['user_id'], current_path)  # 删除一个学院
     return {'message': '删除成功', 'data': {'college_id': id}}
 
 
@@ -576,7 +571,7 @@ async def user_college_update(request: Request, session=Depends(user_login), col
     # 如果有权限
     college_model.update_college_school_id_name(college_id, college_data.school_id, college_data.name)
     current_path = request.url.path
-    add_operation(2, college_id, '修改学院信息', '管理员通过选择学院修改学院信息', session['user_id'], current_path)  # 删除一个学院
+    add_operation.delay(2, college_id, '修改学院信息', '管理员通过选择学院修改学院信息', session['user_id'], current_path)  # 删除一个学院
     return {'message': '修改成功', 'data': {'college_id': college_id}}
 
 
@@ -587,7 +582,7 @@ async def user_major_add(request: Request, session=Depends(user_login), major_da
     # 如果有权限
     id = major_model.add_major(major_data)
     current_path = request.url.path
-    add_operation(3, id, '添加专业', '管理员通过选择学校和学院并输入专业名称添加一个专业', session['user_id'], current_path)  # 添加一个专业
+    add_operation.delay(3, id, '添加专业', '管理员通过选择学校和学院并输入专业名称添加一个专业', session['user_id'], current_path)  # 添加一个专业
     return {'message': '建立成功', 'data': True}
 
 
@@ -598,7 +593,7 @@ async def user_major_delete(request: Request, session=Depends(user_login), major
     # 如果有权限
     id = major_model.delete_major(major_id)
     current_path = request.url.path
-    add_operation(3, id, '删除专业', '管理员通过选择专业删除一个专业', session['user_id'], current_path)  # 删除一个专业
+    add_operation.delay(3, id, '删除专业', '管理员通过选择专业删除一个专业', session['user_id'], current_path)  # 删除一个专业
     return {'message': '删除成功', 'data': {'major_id': id}}
 
 
@@ -610,7 +605,7 @@ async def user_major_update(request: Request, session=Depends(user_login), major
     # 如果有权限
     id = major_model.update_major_college_id_name(major_id, major_data.college_id, major_data.name)
     current_path = request.url.path
-    add_operation(3, id, '修改专业信息', '管理员通过选择专业修改一个专业的信息', session['user_id'], current_path)  # 删除一个专业
+    add_operation.delay(3, id, '修改专业信息', '管理员通过选择专业修改一个专业的信息', session['user_id'], current_path)  # 删除一个专业
     return {'message': '修改成功', 'data': {'major_id': id}}
 
 
@@ -677,7 +672,7 @@ async def user_class_add(request: Request, session=Depends(user_login), class_da
     # 如果有权限
     id = class_model.add_class(class_data)
     current_path = request.url.path
-    add_operation(4, id, '添加班级', '管理员通过选择学校和学院并输入班级名称添加一个班级', session['user_id'], current_path)  # 添加一个班级
+    add_operation.delay(4, id, '添加班级', '管理员通过选择学校和学院并输入班级名称添加一个班级', session['user_id'], current_path)  # 添加一个班级
     return {'message': '建立成功', 'data': True}
 
 
@@ -688,7 +683,7 @@ async def user_class_delete(request: Request, session=Depends(user_login), class
     # 如果有权限
     id = class_model.delete_class(class_id)
     current_path = request.url.path
-    add_operation(4, id, '删除班级', '管理员通过选择班级删除一个班级', session['user_id'], current_path)  # 删除一个班级
+    add_operation.delay(4, id, '删除班级', '管理员通过选择班级删除一个班级', session['user_id'], current_path)  # 删除一个班级
     return {'message': '删除成功', 'data': {'class_id': id}}
 
 
@@ -700,7 +695,7 @@ async def user_class_update(request: Request, session=Depends(user_login), class
     # 如果有权限
     id = class_model.update_major_college_id_name(class_id, class_data.college_id, class_data.name)
     current_path = request.url.path
-    add_operation(4, id, '修改班级信息', '管理员通过选择班级修改一个班级的信息', session['user_id'], current_path)  # 修改班级信息
+    add_operation.delay(4, id, '修改班级信息', '管理员通过选择班级修改一个班级的信息', session['user_id'], current_path)  # 修改班级信息
     return {'message': '修改成功', 'data': {'class_id': id}}
 
 
