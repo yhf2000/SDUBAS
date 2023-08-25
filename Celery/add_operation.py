@@ -1,10 +1,4 @@
 from celery import Celery
-import email.utils
-import hashlib
-import random
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from service.user import OperationModel
 from type.user import operation_interface
 broker = 'redis://127.0.0.1:6379/5'

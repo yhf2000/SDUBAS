@@ -24,9 +24,11 @@ class FileModel(dbSession):
 
     def get_file_by_hash(self, obj: file_interface):  # 根据size与hash查询file的id
         with self.get_db() as session:
-            id = session.query(File.id).filter(File.has_delete == 0, File.size == obj.size,
-                                               File.hash_md5 == obj.hash_md5,
-                                               File.hash_sha256 == obj.hash_sha256).first()
+            id = session.query(File.id, File.is_save).filter(
+                File.has_delete == 0,
+                File.size == obj.size,
+                File.hash_md5 == obj.hash_md5,
+                File.hash_sha256 == obj.hash_sha256).first()
             session.commit()
             return id
 

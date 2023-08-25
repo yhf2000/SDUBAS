@@ -31,9 +31,12 @@ user_model = UserModel()
 async def file_upload_valid(request: Request, file: file_interface, user_agent: str = Header(None),
                             session=Depends(auth_login)):
     id = file_model.get_file_by_hash(file)  # 查询文件是否存在
-    if id is None:  # 没有该file
+    if id is None or id[1] is False:  # 没有该file
         user_id = session['user_id']  # 得到user_id
-        file_id = file_model.add_file(file)  # 新建一个file
+        if id is None:
+            file_id = file_model.add_file(file)  # 新建一个file
+        else:
+            file_id = id[0]
         new_token = str(uuid.uuid4().hex)  # 生成token
         new_session = session_interface(user_id=user_id, file_id=file_id, token=new_token, ip=request.client.host,
                                         func_type=3, user_agent=user_agent, use_limit=1, exp_dt=(
@@ -43,10 +46,9 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
             "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
         user_session = json.dumps(new_session.model_dump())
         session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
-
-        return {'message': '文件不存在', 'data': True, 'token_header': new_token}
+        return {'message': '文件不存在', 'data': {'file_id': None}, 'token_header': new_token}
     else:  # 有该file
-        return {'message': '文件存在', 'data': {'file_id': id[0]}}
+        return {'message': '文件存在', 'data': {'file_id': id[1]}}
 
 
 @files_router.post("/upload")  # 上传文件
