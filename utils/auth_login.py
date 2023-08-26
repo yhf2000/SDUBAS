@@ -6,7 +6,7 @@ from model.db import session_db
 from service.user import UserModel, SchoolModel, CollegeModel, MajorModel, ClassModel
 from type.user import register_interface, school_interface, \
     college_interface, major_interface, class_interface, login_interface
-
+from utils.response import user_standard_response
 
 def auth_login(request: Request):  # 用来判断用户是否登录
     token = request.cookies.get("SESSION")
@@ -28,7 +28,7 @@ def auth_login(request: Request):  # 用来判断用户是否登录
 def auth_not_login(request: Request):  # 用来判断用户是否登录
     token = request.cookies.get("SESSION")
     if token is None:
-            return token
+        return token
     user = session_db.get(token)  # 有效session中有
     if user is not None and json.loads(user)['func_type'] == 0:
         raise HTTPException(
@@ -53,64 +53,6 @@ def auth_not_login(request: Request):  # 用来判断用户是否登录
     return token  # 没登陆且账号状态无异常就返回用户的token
 
 
-
-def auth_school_exist(school_data: school_interface):  # 判断school是否存在
-    db = SchoolModel()
-    if school_data.name is not None:
-        exist_school_name = db.get_school_by_name(school_data.name)
-        if exist_school_name is not None:
-            raise HTTPException(
-                status_code=404,
-                detail="已有该学校名"
-            )
-    if school_data.school_abbreviation is not None:
-        exist_school_abbreviation = db.get_school_by_abbreviation(school_data.school_abbreviation)
-        if exist_school_abbreviation is not None:
-            raise HTTPException(
-                status_code=404,
-                detail="已有该学校简称"
-            )
-    return school_data
-
-
-def auth_school_not_exist(school_id: int):  # 判断school是否存在
-    db = SchoolModel()
-    exist_school = db.get_school_by_id(school_id)
-    if exist_school is None:
-        raise HTTPException(
-            status_code=404,
-            detail="没有该学校"
-        )
-    return school_id
-
-
-def auth_college_exist(college_data: college_interface):  # 判断college是否存在
-    db = CollegeModel()
-    db1 = SchoolModel()
-    school = db1.get_school_by_id(college_data.school_id)
-    if school is None:
-        raise HTTPException(
-            status_code=404,
-            detail="没有该学校"
-        )
-    college = db.get_college_by_name(college_data)
-    if college is not None:
-        raise HTTPException(
-            status_code=404,
-            detail="该校已有该专业"
-        )
-    return college_data
-
-
-def auth_college_not_exist(college_id: int):  # 判断college是否存在
-    db = CollegeModel()
-    exist_college = db.get_college_by_id(college_id)
-    if exist_college is None:
-        raise HTTPException(
-            status_code=404,
-            detail="没有该专业"
-        )
-    return college_id
 
 
 def auth_major_exist(major_data: major_interface):  # 判断major是否存在
@@ -137,16 +79,6 @@ def auth_major_exist(major_data: major_interface):  # 判断major是否存在
         )
     return major_data
 
-
-def auth_major_not_exist(major_id: int):  # 判断major是否存在
-    db = MajorModel()
-    exist_major = db.get_major_by_id(major_id)
-    if exist_major is None:
-        raise HTTPException(
-            status_code=404,
-            detail="没有该专业"
-        )
-    return major_id
 
 
 def auth_class_exist(class_data: class_interface):  # 判断class是否存在

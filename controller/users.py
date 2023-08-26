@@ -10,20 +10,18 @@ from io import BytesIO
 from captcha.image import ImageCaptcha
 from fastapi import APIRouter
 from fastapi import Request, Header, HTTPException, Depends
-from starlette.responses import Response
 
+from Celery.add_operation import add_operation
+from Celery.send_email import send_email
 from model.db import session_db, user_information_db
 from service.user import UserModel, SessionModel, UserinfoModel, SchoolModel, CollegeModel, MajorModel, ClassModel, \
     OperationModel, encrypted_password, CaptchaModel
-from Celery.send_email import send_email
-from Celery.add_operation import add_operation
 from type.page import page
 from type.user import user_info_interface, \
     session_interface, email_interface, school_interface, class_interface, college_interface, major_interface, \
-    password_interface, operation_interface, user_add_interface, admin_user_add_interface, login_interface, \
+    password_interface, user_add_interface, admin_user_add_interface, login_interface, \
     register_interface, captcha_interface
-from utils.auth_login import auth_login, auth_not_login, auth_school_exist, auth_college_exist, \
-    auth_school_not_exist, auth_college_not_exist, auth_major_exist, auth_major_not_exist, auth_class_exist, \
+from utils.auth_login import auth_login, auth_not_login, auth_major_exist, auth_class_exist, \
     auth_class_not_exist
 from utils.response import user_standard_response, page_response, status_response, makePageResult
 
@@ -48,13 +46,31 @@ def get_user_id(request: Request):  # 获取user_id
         return session_model.get_user_id_by_token(token)[0]
 
 
-
-
 def get_email_token():  # 生成email的验证码
     email_token = ''
     for i in range(6):
         email_token += str(random.randint(0, 9))  # 生成六位随机验证码
     return email_token
+
+
+def verify_education_by_id(school_id: int = None, college_id: int = None, major_id: int = None, class_id: int = None):
+    if school_id is not None:
+        exist_school = school_model.get_school_exist_by_id(school_id)
+        if exist_school is None:
+            return 1
+    if college_id is not None:
+        exist_college = college_model.get_college_exist_by_id(college_id)
+        if exist_college is None:
+            return 1
+    if major_id is not None:
+        exist_major = major_model.get_major_exist_by_id(major_id)
+        if exist_major is None:
+            return 1
+    if class_id is not None:
+        exist_class = class_model.get_class_exist_by_id(class_id)
+        if exist_class is None:
+            return 1
+    return 0
 
 
 @users_router.post("/user_add")  # 管理员添加一个用户(未添加权限认证)
@@ -70,7 +86,14 @@ async def user_add(user_information: admin_user_add_interface, request: Request,
                                     graduation_dt=user_information.graduation_dt)
     user_info_model.add_userinfo(user_info)
     current_path = request.url.path
-    add_operation.delay(0, user_id, '添加用户', '管理员添加一个用户', session['user_id'], current_path)
+    user_information = user_information.model_dump()
+    user_information.pop('user_id')
+    user_information.pop('type')
+    user_information['enrollment_dt'] = user_information['enrollment_dt'].strftime(
+        "%Y-%m-%d")  # 将datetime转化为字符串以便转为json
+    user_information['graduation_dt'] = user_information['graduation_dt'].strftime("%Y-%m-%d")
+    user_information['registration_dt'] = user_information['registration_dt'].strftime("%Y-%m-%d %H:%M:%S")
+    add_operation.delay(0, None, '管理员添加一个用户', current_path, '', user_information, session['user_id'])
     return {'message': '添加成功', 'data': True}
 
 
@@ -145,32 +168,38 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
     token = str(uuid.uuid4().hex)  # 生成token
     email_token = get_email_token()
     current_path = request.url.path
+    '''
     if captcha_data.type == 0:  # 用户注册时发邮件
         exist_username = user_model.get_user_status_by_username(captcha_data.username)
         if exist_username is None:
             reg_data = register_interface(username=captcha_data.username, password=captcha_data.password,
                                           email=captcha_data.email)
             id = user_model.register_user(reg_data)  # 添加一个user
-
-            add_operation.delay(0, id, '用户注册', '用户注册', id, current_path)
+            add_operation.delay(0, id, '用户注册',  current_path, '', reg_data.__dict__, id)
         else:
             id = user_model.get_user_id_by_email(captcha_data.email)[0]
         send_email.delay(captcha_data.email, email_token, 0)  # 异步发送邮件
         add_operation.delay(0, id, '用户注册时发送验证码', '用户注册并向其发送邮件', id, current_path)
-    elif captcha_data.type == 1:  # 更改邮箱时发邮件
+        '''
+
+    captcha_data = captcha_data.model_dump()
+    captcha_data.pop('username')
+    captcha_data.pop('password')
+    captcha_data['registration_dt'] = captcha_data['registration_dt'].strftime("%Y-%m-%d %H:%M:%S")
+    if captcha_data['type'] == 1:  # 更改邮箱时发邮件
         id = get_user_id(request)
         old_email = user_model.get_user_by_user_id(int(id))  # 新更改邮箱不能与原邮箱相同
-        if old_email.email == captcha_data.email:
+        if old_email.email == captcha_data['email']:
             raise HTTPException(
                 status_code=409,
                 detail="不能与原邮箱相同！",
             )
-        send_email.delay(captcha_data.email, email_token, 1)  # 异步发送邮件
-        add_operation.delay(0, id, '修改绑定邮箱', '用户修改绑定邮箱并向新邮箱发送邮件', id, current_path)
-    elif captcha_data.type == 2:  # 找回密码时发邮件
-        id = user_model.get_user_id_by_email(captcha_data.email)[0]
-        send_email.delay(captcha_data.email, token, 2)  # 异步发送邮件
-        add_operation.delay(0, id, '找回密码', '找回密码时向绑定邮箱发送邮件', id, current_path)
+        send_email.delay(captcha_data['email'], email_token, 1)  # 异步发送邮件
+        add_operation.delay(0, id, '用户修改绑定邮箱并向新邮箱发送邮件', current_path, '', captcha_data, id)
+    elif captcha_data['type'] == 2:  # 找回密码时发邮件
+        id = user_model.get_user_id_by_email(captcha_data['email'])[0]
+        send_email.delay(captcha_data['email'], token, 2)  # 异步发送邮件
+        add_operation.delay(0, id, '找回密码时向绑定邮箱发送邮件', current_path, '', captcha_data, id)
     session = session_interface(user_id=int(id), ip=request.client.host,
                                 func_type=1,
                                 token=token, user_agent=user_agent, token_s6=email_token,
@@ -184,7 +213,7 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
     return {'data': True, 'token_header': token, 'message': '验证码已发送，请前往验证！'}
 
 
-@users_router.post("/register")  # 用户自己注册
+# @users_router.post("/register")  # 用户自己注册
 @user_standard_response
 async def user_register(email_data: email_interface, request: Request, token=Depends(auth_not_login), type: int = 0):
     token = request.cookies.get("TOKEN")
@@ -202,15 +231,21 @@ async def user_register(email_data: email_interface, request: Request, token=Dep
             session_model.delete_session(user_session.id)  # 把这个session设为无效
             session_db.delete(token)
             current_path = request.url.path
+            '''
             if type == 0:
                 user_model.update_user_status(user_session.user_id, 0)
                 add_operation.delay(0, user_session.user_id, '注册成功', '用户注册时输入了正确的邮箱验证码通过验证', user_session.user_id,
-                              current_path)
+                                    current_path)
                 return {'message': '验证成功', 'data': True, 'token_header': '-1'}
-            elif type == 1:
+            '''
+            if type == 1:
                 user_model.update_user_email(user_session.user_id, email_data.email)
-                add_operation.delay(0, user_session.user_id, '修改邮箱成功', '修改邮箱时输入了正确的邮箱验证码通过验证', user_session.user_id,
-                              current_path)
+                email_data = email_data.model_dump()
+                email_data.pop('username')
+                email_data.pop('password')
+                email_data.pop('card_id')
+                add_operation.delay(0, user_session.user_id, '修改邮箱时输入了正确的邮箱验证码通过验证', current_path, '', email_data,
+                                    user_session.user_id)
                 return {'message': '验证成功', 'data': True, 'token_header': '-1'}
         else:
             raise HTTPException(
@@ -223,6 +258,25 @@ async def user_register(email_data: email_interface, request: Request, token=Dep
             status_code=401,
             detail="验证码已过期，请重新发送"
         )
+
+
+'''
+@users_router.post("/user_bind_information")  # 自己注册的用户绑定个人信息
+@user_standard_response
+async def user_bind_information(request: Request, user_data: user_info_interface, session=Depends(auth_login)):
+    card_data = user_add_interface(card_id=user_data.card_id, type=1)
+    await user_unique_verify(card_data)
+    user_model.update_user_card_id(session['user_id'], user_data.card_id)  # 更新用户的card_id
+    user_data.user_id = session['user_id']
+    id = user_info_model.add_userinfo(user_data)  # 在user_info表里添加
+    user_information = user_information_db.get(session["token"])
+    if user_information is not None:
+        user_information_db.delete(session["token"])
+    current_path = request.url.path
+    add_operation.delay(0, session['user_id'], '用户绑定个人信息', '用户通过输入学号，真实姓名，性别，专业，班级，入学时间与毕业时间进行绑定',
+                        session['user_id'], current_path)  # 添加一个绑定个人信息的操作
+    return {'message': '绑定成功', 'data': True}
+'''
 
 
 @users_router.post("/login")  # 登录
@@ -250,8 +304,8 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             user_session = json.dumps(session.model_dump())
             session_db.set(token, user_session, ex=1209600)  # 缓存有效session
             current_path = request.url.path
-            add_operation.delay(0, int(user_information.id), '用户登录', '用户通过输入用户名和密码成功登录', int(user_information.id),
-                          current_path)
+            add_operation.delay(0, int(user_information.id), '用户登录', current_path, '', log_data.model_dump(),
+                                int(user_information.id))
             return {'message': '登陆成功', 'token': token, 'data': True}
         else:
             raise HTTPException(
@@ -267,25 +321,8 @@ async def user_logout(request: Request, session=Depends(auth_login)):
     mes = session_model.delete_session_by_token(token)  # 将session标记为已失效
     session_db.delete(token)  # 在缓存中删除
     current_path = request.url.path
-    add_operation.delay(0, session['user_id'], '用户退出登录', '用户退出了登录', session['user_id'], current_path)
+    add_operation.delay(0, session['user_id'], '用户退出登录', current_path, '', '', session['user_id'])
     return {'message': '下线成功', 'data': {'result': mes}, 'token': '-1'}
-
-
-@users_router.post("/user_bind_information")  # 自己注册的用户绑定个人信息
-@user_standard_response
-async def user_bind_information(request: Request, user_data: user_info_interface, session=Depends(auth_login)):
-    card_data = user_add_interface(card_id=user_data.card_id, type=1)
-    await user_unique_verify(card_data)
-    user_model.update_user_card_id(session['user_id'], user_data.card_id)  # 更新用户的card_id
-    user_data.user_id = session['user_id']
-    id = user_info_model.add_userinfo(user_data)  # 在user_info表里添加
-    user_information = user_information_db.get(session["token"])
-    if user_information is not None:
-        user_information_db.delete(session["token"])
-    current_path = request.url.path
-    add_operation.delay(0, session['user_id'], '用户绑定个人信息', '用户通过输入学号，真实姓名，性别，专业，班级，入学时间与毕业时间进行绑定',
-                  session['user_id'], current_path)  # 添加一个绑定个人信息的操作
-    return {'message': '绑定成功', 'data': True}
 
 
 @users_router.put("/username_update")  # 修改用户名
@@ -296,11 +333,14 @@ async def user_username_update(request: Request, log_data: login_interface, sess
     user_id = session['user_id']
     user_model.update_user_username(user_id, log_data.username)  # 更新username
     current_path = request.url.path
-    add_operation.delay(0, user_id, '用户修改用户名', '用户通过输入新用户名进行修改',
-                  user_id, current_path)  # 添加一个修改用户名的操作
-    user_information = json.loads(user_information_db.get(session["token"]))
-    user_information['username'] = log_data.username
-    user_information_db.set(session["token"], json.dumps(user_information), ex=1209600)  # 缓存有效session
+    log_data = log_data.model_dump()
+    log_data.pop('password')
+    add_operation.delay(0, user_id, '用户通过输入新用户名进行修改', current_path, '', log_data, user_id)  # 添加一个修改用户名的操作
+    user_information = user_information_db.get(session["token"])
+    if user_information is not None:
+        user_information = json.loads(user_information)
+        user_information['username'] = log_data['username']
+        user_information_db.set(session["token"], json.dumps(user_information), ex=1209600)  # 缓存有效session
     return {'message': '修改成功', 'data': {'user_id': user_id}}
 
 
@@ -323,7 +363,10 @@ async def user_password_update(request: Request, password: password_interface, s
         )
     id = user_model.update_user_password(user_id, new_password)  # 更新新密码
     current_path = request.url.path
-    add_operation.delay(0, id, '用户更改密码', '用户通过输入原密码，新密码进行更改密码', id, current_path)  # 更改密码
+    password = password.model_dump()
+    password['new_password'] = new_password
+    password['old_password'] = user.password
+    add_operation.delay(0, id, '用户通过输入原密码，新密码进行更改密码', current_path, '', password, id)  # 更改密码
     return {'data': {'user_id': id}, 'message': '修改成功'}
 
 
@@ -333,9 +376,11 @@ async def user_email_update(email_data: email_interface, request: Request, sessi
     token = request.cookies.get("TOKEN")
     result = await user_register(email_data, request, token, 1)  # 验证验证码是否输入正确
     ans = json.loads(result.body)
-    user_information = json.loads(user_information_db.get(session["token"]))
-    user_information['email'] = email_data.email
-    user_information_db.set(session["token"], json.dumps(user_information), ex=1209600)  # 缓存有效session
+    user_information = user_information_db.get(session["token"])
+    if user_information is not None:
+        user_information = json.loads(user_information)
+        user_information['email'] = email_data.email
+        user_information_db.set(session["token"], json.dumps(user_information), ex=1209600)  # 缓存有效session
     return {'data': True, 'message': ans['message']}
 
 
@@ -376,10 +421,10 @@ async def user_set_password(request: Request, new_password: str, token: str):
             status_code=400,
             detail="新密码不能与原密码相同"
         )
-
     user_model.update_user_password(user_id, new_password)  # 设置密码
     current_path = request.url.path
-    add_operation.delay(0, user_id, '用户重设密码', '用户通过输入新密码进行重设密码', user_id, current_path)  # 重设密码
+    add_operation.delay(0, user_id, '用户通过输入新密码进行重设密码', current_path, '', {'new_password': new_password},
+                        user_id)  # 重设密码
     return {'data': True, 'message': '修改成功'}
 
 
@@ -437,13 +482,25 @@ async def user_get_error(user_id: int):
 
 @users_router.post("/school_add")  # 管理员添加学校(未添加权限认证)
 @user_standard_response
-async def user_school_add(request: Request, session=Depends(auth_login), school_data=Depends(auth_school_exist)):
+async def user_school_add(request: Request, school_data: school_interface, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
-    id = school_model.add_school(school_data)
     current_path = request.url.path
-    add_operation.delay(1, id, '添加学校', '管理员通过输入学校名称和学校简称添加一个学校', session['user_id'], current_path)  # 添加一个学校
-    return {'message': '建立成功', 'data': True}
+    exist_school_name = school_model.get_school_status_by_name(school_data.name)
+    str = ''
+    if exist_school_name is not None:
+        if exist_school_name[0] == 0:
+            return {'message': '学校名已存在', 'code': 1, 'data': False}
+        else:
+            school_model.update_school_status_by_id(exist_school_name[1])
+            str = '管理员恢复一个曾删除的学校'
+    else:
+        id = school_model.add_school(school_data)
+        str = '管理员通过输入学校名称和学校简称添加一个学校'
+    school_data = school_data.model_dump()
+    add_operation.delay(1, None, str, current_path, '', school_data,
+                        session['user_id'])  # 添加一个学校
+    return {'message': '添加成功', 'code': 0, 'data': True}
 
 
 @users_router.get("/school_view")  # 查看管理员所能操作的所有学校(未添加权限认证)
@@ -459,93 +516,91 @@ async def user_school_view(pageNow: int, pageSize: int):
         for school in all_school:
             temp = school_interface()
             temp_dict = temp.model_validate(school).model_dump()
-            id = school_model.get_school_by_name(temp_dict['name']).id
+            id = school_model.get_school_id_by_name(temp_dict['name'])[0]
             temp_dict['id'] = id
             school_data.append(temp_dict)
         result = makePageResult(Page, len(all_school), school_data)
-    return {'message': '学校如下', "data": result}
+    return {'message': '学校如下', "data": result, "code": 0}
 
 
 @users_router.delete("/school_delete/{school_id}")  # 管理员删除学校(未添加权限认证)
 @user_standard_response
-async def user_school_delete(request: Request, session=Depends(auth_login), school_id=Depends(auth_school_not_exist)):
+async def user_school_delete(request: Request, school_id: int, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
+    code = verify_education_by_id(school_id=school_id)
+    if code == 1:
+        return {'message': '学校不存在', 'data': False, 'code': code}
     id = school_model.delete_school(school_id)  # 在school表中将这个学校has_delete设为1
     current_path = request.url.path
-    add_operation.delay(1, id, '删除学校', '管理员通过选择学校来删除一个学校', session['user_id'], current_path)  # 删除一个学校
-    return {'message': '删除成功', 'data': {'school_id': id}}
+    add_operation.delay(1, None, '管理员通过选择学校来删除一个学校', current_path, '', {'school_id': school_id},
+                        session['user_id'])  # 删除一个学校
+    return {'message': '删除成功', 'data': {'school_id': id}, 'code': 0}
 
 
 @users_router.put("/school_update/{school_id}")  # 管理员修改学校信息(未添加权限认证)
 @user_standard_response
-async def user_school_update(request: Request, session=Depends(auth_login), school_id=Depends(auth_school_not_exist),
-                             school_data=Depends(auth_school_exist)):
+async def user_school_update(request: Request, school_id: int, school_data: school_interface,
+                             session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
+    code = verify_education_by_id(school_id=school_id)
+    if code == 1:
+        return {'message': '学校不存在', 'data': False, 'code': 1}
+    exist_school = school_model.get_school_id_by_name(school_data.name)
+    if exist_school is not None and exist_school[0] != school_id:
+        return {'message': '学校名字已存在', 'data': False, 'code': 2}
     current_path = request.url.path
-    if school_data.name is not None:
-        school_model.update_school_name(school_id, school_data.name)
-        add_operation.delay(1, school_id, '修改学校名字', '管理员通过选择学校来修改学校名字', session['user_id'], current_path)  # 修改学校名字
-    if school_data.school_abbreviation is not None:
-        school_model.update_school_abbreviation(school_id, school_data.school_abbreviation)
-        add_operation.delay(1, school_id, '修改学校昵称', '管理员通过选择学校来修改学校昵称', session['user_id'], current_path)  # 修改学校昵称
-    return {'message': '修改成功', 'data': {'school_id': school_id}}
+    school_model.update_school_information(school_id, school_data.name, school_data.school_abbreviation)
+    school_data = school_data.model_dump()
+    school_data['school_id'] = school_id
+    add_operation.delay(1, school_id, '管理员通过选择学校来修改学校信息', current_path, '', school_data, session['user_id'])  # 修改学校名字
+    return {'message': '修改成功', 'data': {'school_id': school_id}, 'code': 0}
 
 
 @users_router.post("/college_add")  # 管理员添加学院(未添加权限认证)
 @user_standard_response
-async def user_college_add(request: Request, session=Depends(user_login), college_data=Depends(auth_college_exist)):
+async def user_college_add(request: Request, college_data: college_interface, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
-    id = college_model.add_college(college_data)
+    code = verify_education_by_id(school_id=college_data.school_id)
+    if code == 1:
+        return {'message': '学校不存在', 'data': False, 'code': 1}
+    college = college_model.get_college_status_by_name(college_data)
     current_path = request.url.path
-    add_operation.delay(2, id, '添加学院', '管理员通过选择学校和输入学院名称添加一个学院', session['user_id'], current_path)  # 添加一个学院
-    return {'message': '建立成功', 'data': True}
+    str = ''
+    if college is not None:
+        if college[0] == 0:
+            return {'message': '该校已有该学院', 'data': False, 'code': 2}
+        else:
+            college_model.update_college_status_by_id(college[1])
+            str = '管理员恢复一个曾删除的学院'
+    else:
+        id = college_model.add_college(college_data)
+        str = '管理员通过选择学校和输入学院名称添加一个学院'
+    college_data = college_data.model_dump()
+    add_operation.delay(2, None, str, current_path, '', college_data, session['user_id'])
+    return {'message': '添加成功', 'data': True, 'code': 0}
 
 
 @users_router.delete("/college_delete/{college_id}")  # 管理员删除学院(未添加权限认证)
 @user_standard_response
-async def user_college_delete(request: Request, session=Depends(user_login),
-                              college_id=Depends(auth_college_not_exist)):
+async def user_college_delete(request: Request, college_id: int, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
+    code = verify_education_by_id(college_id=college_id)
+    if code == 1:
+        return {'message': '学院不存在', 'data': False, 'code': code}
     id = college_model.delete_college(college_id)
     current_path = request.url.path
-    add_operation.delay(2, id, '删除学院', '管理员通过选择学院删除一个学院', session['user_id'], current_path)  # 删除一个学院
-    return {'message': '删除成功', 'data': {'college_id': id}}
+    add_operation.delay(2, None, '管理员通过选择学院删除一个学院', current_path, '', {'college_id': college_id},
+                        session['user_id'])  # 删除一个学院
+    return {'message': '删除成功', 'data': {'college_id': id}, 'code': 0}
 
 
 @users_router.get("/college_view")  # 查看管理员所能操作的所有学院(未添加权限认证)
 @page_response
-async def user_college_view(pageNow: int, pageSize: int):
-    # 判断是否有权限
-    # 如果有权限
-    Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_college = college_model.get_college_by_admin(Page)  # 以分页形式返回
-    if all_college == []:
-        raise HTTPException(
-            status_code=404,
-            detail="没有可操作专业"
-        )
-    college_data = []
-    for college in all_college:
-        temp = college_interface()
-        temp_dict = temp.model_validate(college).model_dump()
-        ttt = college_interface(name=temp_dict['name'], school_id=temp_dict['school_id'])
-        id = college_model.get_college_by_name(ttt).id
-        temp_dict['id'] = id
-        school_name = school_model.get_school_by_id(temp_dict['school_id']).name
-        temp_dict['school_name'] = school_name
-        college_data.append(temp_dict)
-    return {'message': '学院如下', 'pageIndex': pageNow, "pageSize": pageSize, "totalNum": len(all_college),
-            "rows": college_data}
-
-
-@page_response
-async def get_college_by_school_id(school_id: int, pageNow: int, pageSize: int):
-    # 判断是否有权限
-    # 如果有权限
+async def user_college_view(school_id: int, pageNow: int, pageSize: int):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_college = college_model.get_college_by_school_id(school_id, Page)  # 以分页形式返回
     result = None
@@ -560,88 +615,78 @@ async def get_college_by_school_id(school_id: int, pageNow: int, pageSize: int):
             temp_dict.pop('school_id')
             college_data.append(temp_dict)
         result = makePageResult(Page, len(all_college), college_data)
-    return {'message': '学院如下', "data": result}
+    return {'message': '学院如下', 'data': result, 'code': 0}
 
 
 @users_router.put("/college_update/{college_id}")  # 管理员修改学院信息(未添加权限认证)
 @user_standard_response
-async def user_college_update(request: Request, session=Depends(user_login), college_id=Depends(auth_college_not_exist),
-                              college_data=Depends(auth_college_exist)):
+async def user_college_update(request: Request, college_id: int, college_data: college_interface,
+                              session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
+    code = verify_education_by_id(college_id=college_id)
+    if code == 1:
+        return {'message': '学院不存在', 'data': False, 'code': 1}
+    code = verify_education_by_id(school_id=college_data.school_id)
+    if code == 1:
+        return {'message': '学校不存在', 'data': False, 'code': 2}
+    exist_college = college_model.get_college_by_name(college_data)
+    if exist_college is not None and exist_college[0] != college_id:
+        return {'message': '该学校下的学院名字已存在', 'data': False, 'code': 3}
     college_model.update_college_school_id_name(college_id, college_data.school_id, college_data.name)
     current_path = request.url.path
-    add_operation.delay(2, college_id, '修改学院信息', '管理员通过选择学院修改学院信息', session['user_id'], current_path)  # 删除一个学院
-    return {'message': '修改成功', 'data': {'college_id': college_id}}
+    college_data = college_data.model_dump()
+    college_data['college_id'] = college_id
+    add_operation.delay(2, college_id, '管理员通过选择学院修改学院信息', current_path, '', college_data, session['user_id'])
+    return {'message': '修改成功', 'data': {'college_id': college_id}, 'code': 0}
 
 
 @users_router.post("/major_add")  # 管理员添加专业(未添加权限认证)
 @user_standard_response
-async def user_major_add(request: Request, session=Depends(user_login), major_data=Depends(auth_major_exist)):
+async def user_major_add(request: Request, major_data: major_interface, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
-    id = major_model.add_major(major_data)
+    school = verify_education_by_id(school_id=major_data.school_id)
+    if school == 1:
+        return {'message': '学校不存在', 'data': False, 'code': 1}
+    college = verify_education_by_id(college_id=major_data.college_id)
+    if college == 1:
+        return {'message': '学院不存在', 'data': False, 'code': 2}
+    major = major_model.get_major_status_by_name(major_data)
     current_path = request.url.path
-    add_operation.delay(3, id, '添加专业', '管理员通过选择学校和学院并输入专业名称添加一个专业', session['user_id'], current_path)  # 添加一个专业
-    return {'message': '建立成功', 'data': True}
+    str = ''
+    if major is not None:
+        if major[0] == 0:
+            return {'message': '该学校的该学院已有该专业', 'data': False, 'code': 3}
+        else:
+            major_model.update_major_status_by_id(major[1])
+            str = '管理员恢复一个曾删除的专业'
+    else:
+        id = major_model.add_major(major_data)
+        str = '管理员通过选择学校，学院和输入专业名称添加一个专业'
+    major_data = major_data.model_dump()
+    add_operation.delay(3, None, str, current_path, '', major_data, session['user_id'])
+    return {'message': '添加成功', 'data': True, 'code': 0}
 
 
 @users_router.delete("/major_delete/{major_id}")  # 管理员删除专业(未添加权限认证)
 @user_standard_response
-async def user_major_delete(request: Request, session=Depends(user_login), major_id=Depends(auth_major_not_exist)):
+async def user_major_delete(request: Request, major_id: int, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
+    code = verify_education_by_id(major_id=major_id)
+    if code == 1:
+        return {'message': '专业不存在', 'data': False, 'code': code}
     id = major_model.delete_major(major_id)
     current_path = request.url.path
-    add_operation.delay(3, id, '删除专业', '管理员通过选择专业删除一个专业', session['user_id'], current_path)  # 删除一个专业
-    return {'message': '删除成功', 'data': {'major_id': id}}
-
-
-@users_router.put("/major_update/{major_id}")  # 管理员修改专业信息(未添加权限认证)
-@user_standard_response
-async def user_major_update(request: Request, session=Depends(user_login), major_id=Depends(auth_major_not_exist),
-                            major_data=Depends(auth_major_exist)):
-    # 判断是否有权限
-    # 如果有权限
-    id = major_model.update_major_college_id_name(major_id, major_data.college_id, major_data.name)
-    current_path = request.url.path
-    add_operation.delay(3, id, '修改专业信息', '管理员通过选择专业修改一个专业的信息', session['user_id'], current_path)  # 删除一个专业
-    return {'message': '修改成功', 'data': {'major_id': id}}
+    add_operation.delay(3, None, '管理员通过选择专业删除一个专业', current_path, '', {'major_id': major_id},
+                        session['user_id'])  # 删除一个专业
+    return {'message': '删除成功', 'data': {'major_id': id}, 'code': 0}
 
 
 @users_router.get("/major_view")  # 查看管理员所能操作的所有专业(未添加权限认证)
 @page_response
-async def user_major_view(pageNow: int, pageSize: int):
-    # 判断是否有权限
-    # 如果有权限
-    Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_major = major_model.get_major_by_admin(Page)  # 以分页形式返回
-    if all_major == []:
-        raise HTTPException(
-            status_code=404,
-            detail="没有可操作专业"
-        )
-    major_data = []
-    for major in all_major:  # 遍历查询结果
-        temp = major_interface()
-        temp_dict = temp.model_validate(major).model_dump()  # 查询出来的结果转字典
-        school_id = college_model.get_college_by_id(temp_dict['college_id']).school_id  # 查出school_id
-        temp_dict['school_id'] = school_id
-        ttt = major_interface(name=temp_dict['name'], school_id=school_id,
-                              college_id=temp_dict['college_id'])  # 初始化一个major_interface
-        id = major_model.get_major_by_name(ttt).id  # 查找出当major的id
-        temp_dict['id'] = id  # 加入到结果里
-        school_name = school_model.get_school_by_id(school_id).name  # 根据school_id查出school_name
-        temp_dict['school_name'] = school_name  # 加入到结果里
-        college_name = college_model.get_college_by_id(temp_dict['college_id']).name  # 根据college_id查出college_name
-        temp_dict['college_name'] = college_name  # 加入到结果里
-        major_data.append(temp_dict)
-    return {'message': '学院如下', 'pageIndex': pageNow, "pageSize": pageSize, "totalNum": len(all_major),
-            "rows": major_data}
-
-
-@page_response
-async def get_major_by_college_id(college_id: int, pageNow: int, pageSize: int):
+async def user_major_view(college_id: int, pageNow: int, pageSize: int):
     # 判断是否有权限
     # 如果有权限
     Page = page(pageSize=pageSize, pageNow=pageNow)
@@ -662,29 +707,75 @@ async def get_major_by_college_id(college_id: int, pageNow: int, pageSize: int):
             temp_dict.pop('college_id')
             major_data.append(temp_dict)
         result = makePageResult(Page, len(all_major), major_data)
-    return {'message': '专业如下', "data": result}
+    return {'message': '专业如下', "data": result, 'code': 0}
+
+
+@users_router.put("/major_update/{major_id}")  # 管理员修改专业信息(未添加权限认证)
+@user_standard_response
+async def user_major_update(request: Request, major_data: major_interface, major_id: int, session=Depends(user_login)):
+    # 判断是否有权限
+    # 如果有权限
+    code = verify_education_by_id(major_id=major_id)
+    if code == 1:
+        return {'message': '专业不存在', 'data': False, 'code': 1}
+    code = verify_education_by_id(college_id=major_data.college_id)
+    if code == 1:
+        return {'message': '学院不存在', 'data': False, 'code': 2}
+    code = verify_education_by_id(school_id=major_data.school_id)
+    if code == 1:
+        return {'message': '学校不存在', 'data': False, 'code': 3}
+    exist_major = major_model.get_major_by_name(major_data)
+    if exist_major is not None and exist_major[0] != major_id:
+        return {'message': '该学校的该学院的该专业已存在', 'data': False, 'code': 4}
+    major_model.update_college_school_id_name(1, 1, 1)
+    current_path = request.url.path
+    college_data = major_data.model_dump()
+    college_data['major_id'] = major_id
+    add_operation.delay(3, major_id, '管理员通过选择专业修改一个专业的信息', current_path, '', college_data, session['user_id'])
+    return {'message': '修改成功', 'data': {'major_id': major_id}, 'code': 0}
 
 
 @users_router.post("/class_add")  # 管理员添加班级(未添加权限认证)
 @user_standard_response
-async def user_class_add(request: Request, session=Depends(user_login), class_data=Depends(auth_class_exist)):
+async def user_class_add(request: Request, class_data: class_interface, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
-    id = class_model.add_class(class_data)
+    school = verify_education_by_id(school_id=class_data.school_id)
+    if school == 1:
+        return {'message': '学校不存在', 'data': False, 'code': 1}
+    college = verify_education_by_id(college_id=class_data.college_id)
+    if college == 1:
+        return {'message': '学院不存在', 'data': False, 'code': 2}
+    clas = class_model.get_class_status_by_name(class_data)
     current_path = request.url.path
-    add_operation.delay(4, id, '添加班级', '管理员通过选择学校和学院并输入班级名称添加一个班级', session['user_id'], current_path)  # 添加一个班级
-    return {'message': '建立成功', 'data': True}
+    str = ''
+    if clas is not None:
+        if clas[0] == 0:
+            return {'message': '该学校的该学院已有该班级', 'data': False, 'code': 3}
+        else:
+            class_model.update_class_status_by_id(clas[1])
+            str = '管理员恢复一个曾删除的班级'
+    else:
+        id = class_model.add_class(class_data)
+        str = '管理员通过选择学校，学院和输入班级名称添加一个班级'
+    class_data = class_data.model_dump()
+    add_operation.delay(4, None, str, current_path, '', class_data, session['user_id'])
+    return {'message': '添加成功', 'data': True, 'code': 0}
 
 
 @users_router.delete("/class_delete/{class_id}")  # 管理员删除班级(未添加权限认证)
 @user_standard_response
-async def user_class_delete(request: Request, session=Depends(user_login), class_id=Depends(auth_class_not_exist)):
+async def user_class_delete(request: Request, class_id:int,session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
+    code = verify_education_by_id(class_id=class_id)
+    if code == 1:
+        return {'message': '班级不存在', 'data': False, 'code': code}
     id = class_model.delete_class(class_id)
     current_path = request.url.path
-    add_operation.delay(4, id, '删除班级', '管理员通过选择班级删除一个班级', session['user_id'], current_path)  # 删除一个班级
-    return {'message': '删除成功', 'data': {'class_id': id}}
+    add_operation.delay(4, None, '管理员通过选择班级删除一个班级', current_path, '', {'class_id': class_id},
+                        session['user_id'])  # 删除一个专业
+    return {'message': '删除成功', 'data': {'class_id': id}, 'code': 0}
 
 
 @users_router.put("/class_update/{class_id}")  # 管理员修改班级信息(未添加权限认证)
@@ -701,39 +792,7 @@ async def user_class_update(request: Request, session=Depends(user_login), class
 
 @users_router.get("/class_view")  # 查看管理员所能操作的所有班级(未添加权限认证)
 @page_response
-async def user_class_view(pageNow: int, pageSize: int):
-    # 判断是否有权限
-    # 如果有权限
-    Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_class = class_model.get_class_by_admin(Page)  # 以分页形式返回
-    if all_class == []:
-        raise HTTPException(
-            status_code=404,
-            detail="没有可操作班级"
-        )
-    class_data = []
-    for clas in all_class:  # 遍历查询结果
-        temp = class_interface()
-        temp_dict = temp.model_validate(clas).model_dump()  # 查询出来的结果转字典
-        school_id = college_model.get_college_by_id(temp_dict['college_id']).school_id  # 查出school_id
-        temp_dict['school_id'] = school_id
-        ttt = class_interface(name=temp_dict['name'], school_id=school_id,
-                              college_id=temp_dict['college_id'])  # 初始化一个class_interface
-        id = class_model.get_class_by_name(ttt).id  # 查找出当class的id
-        temp_dict['id'] = id  # 加入到结果里
-        school_name = school_model.get_school_by_id(school_id).name  # 根据school_id查出school_name
-        temp_dict['school_name'] = school_name  # 加入到结果里
-        college_name = college_model.get_college_by_id(temp_dict['college_id']).name  # 根据college_id查出college_name
-        temp_dict['college_name'] = college_name  # 加入到结果里
-        class_data.append(temp_dict)
-    return {'message': '班级如下', 'pageIndex': pageNow, "pageSize": pageSize, "totalNum": len(all_class),
-            "rows": class_data}
-
-
-@page_response
-async def get_class_by_college_id(college_id, pageNow: int, pageSize: int):
-    # 判断是否有权限
-    # 如果有权限
+async def user_class_view(college_id: int, pageNow: int, pageSize: int):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_class = class_model.get_class_by_college_id(college_id, Page)  # 以分页形式返回
     result = None
@@ -752,7 +811,7 @@ async def get_class_by_college_id(college_id, pageNow: int, pageSize: int):
             temp_dict.pop('college_id')
             class_data.append(temp_dict)
         result = makePageResult(Page, len(all_class), class_data)
-    return {'message': '班级如下', "data": result}
+    return {'message': '班级如下', 'data': result, 'code': 0}
 
 
 @users_router.get("/user_add_education")  # 管理员添加用户时选择用户的学校信息(未添加权限认证)
@@ -764,15 +823,15 @@ async def user_add_education(request: Request, school_id: int = None, college_id
         ans = json.loads(result.body)
         return ans
     if school_id is not None:
-        result = await get_college_by_school_id(school_id, pageNow, pageSize)
+        result = await user_college_view(school_id, pageNow, pageSize)
         ans = json.loads(result.body)
         return ans
     if college_id is not None:
         if type == 0:
-            result = await get_major_by_college_id(college_id, pageNow, pageSize)
+            result = await user_major_view(college_id, pageNow, pageSize)
             ans = json.loads(result.body)
             return ans
         elif type == 1:
-            result = await get_class_by_college_id(college_id, pageNow, pageSize)
+            result = await user_class_view(college_id, pageNow, pageSize)
             ans = json.loads(result.body)
             return ans

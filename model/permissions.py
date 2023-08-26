@@ -1,16 +1,6 @@
-import json
-import copy
-
 from sqlalchemy import Column, String, Integer, ForeignKey, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-import pymysql
 
-link = "mysql+pymysql://root:318253shimima@localhost:3306/sdubas"
-Base = declarative_base()
-
-engine = create_engine(link, echo=True)
+from model.db import Base
 
 
 class Role(Base):
@@ -67,21 +57,6 @@ class RolePrivilege(Base):
     privilege_id = Column(Integer, ForeignKey('privilege.id'), nullable=False, index=True)  # 外键关联 privilege 表的 id 字段
     start_dt = Column(DateTime)  # 时间限制开始时间，没有限制则为 Null
     end_dt = Column(DateTime)  # 时间限制结束时间，没有限制则为 Null
-    has_delete = Column(Integer, nullable=False, index=True)  # 是否已经删除
-
-
-class User(Base):
-    __tablename__ = "user"
-
-    # 定义字段
-    id = Column(Integer, primary_key=True, nullable=False, unique=True)
-    username = Column(String(32), nullable=False, unique=True)  # 用户名，最大长度为 32
-    password = Column(String(128), nullable=False)  # 密码，最大长度为 128
-    email = Column(String(64), nullable=False, unique=True)  # 邮箱地址，最大长度为 64
-    card_id = Column(String(32), unique=True)  # 学号或工号，最大长度为 32
-    registration_dt = Column(DateTime)  # 注册时间，新建时自动填写
-    storage_quota = Column(Integer, nullable=False)  # 存储空间限制（MB）
-    status = Column(Integer, nullable=False, index=True)  # 账号状态 0: 正常使用, 1: 账号未激活, 2: 账号已注销, 3: 账号被封禁
     has_delete = Column(Integer, nullable=False, index=True)  # 是否已经删除
 
 

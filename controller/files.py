@@ -48,7 +48,8 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
         session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
         return {'message': '文件不存在', 'data': {'file_id': None}, 'token_header': new_token}
     else:  # 有该file
-        return {'message': '文件存在', 'data': {'file_id': id[1]}}
+        user_file_id = user_file_model.get_user_file_id_by_file_id(id[0])[0]
+        return {'message': '文件存在', 'data': {'file_id': user_file_id}}
 
 
 @files_router.post("/upload")  # 上传文件
