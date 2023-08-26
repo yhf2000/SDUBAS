@@ -85,8 +85,12 @@ class Submission_Opt(SubmissionCreate):
 
 
 class ScoreCreate(BaseModel):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        from_attributes=True,
+    )
     user_pcs_id: int
-    judger: int
+    judger: int = None
     user_id: int
     honesty: str
     honesty_weight: float
@@ -102,7 +106,7 @@ class user_submission(BaseModel):
         from_attributes=True,
     )
     pc_submit_id: int
-    user_id: int
+    user_id: int = None
     file_id: Optional[int]
     content: Optional[str]
     submit_dt: datetime = None
@@ -118,3 +122,32 @@ class user_submission_Opt(user_submission):
 
 class project_content_renew(BaseModel):
     contents: List[ProjectContentBaseOpt]
+
+
+class content_score(ScoreCreate):
+    id: int
+
+    @field_serializer('judge_dt')
+    def serialize_dt(self, dt: datetime, _info):
+        return getMsTime(dt)
+
+
+class User_Opt(BaseModel):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        from_attributes=True,
+    )
+    id: int
+    username: str
+    password: str
+    email: str
+    card_id: Optional[str]
+    registration_dt: datetime
+    storage_quota: int
+    status: int
+    has_delete: int
+
+    @field_serializer('registration_dt')
+    def serialize_dt(self, dt: datetime, _info):
+        return getMsTime(dt)
+
