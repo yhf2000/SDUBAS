@@ -158,6 +158,7 @@ class roleModel(dbSession):
                     ).first()
                     if privilege is not None:
                         service_ids.append(privilege.service_id)
+            print(service_ids)
             return service_ids
 
     def search_user_id_by_service(self, service_type: int, service_id: int):
@@ -169,7 +170,13 @@ class roleModel(dbSession):
             ).filter(
                 WorkRole.service_type == service_type,
                 WorkRole.service_id == service_id
-            ).all()
-            for item in query:
-                user_list.append(item[1].user_id)
-            return user_list
+            )
+            return query
+
+    def search_college_default_role_id(self):
+        with self.get_db() as session:
+            query = session.query(WorkRole).filter(
+                WorkRole.service_type == 2,
+                WorkRole.service_id == None
+            ).one()
+            return query.role_id
