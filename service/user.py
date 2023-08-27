@@ -31,6 +31,8 @@ class UserModel(dbSession):
             return obj_add.id
 
     def add_user(self, obj: user_add_interface):  # 管理员添加一个用户(在user表中添加一个用户)
+        obj.registration_dt = obj.registration_dt.strftime(
+            "%Y-%m-%d %H:%M:%S")
         obj_dict = jsonable_encoder(obj)
         obj_dict.pop('type')
         obj_add = User(**obj_dict)
