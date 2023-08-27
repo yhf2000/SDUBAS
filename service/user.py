@@ -398,9 +398,9 @@ class CollegeModel(dbSession):
             session.commit()
             return college
 
-    def update_college_school_id_name(self, id, school_id, name):  # 更改college中的school_id与name
+    def update_college_school_id_name(self, id,  name):  # 更改college中的school_id与name
         with self.get_db() as session:
-            session.query(College).filter(College.id == id).update({"school_id": school_id, "name": name})
+            session.query(College).filter(College.id == id).update({"name": name})
             session.commit()
             return id
 
@@ -483,9 +483,9 @@ class MajorModel(dbSession):
             session.commit()
             return major
 
-    def update_major_information(self, id, college_id, name):  # 更改college中的school_id与name
+    def update_major_information(self, id,  name):  # 更改college中的school_id与name
         with self.get_db() as session:
-            session.query(Major).filter(Major.id == id).update({"college_id": college_id, "name": name})
+            session.query(Major).filter(Major.id == id).update({"name": name})
             session.commit()
             return id
 
@@ -580,7 +580,11 @@ class ClassModel(dbSession):
                 {"has_delete": 0})
             session.commit()
             return 'ok'
-
+    def update_class_information(self, id,  name):  # 更改class中的name
+        with self.get_db() as session:
+            session.query(Class).filter(Class.id == id).update({"name": name})
+            session.commit()
+            return id
 
 class OperationModel(dbSession):
     def add_operation(self, obj: operation_interface):  # 添加一个操作(在operation表中添加一个操作)

@@ -633,7 +633,7 @@ async def user_college_update(request: Request, college_id: int, college_data: c
     exist_college = college_model.get_college_by_name(college_data)
     if exist_college is not None and exist_college[0] != college_id:
         return {'message': '该学校下的学院名字已存在', 'data': False, 'code': 3}
-    college_model.update_college_school_id_name(college_id, college_data.school_id, college_data.name)
+    college_model.update_college_school_id_name(college_id, college_data.name)
     current_path = request.url.path
     college_data = college_data.model_dump()
     college_data['college_id'] = college_id
@@ -712,7 +712,7 @@ async def user_major_view(college_id: int, pageNow: int, pageSize: int):
 
 @users_router.put("/major_update/{major_id}")  # 管理员修改专业信息(未添加权限认证)
 @user_standard_response
-async def user_major_update(request: Request, major_data: major_interface, major_id: int, session=Depends(user_login)):
+async def user_major_update(request: Request, major_data: major_interface, major_id: int, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
     code = verify_education_by_id(major_id=major_id)
@@ -727,7 +727,7 @@ async def user_major_update(request: Request, major_data: major_interface, major
     exist_major = major_model.get_major_by_name(major_data)
     if exist_major is not None and exist_major[0] != major_id:
         return {'message': '该学校的该学院的该专业已存在', 'data': False, 'code': 4}
-    major_model.update_college_school_id_name(1, 1, 1)
+    major_model.update_major_information(major_id, major_data.name)
     current_path = request.url.path
     college_data = major_data.model_dump()
     college_data['major_id'] = major_id
@@ -765,7 +765,7 @@ async def user_class_add(request: Request, class_data: class_interface, session=
 
 @users_router.delete("/class_delete/{class_id}")  # 管理员删除班级(未添加权限认证)
 @user_standard_response
-async def user_class_delete(request: Request, class_id:int,session=Depends(auth_login)):
+async def user_class_delete(request: Request, class_id: int, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
     code = verify_education_by_id(class_id=class_id)
@@ -774,20 +774,33 @@ async def user_class_delete(request: Request, class_id:int,session=Depends(auth_
     id = class_model.delete_class(class_id)
     current_path = request.url.path
     add_operation.delay(4, None, '管理员通过选择班级删除一个班级', current_path, '', {'class_id': class_id},
-                        session['user_id'])  # 删除一个专业
+                        session['user_id'])  # 删除一个班级
     return {'message': '删除成功', 'data': {'class_id': id}, 'code': 0}
 
 
 @users_router.put("/class_update/{class_id}")  # 管理员修改班级信息(未添加权限认证)
 @user_standard_response
-async def user_class_update(request: Request, session=Depends(user_login), class_id=Depends(auth_class_not_exist),
-                            class_data=Depends(auth_class_exist)):
+async def user_class_update(request: Request, class_id: int, class_data: class_interface, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
-    id = class_model.update_major_college_id_name(class_id, class_data.college_id, class_data.name)
+    code = verify_education_by_id(class_id=class_id)
+    if code == 1:
+        return {'message': '班级不存在', 'data': False, 'code': 1}
+    code = verify_education_by_id(college_id=class_data.college_id)
+    if code == 1:
+        return {'message': '学院不存在', 'data': False, 'code': 2}
+    code = verify_education_by_id(school_id=class_data.school_id)
+    if code == 1:
+        return {'message': '学校不存在', 'data': False, 'code': 3}
+    exist_class = class_model.get_class_by_name(class_data)
+    if exist_class is not None and exist_class[0] != class_id:
+        return {'message': '该学校的该学院的该班级已存在', 'data': False, 'code': 4}
+    class_model.update_class_information(class_id, class_data.name)
     current_path = request.url.path
-    add_operation.delay(4, id, '修改班级信息', '管理员通过选择班级修改一个班级的信息', session['user_id'], current_path)  # 修改班级信息
-    return {'message': '修改成功', 'data': {'class_id': id}}
+    class_data = class_data.model_dump()
+    class_data['class_id'] = class_id
+    add_operation.delay(4, class_id, '管理员通过选择班级修改一个班级的信息', current_path, '', class_data, session['user_id'])
+    return {'message': '修改成功', 'data': {'class_id': class_id}, 'code': 0}
 
 
 @users_router.get("/class_view")  # 查看管理员所能操作的所有班级(未添加权限认证)
