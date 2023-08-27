@@ -31,9 +31,12 @@ user_model = UserModel()
 async def file_upload_valid(request: Request, file: file_interface, user_agent: str = Header(None),
                             session=Depends(auth_login)):
     id = file_model.get_file_by_hash(file)  # 查询文件是否存在
-    if id is None:  # 没有该file
+    if id is None or id[1] is False:  # 没有该file
         user_id = session['user_id']  # 得到user_id
-        file_id = file_model.add_file(file)  # 新建一个file
+        if id is None:
+            file_id = file_model.add_file(file)  # 新建一个file
+        else:
+            file_id = id[0]
         new_token = str(uuid.uuid4().hex)  # 生成token
         new_session = session_interface(user_id=user_id, file_id=file_id, token=new_token, ip=request.client.host,
                                         func_type=3, user_agent=user_agent, use_limit=1, exp_dt=(
@@ -43,10 +46,10 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
             "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
         user_session = json.dumps(new_session.model_dump())
         session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
-
-        return {'message': '文件不存在', 'data': True, 'token_header': new_token}
+        return {'message': '文件不存在', 'data': {'file_id': None}, 'token_header': new_token}
     else:  # 有该file
-        return {'message': '文件存在', 'data': {'file_id': id[0]}}
+        user_file_id = user_file_model.get_user_file_id_by_file_id(id[0])[0]
+        return {'message': '文件存在', 'data': {'file_id': user_file_id}}
 
 
 @files_router.post("/upload")  # 上传文件
@@ -76,7 +79,7 @@ async def file_upload(request: Request, file: UploadFile = File(...)):
                                            name=file.filename, type=file.content_type)
     id = user_file_model.add_user_file(file_information)  # 添加一条user_file的记录
     current_path = request.url.path
-    add_operation(service_type=7, service_id=id, func='上传文件', parameters='用户上传了一个文件',
+    add_operation.delay(service_type=7, service_id=id, func='上传文件', parameters='用户上传了一个文件',
                   oper_user_id=file_information.user_id, url=current_path)  # 添加一个文件上传的操作
     data = dict()
     data['file_size'] = file.size
@@ -126,7 +129,7 @@ async def file_download_files(request: Request, token: str):
         file = file_model.get_file_by_id(user_file.file_id)
         folder = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:] + '/' + user_file.name  # 先找到路径
         current_path = request.url.path
-        add_operation(service_type=7, service_id=old_session['file_id'], func='下载文件', parameters='用户下载了一个文件',
+        add_operation.delay(service_type=7, service_id=old_session['file_id'], func='下载文件', parameters='用户下载了一个文件',
                       oper_user_id=old_session['user_id'], url=current_path)
         return FileResponse(folder, filename=user_file.name)
     raise HTTPException(
@@ -137,12 +140,15 @@ async def file_download_files(request: Request, token: str):
 
 @files_router.get("/preview")  # 文件预览,用户查看所有他可以进行下载的文件
 @page_response
-async def file_preview(pageNow: int, pageSize: int, session=Depends(auth_login)):
+async def file_preview(request:Request,pageNow: int, pageSize: int, session=Depends(auth_login)):
     # 判断是否有权限
     # 如果有权限
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_file = user_file_model.get_user_file_by_admin(Page, session['user_id'])  # 以分页形式返回
     result = None
+    current_path = request.url.path
+    add_operation.delay(service_type=7, service_id=session['user_id'], func='查看文件', parameters='用户查看他能下载的文件',
+                        oper_user_id=session['user_id'], url=current_path)
     if all_file != []:
         file_data = []
         for file in all_file:  # 遍历查询结果

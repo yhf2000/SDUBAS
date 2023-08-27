@@ -1,7 +1,7 @@
 from fastapi import Depends, Security, HTTPException
 from fastapi import Request
-
-from model.permissions import User, UserRole, RolePrivilege, Role
+from model.user import User
+from model.permissions import  UserRole, RolePrivilege, Role
 from model.db import dbSession
 from service.permissions import roleModel
 

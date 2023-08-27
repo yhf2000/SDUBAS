@@ -34,7 +34,7 @@ def user_standard_response(func: Callable):
     async def decorator(*args, **kwargs):
         result = await func(*args, **kwargs)
         response = JSONResponse({
-            "code": 0,
+            "code": result['code'],
             "message": result['message'],
             "data": result['data'],
             "timestamp": getMsTime(datetime.now())
@@ -61,6 +61,7 @@ def page_response(func: Callable):
         response = JSONResponse({
             "message": result['message'],
             "data": result['data'],
+            "code":result['code'],
             "timestamp": getMsTime(datetime.now())
         }, status_code=200)
         return response

@@ -2,8 +2,8 @@ import hashlib
 import json
 from datetime import datetime, date
 
-from pydantic import BaseModel, ConfigDict, field_serializer
-
+from pydantic import BaseModel, ConfigDict
+from typing import Any
 from utils.times import getMsTime
 
 
@@ -43,12 +43,6 @@ class session_interface(BaseModel):
     ip: str
     user_agent: str
     func_type: int
-
-
-class session_interface_Opt(session_interface):
-    @field_serializer('exp_dt')
-    def serialize_dt(self, dt: datetime, _info):
-        return getMsTime(dt)
 
 
 class school_interface(BaseModel):
@@ -98,16 +92,15 @@ class email_interface(register_interface):
 
 class operation_interface(BaseModel):
     service_type: int
-    service_id: int
+    service_id: int = None
     func: str
     parameters: str
     oper_user_id: int
     oper_hash: str = None
-    url: str = None
 
     def get_oper_hash(self):
         hash_object = hashlib.sha256()
-        hash_object.update(self.url.encode('utf-8'))
+        hash_object.update(self.parameters.encode('utf-8'))
         hash_hex = hash_object.hexdigest()
         return hash_hex
 
@@ -115,19 +108,12 @@ class operation_interface(BaseModel):
 class user_info_interface(BaseModel):
     card_id: str = None
     user_id: int = None
-    realname: str
-    gender: str
-    major_id: str
-    class_id: str
-    enrollment_dt: date
-    graduation_dt: date
-
-
-class user_info_interface_Opt(user_info_interface):
-    @field_serializer('enrollment_dt')
-    @field_serializer('graduation_dt')
-    def serialize_dt(self, dt: date, _info):
-        return getMsTime(dt)
+    realname: str = None
+    gender: str = None
+    major_id: str = None
+    class_id: str = None
+    enrollment_dt: date = None
+    graduation_dt: date = None
 
 
 class admin_user_add_interface(user_add_interface, user_info_interface):
@@ -135,3 +121,9 @@ class admin_user_add_interface(user_add_interface, user_info_interface):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
+
+
+class parameters_interface(BaseModel):
+    url: str
+    para: Any
+    body: Any

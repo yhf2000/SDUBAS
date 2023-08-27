@@ -1,11 +1,4 @@
-import json
-import copy
-
 from sqlalchemy import Column, String, Integer, ForeignKey, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-import pymysql
 
 from model.db import Base
 

@@ -1,10 +1,10 @@
-from celery import Celery
 import email.utils
-import hashlib
-import random
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+from celery import Celery
+
 broker = 'redis://127.0.0.1:6379/4'
 backend = 'redis://127.0.0.1:6379/3'
 send_email_app = Celery(
@@ -13,9 +13,8 @@ send_email_app = Celery(
     backend=backend,
 )
 
-
 @send_email_app.task()
-def send_email(Email, token,update):  # 异步发送邮件
+def send_email(Email, token, update):  # 异步发送邮件
     mail = MIMEMultipart()
     mail_content = ''
     if update == 0:  # 用户注册
@@ -47,3 +46,6 @@ def send_email(Email, token,update):  # 异步发送邮件
         server.sendmail('13244445877@163.com', Email, msg=mail.as_string())
     finally:
         server.quit()
+
+
+

@@ -1,6 +1,5 @@
 from fastapi.encoders import jsonable_encoder
 
-import model.user
 from model.db import dbSession
 from model.file import File, User_File
 from type.file import file_interface, user_file_interface
@@ -24,9 +23,11 @@ class FileModel(dbSession):
 
     def get_file_by_hash(self, obj: file_interface):  # 根据size与hash查询file的id
         with self.get_db() as session:
-            id = session.query(File.id).filter(File.has_delete == 0, File.size == obj.size,
-                                               File.hash_md5 == obj.hash_md5,
-                                               File.hash_sha256 == obj.hash_sha256).first()
+            id = session.query(File.id, File.is_save).filter(
+                File.has_delete == 0,
+                File.size == obj.size,
+                File.hash_md5 == obj.hash_md5,
+                File.hash_sha256 == obj.hash_sha256).first()
             session.commit()
             return id
 
@@ -76,6 +77,12 @@ class UserFileModel(dbSession):
             user_file = session.query(User_File).filter(User_File.has_delete == 0, User_File.id == id).first()
             session.commit()
             return user_file
+
+    def get_user_file_id_by_file_id(self, file_id: int):  # 根据id查询user_file的基本信息
+        with self.get_db() as session:
+            id = session.query(User_File.id).filter(User_File.has_delete == 0, User_File.file_id == file_id).first()
+            session.commit()
+            return id
 
     def get_user_file_by_admin(self, page, user_id):  # 查找某用户能操作的所有文件
         with self.get_db() as session:
