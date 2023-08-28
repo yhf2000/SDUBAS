@@ -1,10 +1,8 @@
 import hashlib
-import json
 from datetime import datetime, date
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
-from typing import Any
-from utils.times import getMsTime
 
 
 class login_interface(BaseModel):
@@ -14,7 +12,6 @@ class login_interface(BaseModel):
 
 class register_interface(login_interface):
     email: str = None
-    type: int = None
     registration_dt: datetime = datetime.now()
 
 
@@ -109,7 +106,7 @@ class user_info_interface(BaseModel):
     card_id: str = None
     user_id: int = None
     realname: str = None
-    gender: str = None
+    gender: int = None
     major_id: str = None
     class_id: str = None
     enrollment_dt: date = None

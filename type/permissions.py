@@ -46,4 +46,4 @@ class RolePydantic(BaseModel):  # 将数据库查询结果转化为字典的模�
     has_delete: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
