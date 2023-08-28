@@ -9,17 +9,23 @@ from utils.auth_permission import auth_permission
 permissions_router = APIRouter()
 
 
-@permissions_router.post("/add")  # 创建角色
-async def add(data: type.permissions.role_base, user=Depends(auth_permission)):
+@permissions_router.post("/select_son_user")  # 创建角色
+async def add(data: type.permissions.create_role_base):
     db = roleModel()
-    return {"new_role": db.get_role_info_by_id(db.create(data))}
+    return {"new_role": db.get_role_info_by_id(db.create_role(data))}
+
+
+@permissions_router.post("/add")  # 创建角色
+async def add_role(data: type.permissions.create_role_base):
+    db = roleModel()
+    return {"new_role": db.get_role_info_by_id(db.create_role(data))}
 
 
 @permissions_router.post("/delete")  # 删除角色
 @standard_response
-async def delete(data: str):
+async def delete_role(data: type.permissions.delete_role_base):
     db = roleModel()
-    return {"status": db.delete(data)}
+    return {"status": db.delete_role(data)}
 
 
 @permissions_router.post("/attribute_role")  # 分配用户角色
@@ -34,14 +40,19 @@ async def attribute_privilege(data: type.permissions.attribute_privilege_base):
     db = roleModel()
     return {"status": db.attribute_privilege(data)}
 
+@permissions_router.post("/add_role_for_work")  # 为业务添加角色
+@standard_response
+async def attribute_privilege(data: type.permissions.attribute_privilege_base):
+    db = roleModel()
+    return {"status": db.attribute_privilege(data)}
+
 
 @permissions_router.post("/test")
 @standard_response
 async def test(request: Request):
     db = roleModel()
-    user_id = int(request.headers.get("user_id"))
-    role_list = db.search_role_by_user(user_id)
-    return {"role": role_list}
+    role_id = db.search_college_default_role_id()
+    return {"role": role_id}
 
 
 @permissions_router.post("/auth_privilege")  # 权限验证
@@ -75,7 +86,7 @@ async def return_work_id(request: Request):
     return {"work_id": json_string}
 
 
-@permissions_router.post("/search_service_id")  # 返回业务id
+@permissions_router.post("/search_service_id")  # 返回业务id(不可用）
 @standard_response
 async def return_service_id(request: Request, data: type.permissions.Return_Service_Id):
     db = roleModel()
@@ -95,3 +106,25 @@ async def return_user_id(request: Request, data: type.permissions.Return_User_Id
     permission = None
     user_list = db.search_user_id_by_service(data.service_type, data.service_id)
     return {"user_id": user_list}
+
+@permissions_router.post("/search_service_id1")  # 返回业务id
+@standard_response
+async def return_service_id1(request: Request, data: type.permissions.Return_Service_Id):
+    db = roleModel()
+    user_id = int(request.headers.get("user_id"))
+    permission_key = request.url.path
+    permission = None
+    role_list = db.search_role_by_user(user_id)
+    service_id = db.search_service_id1(role_list, data.service_type, data.name)
+    return {"service_id": service_id}
+
+@permissions_router.post("/default_role_id")  # 返回学院默认角色id
+@standard_response
+async def default_role_id(request: Request):
+    db = roleModel()
+    user_id = int(request.headers.get("user_id"))
+    permission_key = request.url.path
+    permission = None
+    role_list = db.search_role_by_user(user_id)
+    role_id = db.search_college_default_role_id(role_list)
+    return {"role_id": role_id}
