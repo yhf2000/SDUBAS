@@ -4,14 +4,13 @@ from fastapi import Depends
 from pydantic import BaseModel
 
 
-class role_base(BaseModel):  # 创建角色信息
-    user_id: int
+class create_role_base(BaseModel):  # 创建角色信息
     role_name: str
     role_superiorId: int
 
 
-def ser_role_add(data: role_base):
-    return data
+class delete_role_base(BaseModel):  # 删除角色信息
+    role_name: str
 
 
 class attribute_role_base(BaseModel):  # 分配用户角色信息
@@ -22,6 +21,9 @@ class attribute_role_base(BaseModel):  # 分配用户角色信息
 class attribute_privilege_base(BaseModel):  # 为角色添加权限信息
     user_id: int
     privilege_name: str
+    privilege_id: int
+
+
 
 
 class Return_Service_Id(BaseModel):  # 返回业务id
