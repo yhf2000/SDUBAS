@@ -29,5 +29,5 @@ class User_File(Base):
     file_id = Column(Integer, ForeignKey('file.id'), nullable=False)  # 文件id，外键
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)  # 用户id，外键
     name = Column(String(128), nullable=False)  # 文件名
-    type = Column(String(32), nullable=False)  # 文件类型
+    type = Column(String(128), nullable=False)  # 文件类型
     has_delete = Column(Boolean, index=True,default=0)  # 是否已经删除

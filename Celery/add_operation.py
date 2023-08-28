@@ -14,11 +14,9 @@ add_operation_app = Celery(
 operation_model = OperationModel()
 
 
-# 添加一个操作的接口,url可通过current_path = request.url.path获得
+# 添加一个操作的接口
 @add_operation_app.task()
-def add_operation(service_type, service_id, func, url, para, body, oper_user_id):
-    parameters = parameters_interface(url='http://127.0.0.1:8000' + url, para=para, body=body)
-    parameters = json.dumps(parameters.__dict__)
+def add_operation(service_type, service_id, func, parameters, oper_user_id):
     operation = operation_interface(service_type=service_type, service_id=service_id, func=func,
                                     parameters=parameters,
                                     oper_user_id=oper_user_id)

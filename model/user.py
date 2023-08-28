@@ -42,8 +42,8 @@ class User_info(Base):  # 用户信息表
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True, comment='外键，用户id')  # 用户id,外键，非空
     realname = Column(VARCHAR(32), nullable=False, comment='真实姓名')  # 真实姓名，非空
     gender = Column(Integer, nullable=False, comment='性别:0 男性 (Male),1 女性 (Female),2 其他 (Other)')  # 性别，非空
-    major_id = Column(Integer, ForeignKey('major.id'), nullable=False, comment='专业id，外键')  # 专业id，外键，非空
-    class_id = Column(Integer, ForeignKey('class.id'), nullable=False, comment='班级id，外键')  # 班级id，外键，非空
+    major_id = Column(Integer, ForeignKey('major.id'), comment='专业id，外键')  # 专业id，外键，非空
+    class_id = Column(Integer, ForeignKey('class.id'), comment='班级id，外键')  # 班级id，外键，非空
     enrollment_dt = Column(Date, nullable=False, comment='入学时间')  # 入学时间，非空
     graduation_dt = Column(Date, nullable=False, comment='毕业时间')  # 毕业时间，非空
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空

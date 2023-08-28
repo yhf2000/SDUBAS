@@ -21,7 +21,6 @@ class UserModel(dbSession):
         obj.registration_dt = obj.registration_dt.strftime(
             "%Y-%m-%d %H:%M:%S")
         obj_dict = jsonable_encoder(obj)
-        obj_dict.pop('type')
         obj_add = User(**obj_dict)
         obj_add.password = encrypted_password(obj_add.password, obj_add.registration_dt)
         with self.get_db() as session:
@@ -34,7 +33,6 @@ class UserModel(dbSession):
         obj.registration_dt = obj.registration_dt.strftime(
             "%Y-%m-%d %H:%M:%S")
         obj_dict = jsonable_encoder(obj)
-        obj_dict.pop('type')
         obj_add = User(**obj_dict)
         obj_add.password = encrypted_password(obj_add.password, obj_add.registration_dt)
         with self.get_db() as session:
@@ -42,6 +40,14 @@ class UserModel(dbSession):
             session.flush()
             session.commit()
             return obj_add.id
+
+    def add_all_user(self, user_list):  # 管理员批量添加用户
+        objects = [User(**jsonable_encoder(user_list[i])) for i in range(len(user_list))]
+        with self.get_db() as session:
+            session.add_all(objects)
+            session.flush()
+            session.commit()
+            return objects
 
     def delete_user(self, id: int):  # 删除一个用户
         with self.get_db() as session:
@@ -223,12 +229,29 @@ class UserinfoModel(dbSession):
         # 在user_info表中新建一个
         return self.add_new_something(new_user_info)
 
+    def add_all_user_info(self, user_info_list, user_id_list):  # 管理员批量添加user_info
+        objects = []
+        for i in range(len(user_info_list)):
+            obj_dict = jsonable_encoder(user_info_list[i])
+            obj_dict.pop('card_id')
+            obj_dict['user_id'] = user_id_list[i].id
+            objects.append(User_info(**obj_dict))
+        with self.get_db() as session:
+            session.add_all(objects)
+            session.flush()
+            session.commit()
+            return 'ok'
+
     def delete_userinfo(self, id: int):  # 删除一条信息
         with self.get_db() as session:
             session.query(User_info).filter(User_info.id == id).update({"has_delete": 1})
             session.commit()
             return id
-
+    def delete_userinfo_by_user_id(self, user_id: int):  # 删除一条信息
+        with self.get_db() as session:
+            session.query(User_info).filter(User_info.user_id == user_id).update({"has_delete": 1})
+            session.commit()
+            return 'ok'
     def update_userinfo_realname(self, id: int, realname: str):  # 更改用户真实名字
         with self.get_db() as session:
             session.query(User_info).filter(User_info.id == id).update({"realname": realname})
@@ -400,7 +423,7 @@ class CollegeModel(dbSession):
             session.commit()
             return college
 
-    def update_college_school_id_name(self, id,  name):  # 更改college中的school_id与name
+    def update_college_school_id_name(self, id, name):  # 更改college中的school_id与name
         with self.get_db() as session:
             session.query(College).filter(College.id == id).update({"name": name})
             session.commit()
@@ -485,7 +508,7 @@ class MajorModel(dbSession):
             session.commit()
             return major
 
-    def update_major_information(self, id,  name):  # 更改college中的school_id与name
+    def update_major_information(self, id, name):  # 更改college中的school_id与name
         with self.get_db() as session:
             session.query(Major).filter(Major.id == id).update({"name": name})
             session.commit()
@@ -582,11 +605,13 @@ class ClassModel(dbSession):
                 {"has_delete": 0})
             session.commit()
             return 'ok'
-    def update_class_information(self, id,  name):  # 更改class中的name
+
+    def update_class_information(self, id, name):  # 更改class中的name
         with self.get_db() as session:
             session.query(Class).filter(Class.id == id).update({"name": name})
             session.commit()
             return id
+
 
 class OperationModel(dbSession):
     def add_operation(self, obj: operation_interface):  # 添加一个操作(在operation表中添加一个操作)
