@@ -3,7 +3,8 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 
-from model.permissions import Role, RolePrivilege, UserRole, Privilege, WorkRole, User
+from model.permissions import Role, RolePrivilege, UserRole, Privilege, WorkRole
+from model.user import User
 from model.db import dbSession
 from type.permissions import *
 
@@ -46,19 +47,18 @@ class roleModel(dbSession):
                                     status_code=404)
             return op
 
-    def create_role(self, data: create_role_base):  # 创建角色
-        obj_dict = jsonable_encoder(data)
+    def create_role(self, role_name: str, role_superiorId: int):  # 创建角色
         with self.get_db() as session:
-            result = session.query(Role).filter(Role.id == obj_dict['role_superiorId']).first()  # 处理父节点
+            result = session.query(Role).filter(Role.id == role_superiorId).first()  # 处理父节点
             if result is None:
                 raise HTTPException(detail="父节点无效",
                                     status_code=404)
-            role = session.query(Role).filter(Role.name == obj_dict['role_name']).first()
+            role = session.query(Role).filter(Role.name == role_name).first()
             if role is None:
                 temp_dict = json.loads(result.superiorListId)
-                superiorListId = add_superiorId(temp_dict, obj_dict['role_superiorId'])
-                NewRole = Role(name=obj_dict['role_name'], description=obj_dict['role_name'],
-                               superiorId=obj_dict['role_superiorId'], superiorListId=superiorListId, template=0,
+                superiorListId = add_superiorId(temp_dict, role_superiorId)
+                NewRole = Role(name=role_name, description=role_name,
+                               superiorId=role_superiorId, superiorListId=superiorListId, template=0,
                                status=0,
                                has_delete=0)
                 session.add(NewRole)
@@ -125,6 +125,16 @@ class roleModel(dbSession):
                 session.add(new_role_privilege)
                 session.commit()
                 return 'OK'
+
+    def attribute_role_for_work(self, service_type: int, service_id: int, role_id: int):
+        with self.get_db() as session:
+            Role_query_result = session.query(Role).filter(Role.id == role_id).first()
+            if Role_query_result is not None:
+                new_work_role = WorkRole(role_id=Role_query_result.id, service_type=service_type,
+                                         service_id=service_id, has_delete=0)
+                session.add(new_work_role)
+                session.commit()
+                return new_work_role.id
 
     def get_son_role(self, role_list: list):
         with self.get_db() as session:
@@ -247,6 +257,23 @@ class roleModel(dbSession):
                 WorkRole.service_id == None
             ).one()
             return query.role_id
+
+    def search_user_default_role(self, user_id: int):
+        with self.get_db() as session:
+            role_list = self.search_role_by_user(user_id)
+            for item in role_list:
+                role = session.query(Role).filter(
+                    Role.id == item,
+                    Role.template == 1
+                ).first()
+                if role is not None:
+                    return role.id
+
+    def add_role_for_work(self, service_id: int, service_type: int, user_id: int, role_name: str):
+        superiorId = self.search_user_default_role(user_id)
+        role_id = self.create_role(role_name, superiorId)  # 添加角色
+        WorkRole_id = self.attribute_role_for_work(service_type, service_id, role_id)  # 连接业务角色
+        return WorkRole_id
 
     def test(self, query):
         with self.get_db() as session:
