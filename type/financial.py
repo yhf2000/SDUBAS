@@ -3,7 +3,7 @@ import time
 from pydantic import BaseModel, Field, validator, constr, ConfigDict, BaseConfig, field_serializer
 from datetime import datetime
 from typing import get_type_hints
-
+from type.permissions import Add_Role_For_Work_Base
 from utils.times import getMsTime
 
 
@@ -42,6 +42,7 @@ class ResourceAdd(BaseModel):  # 资源添加请求体
     name: constr(strip_whitespace=True, min_length=1)  # 字符串类型的字段，去除首尾空格，最小长度为1
     count: int = Field(..., gt=0)  # 整数类型的字段，必须大于0
     state: int = 1  # 是否可用，这部分不确定，应该自动填入1
+    roles: List[Add_Role_For_Work_Base]
 
 
 class ResourceDelete(BaseModel):
@@ -56,6 +57,7 @@ class FinancialAdd(BaseModel):  # 添加资金项目填入
     Id: int = None  # 整数类型的字段，默认为None
     name: str = Field(..., strip_whitespace=True, min_length=1)  # 字符串类型的字段，不能全为空格，长度至少为1
     note: str = None  # 文本类型的字段，默认为None
+    roles: List[Add_Role_For_Work_Base]
 
 
 class AmountAdd(BaseModel):  # 添加流水填入

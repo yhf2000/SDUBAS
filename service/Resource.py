@@ -12,36 +12,27 @@ from utils.response import page
 from fastapi import HTTPException
 from sqlalchemy import func
 from service.permissions import roleModel
-
-
-def operation_commit(service_type: int, func: str, parameters: str, oper_user_id: int,
-                     service_id: Optional[int] = None):
-    if service_id is None:
-        operation_commit = operation_interface(service_type=service_type,
-                                               func=func, parameters=parameters, oper_user_id=oper_user_id)
-    else:
-        operation_commit = operation_interface(service_type=service_type, service_id=service_id,
-                                               func=func, parameters=parameters, oper_user_id=oper_user_id)
-    operation_service = OperationModel()
-    operation_service.add_operation(obj=operation_commit)
+from service.permissions import roleModel
 
 
 class ResourceModel(dbSession):
     def save_resource(self, obj_in: ResourceAdd, user_id: int):  # 增加
-        obj_dict = jsonable_encoder(obj_in)
+        obj_dict = obj_in.model_dump(exclude={"roles"})
         obj_add = Resource(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
             session.flush()
             session.commit()
-            operation_commit(5, "添加资源", "用户添加资源", user_id, obj_add.Id)
+            role_model = roleModel()
+            for role in obj_in.roles:
+                role_model.add_role_for_work(service_type=5, service_id=obj_add.Id, user_id=user_id,
+                                             role_name=role.role_name)
             return obj_add.Id
 
     def delete(self, Id: int, user_id: int):  # 删除
         with self.get_db() as session:
             session.query(Resource).filter(Resource.Id == Id).update({"has_delete": 1})
             session.commit()
-            operation_commit(5, "删除资源", "用户删除资源", user_id, Id)
             return Id
 
     def check_by_id(self, Id: int, user_id: int):  # 通过主键获取
@@ -49,7 +40,6 @@ class ResourceModel(dbSession):
             Resource_template = session.query(Resource).filter(Resource.Id == Id, Resource.has_delete == 0).first()
         if Resource_template is not None:
             Resource_dict = Resource_Basemodel.model_validate(Resource_template)
-            operation_commit(5, "查询某一资源", "用户查询某一资源", user_id, Id)
             return Resource_dict.model_dump(exclude={'has_delete'})
         else:
             raise HTTPException(status_code=404, detail="Item not found")
@@ -64,7 +54,6 @@ class ResourceModel(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            operation_commit(5, "查询资源列表", "用户查询资源列表", user_id)
             return total_count, dealDataList(data, Resource_Basemodel, {'has_delete'})
 
     def apply_resource(self, user: Any, Id: int, date: ApplyBody):
@@ -77,7 +66,6 @@ class ResourceModel(dbSession):
         with self.get_db() as session:
             session.query(Resource).filter(Resource.Id == Id).update({"count": count})
             session.commit()
-            operation_commit(5, "修改资源数量", "用户修改资源数量", user_id, Id)
             return Id
 
     def get_resource_apply_by_id(self, Id: int):  # 获取某项资源的所有申请
@@ -103,7 +91,6 @@ class BillModel(dbSession):
             session.add(obj_add)
             session.flush()
             session.commit()
-            operation_commit(6, "添加资金收支", "用户添加资金收支", user_id, obj_in.finance_id)
             return jsonable_encoder(obj_add.Id)
 
     def query_total(self, Id: int, user_id: int):  # 查询全部金额
@@ -121,7 +108,6 @@ class BillModel(dbSession):
             result = 0
         if result2 is None:
             result2 = 0
-        operation_commit(6, "查询资金总额", "用户查询资金总额", user_id, Id)
         return result - result2
 
     def query_amount(self, ID: int, pg: page, user_id: int):  # 查询分页流水
@@ -131,21 +117,18 @@ class BillModel(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            operation_commit(6, "查询资金流水", "用户查询资金流水", user_id, ID)
             return total_count, dealDataList(data, BillModelOpt, {'has_delete'})
 
     def delete_by_id(self, Id: int, user_id: int, financial_id: int):
         with self.get_db() as session:
             session.query(Bill).filter(Bill.Id == Id).update({"has_delete": 1})
             session.commit()
-            operation_commit(6, "删除资金某一流水", "用户删除资金流水", user_id, financial_id)
             return Id
 
     def delete_by_financial(self, Id: int, user_id: int):  # 通过外键删除
         with self.get_db() as session:
             session.query(Bill).filter(Bill.finance_id == Id).update({"has_delete": 1})
             session.commit()
-            operation_commit(6, "删除资金全部流水", "用户删除资金流水", user_id, Id)
             return Id
 
     def check_by_id(self, Id: int, user_id: int):  # 通过主键获取
@@ -155,13 +138,16 @@ class BillModel(dbSession):
 
 class FinancialModel(dbSession):
     def save_financial(self, obj_in: FinancialAdd, user_id: int):  # 增加
-        obj_dict = jsonable_encoder(obj_in)
+        obj_dict = obj_in.model_dump(exclude={"roles"})
         obj_add = Financial(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
             session.flush()
             session.commit()
-            operation_commit(6, "添加资金", "用户添加资金", user_id, obj_add.Id)
+            role_model = roleModel()
+            for role in obj_in.roles:
+                role_model.add_role_for_work(service_type=6, service_id=obj_add.Id, user_id=user_id,
+                                             role_name=role.role_name)
             return obj_add.Id
 
     def check_by_id(self, Id: int, user_id: int):  # 获取，通过主键
@@ -170,21 +156,18 @@ class FinancialModel(dbSession):
         if Financial_list is None:
             raise HTTPException(status_code=404, detail="Item not found")
         Financial_list3 = Financial_ModelOpt.model_validate(Financial_list)
-        operation_commit(6, "查询某一资金", "用户查询资金", user_id, Id)
         return Financial_list3.model_dump(exclude={'has_delete'})
 
     def delete(self, Id: int, user_id: int):  # 删除，通过主键
         with self.get_db() as session:
             session.query(Financial).filter(Financial.Id == Id).update({"has_delete": 1})
             session.commit()
-            operation_commit(6, "删除资金", "用户删除资金", user_id, Id)
             return Id
 
     def note_Update(self, Id: int, note: str, user_id: int):  # 修改Note
         with self.get_db() as session:
             session.query(Financial).filter(Financial.Id == Id).update({"note": note})
             session.commit()
-            operation_commit(6, "修改资金note", "用户修改资金note", user_id, Id)
             return Id
 
     def get_financial_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可用资金
@@ -196,5 +179,4 @@ class FinancialModel(dbSession):
             total_count = query.count()  # 总共
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
-            operation_commit(6, "查询资金列表", "用户查询资金列表", user_id)
             return total_count, dealDataList(data, Financial_ModelOpt, {'has_delete'})

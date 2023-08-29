@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, field_serializer, Field
 from typing import List, Optional
 from datetime import datetime
-
+from type.permissions import Add_Role_For_Work_Base
 from utils.times import getMsTime
 
 
@@ -49,6 +49,7 @@ class ProjectBase_Opt(ProjectBase):
 
 class ProjectCreate(ProjectBase):
     contents: List[ProjectContentBase]
+    roles: List[Add_Role_For_Work_Base]
 
 
 class ProjectUpdate(BaseModel):
@@ -150,4 +151,3 @@ class User_Opt(BaseModel):
     @field_serializer('registration_dt')
     def serialize_dt(self, dt: datetime, _info):
         return getMsTime(dt)
-

@@ -9,7 +9,7 @@ from model.project import Project, ProjectContent, ProjectCredit, ProjectContent
     ProjectContentUserSubmission, ProjectContentUserScore
 from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate, ProjectBase_Opt, \
     ProjectContentBaseOpt, user_submission, user_submission_Opt, Submission_Opt, SubmissionListCreate, \
-    project_content_renew, content_score, User_Opt
+    project_content_renew, content_score, User_Opt, ProjectCreate
 from type.page import page, dealDataList
 from sqlalchemy import and_
 from service.permissions import roleModel
@@ -20,10 +20,10 @@ from service.user import OperationModel
 
 
 class ProjectService(dbSession):
-    def create_project(self, project: ProjectBase, user_id: int) -> int:
+    def create_project(self, project: ProjectCreate, user_id: int) -> int:
         with self.get_db() as session:
             # Create a new Project instance
-            db_project = Project(**project.model_dump(exclude={"contents"}))
+            db_project = Project(**project.model_dump(exclude={"contents", "roles"}))
             # Add the new project to the session
             session.add(db_project)
             # Commit the transaction
@@ -36,7 +36,10 @@ class ProjectService(dbSession):
                 db_content = ProjectContent(**content.model_dump())
                 session.add(db_content)
                 session.commit()
-            self.operation_commit(7, "添加项目", "用户添加项目", user_id, db_project.id)
+            role_model = roleModel()
+            for role in project.roles:
+                role_model.add_role_for_work(service_id=db_project.id,
+                                             service_type=7, user_id=user_id, role_name=role.role_name)
             return db_project.id
 
     def update_project(self, project_id: int, newproject: ProjectUpdate, user_id: int) -> int:
@@ -45,7 +48,6 @@ class ProjectService(dbSession):
                                                                             "tag": newproject.tag,
                                                                             "active": newproject.active})
             session.commit()
-            self.operation_commit(7, "更新项目", "用户更新项目", user_id, project_id)
             return project_id
 
     def delete_project(self, project_id: int, user_id: int) -> int:
@@ -54,7 +56,6 @@ class ProjectService(dbSession):
             session.query(ProjectContent).filter(ProjectContent.project_id == project_id).update({'has_delete': 1})
             session.commit()
             # session.query(ProjectContent).filter_by(ProjectContent.project_id == project_id).update({'has_delete': 1})
-            self.operation_commit(7, "删除项目", "用户删除项目", user_id, project_id)
             return project_id
 
     def list_projects(self, pg: page, user_id: int):
@@ -67,7 +68,6 @@ class ProjectService(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            self.operation_commit(7, "查看项目列表", "用户查看项目列表", user_id)
             return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'img_id'})
 
     def get_project(self, project_id: int, user_id: int):
@@ -76,14 +76,12 @@ class ProjectService(dbSession):
             project = ProjectBase_Opt.model_validate(project)
             date = project.model_dump(exclude={'has_delete'})
             date['contents'] = self.list_projects_content(project_id=project_id, user_id=user_id)
-            self.operation_commit(7, "查看某一项目", "用户查看某一项目", user_id, project_id)
             return date
 
     def list_projects_content(self, project_id: int, user_id: int):
         with self.get_db() as session:
             query = session.query(ProjectContent).filter_by(project_id=project_id,
                                                             has_delete=0).all()
-            self.operation_commit(7, "查看项目内容", "用户查看项目内容", user_id, project_id)
             return dealDataList(query, ProjectContentBaseOpt, {})
 
     def get_projects_content(self, content_id: int, project_id: int, user_id: int):
@@ -91,7 +89,6 @@ class ProjectService(dbSession):
             project_content = session.query(ProjectContent).filter_by(id=content_id, project_id=project_id,
                                                                       has_delete=0).first()
             project_content = ProjectContentBaseOpt.model_validate(project_content)
-            self.operation_commit(7, "查看某一项目内容", "用户查看某一项目内容", user_id, project_id)
             return project_content.model_dump()
 
     def create_credit(self, credit: CreditCreate, user_id: int) -> int:
@@ -103,14 +100,12 @@ class ProjectService(dbSession):
                 session.add(db_credit)
                 session.commit()
                 session.refresh(db_credit)
-                self.operation_commit(7, "添加项目学分认定", "用户添加项目学分认定", user_id, db_credit.id)
                 return db_credit.id
             else:
                 session.query(ProjectCredit).filter(ProjectCredit.project_id == credit.project_id,
                                                     ProjectCredit.role_id == credit.role_id) \
                     .update({'credit': credit.credit})
                 session.commit()
-                self.operation_commit(7, "添加项目学分认定", "用户添加项目学分认定", user_id, db_check.id)
                 return db_check.id
 
     def create_submission(self, submission: SubmissionListCreate, user_id: int, project_id: int) -> int:
@@ -120,7 +115,6 @@ class ProjectService(dbSession):
                 session.add(db_submission)
                 session.commit()
                 session.refresh(db_submission)
-            self.operation_commit(7, "添加项目内容提交项", "用户添加项目内容提交项", user_id, project_id)
             return db_submission.id
 
     def create_score(self, scoremodel: ScoreCreate, user_id: int, project_id: int) -> int:
@@ -133,7 +127,6 @@ class ProjectService(dbSession):
                 session.add(db_score)
                 session.commit()
                 session.refresh(db_score)
-                self.operation_commit(7, "对项目内容打分", "用户对项目内容打分", user_id, project_id)
                 return db_score.id
             else:
                 db_score = session.query(ProjectContentUserScore). \
@@ -141,7 +134,6 @@ class ProjectService(dbSession):
                            ProjectContentUserScore.user_pcs_id == scoremodel.user_pcs_id) \
                     .update({'score': scoremodel.score, 'is_pass': scoremodel.is_pass})
                 session.commit()
-                self.operation_commit(7, "对项目内容打分", "用户对项目内容打分", user_id, project_id)
                 return db_check.id
 
     def create_user_submission(self, uer_submission: user_submission, user_id: int, project_id: int):
@@ -150,7 +142,6 @@ class ProjectService(dbSession):
             session.add(db_user_submission)
             session.commit()
             session.refresh(db_user_submission)
-            self.operation_commit(7, "用户提交", "用户提交项目内容提交项", user_id, project_id)
             return db_user_submission.id
 
     def get_user_submission_list(self, project_id: int, content_id: int, user_id: int):
@@ -160,7 +151,6 @@ class ProjectService(dbSession):
                       ProjectContentUserSubmission.pc_submit_id == ProjectContentSubmission.id) \
                 .filter(ProjectContentSubmission.pro_content_id == content_id,
                         ProjectContentUserSubmission.user_id == user_id).all()
-            self.operation_commit(7, "查看用户提交项", "查看用户提交", user_id, project_id)
             return dealDataList(list_user_submission, user_submission_Opt)
 
     def get_project_progress(self, project_id: int, user_id: int):
@@ -178,7 +168,6 @@ class ProjectService(dbSession):
                 .filter(ProjectContent.project_id == project_id,
                         ProjectContentUserSubmission.user_id == user_id) \
                 .scalar()
-            self.operation_commit(7, "查看用户项目进度", "查看用户项目进度", user_id, project_id)
             return {"finish_count": finish_count, "total_count": total_count}
 
     def get_user_project_score(self, project_id: int, user_id: int):
@@ -204,7 +193,6 @@ class ProjectService(dbSession):
             # 遍历项目内容并计算总分
             for project_content in project_contents:
                 total_score += calculate_content_score(project_content.id, project_content.weight)
-            self.operation_commit(7, "查看用户项目成绩", "查看用户项目成绩", user_id, project_id)
             return total_score
 
     def get_projects_by_type(self, project_type: str, pg: page, tags: str, user_id: int):
@@ -223,7 +211,6 @@ class ProjectService(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            self.operation_commit(7, "查看项目分类列表", "查看用户项目列表", user_id)
             return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'img_id'})
 
     def get_content_by_projectcontentid_userid(self, user_id: int, content_id: int, pg: page, project_id: int):
@@ -242,7 +229,6 @@ class ProjectService(dbSession):
                     finial_date['commit'] = 0
                 else:
                     finial_date['commit'] = 1
-            self.operation_commit(7, "查看用户完成度明细", "查看用户完成度明细", user_id, project_id)
             return total_count, finial_dates
 
     def renew_project_content(self, project_id: int, project_contents: project_content_renew, user_id: int):
@@ -268,7 +254,6 @@ class ProjectService(dbSession):
                     delete_list.append(da)
                     session.query(ProjectContent).filter(ProjectContent.id == da['id']).update({'has_delete': 1})
                     session.commit()
-        self.operation_commit(7, "修改项目内容", "用户修改项目内容", user_id, project_id)
         return project_id
 
     def check_project_exist(self, project_id: int):
@@ -303,7 +288,6 @@ class ProjectService(dbSession):
             user = d[2]
             print(type(user))
             lis.append(user)
-        self.operation_commit(7, "查询项目参加学生", "查询项目参加学生", user_id, project_id)
         return total_count, dealDataList(lis, User_Opt, {'has_delete'})
 
     def get_credits_user_get(self, user_id: int):
@@ -332,7 +316,6 @@ class ProjectService(dbSession):
                     current_credit = session.query(ProjectCredit).filter(ProjectCredit.project_id == project.id,
                                                                          ProjectCredit.role_id == credit_role_id).first()
                     total_credits += current_credit.credit
-        self.operation_commit(7, "查询已修学分", "查询已修学分", user_id)
         return total_credits
 
     def get_all_project_score(self, project_id: int, user_id: int):
@@ -351,7 +334,6 @@ class ProjectService(dbSession):
                 print(score[0].id)
                 now_score = {'content_name': score[0].name, 'score': score_value}
                 lis.append(now_score)
-            self.operation_commit(7, "查询项目得分明细", "查询项目得分明细", user_id, project_id)
             return lis
 
     def get_content_user_score_all(self, project_id: int, content_id: int, pg: page, user_id: int):
@@ -378,16 +360,4 @@ class ProjectService(dbSession):
                 else:
                     score_now = score.score
                 lis.append({'user_name': user_name, 'score': score_now})
-            self.operation_commit(7, "查询项目内容所有学生得分", "查询项目得分明细", user_id, project_id)
             return total_count, lis
-
-    def operation_commit(self, service_type: int, func: str, parameters: str, oper_user_id: int,
-                         service_id: Optional[int] = None):
-        if service_id is None:
-            operation_commit = operation_interface(service_type=service_type,
-                                                   func=func, parameters=parameters, oper_user_id=oper_user_id)
-        else:
-            operation_commit = operation_interface(service_type=service_type, service_id=service_id,
-                                                   func=func, parameters=parameters, oper_user_id=oper_user_id)
-        operation_service = OperationModel()
-        operation_service.add_operation(obj=operation_commit)
