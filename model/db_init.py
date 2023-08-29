@@ -8,12 +8,13 @@ from model.project import Project, ProjectCredit, ProjectContentSubmission, Proj
 from model.user import User, User_info, School, College, Major, Class, Operation, Session, Captcha
 from model.financial import Financial, Resource, Bill
 from model.file import File, User_File
+from model.permissions import UserRole, WorkRole, Role, RolePrivilege, Privilege
 
 create_table_list = [
     Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore,
     ProjectContentUserSubmission,
     Captcha, User, School, College, Major, Class, User_info, File, User_File, Operation, Session,
-    Financial, Resource, Bill
+    Financial, Resource, Bill, UserRole, WorkRole, Role, RolePrivilege, Privilege
 
 ]
 

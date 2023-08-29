@@ -11,6 +11,14 @@ from utils.auth_permission import auth_permission
 permissions_router = APIRouter()
 
 
+def search_son_user(request: Request):
+    db = roleModel()
+    user_id = get_user_id(request)
+    role_list = db.search_role_by_user(user_id)
+    user_list = db.search_user_by_role(role_list)
+    return user_list
+
+
 @permissions_router.post("/select_son_user")  # 创建角色
 async def add(data: type.permissions.create_role_base):
     db = roleModel()
@@ -43,6 +51,7 @@ async def attribute_role(data: type.permissions.attribute_role_base):
 async def attribute_privilege_for_role(data: type.permissions.attribute_privilege_base):
     db = roleModel()
     return {"status": db.attribute_privilege(data)}
+
 
 @permissions_router.post("/add_role_for_work")  # 为业务添加角色
 @standard_response
@@ -115,6 +124,7 @@ async def return_user_id(request: Request, data: type.permissions.Return_User_Id
     user_list = db.search_user_id_by_service(data.service_type, data.service_id)
     return {"user_id": user_list}
 
+
 @permissions_router.post("/search_service_id1")  # 返回业务id
 @standard_response
 async def return_service_id1(request: Request, data: type.permissions.Return_Service_Id):
@@ -125,6 +135,7 @@ async def return_service_id1(request: Request, data: type.permissions.Return_Ser
     role_list = db.search_role_by_user(user_id)
     service_id = db.search_service_id1(role_list, data.service_type, data.name)
     return {"service_id": service_id}
+
 
 @permissions_router.post("/default_role_id")  # 返回学院默认角色id
 @standard_response
