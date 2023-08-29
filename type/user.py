@@ -124,3 +124,11 @@ class parameters_interface(BaseModel):
     url: str
     para: Any
     body: Any
+
+
+class user_interface(BaseModel):
+    username: str
+    realname: str
+
+class reason_interface(BaseModel):
+    reason:str

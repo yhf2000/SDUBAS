@@ -57,7 +57,7 @@ class School(Base):  # 学校表
     )
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     name = Column(VARCHAR(64), nullable=False, unique=True, comment='学校名称')  # 学校名称，非空，唯一
-    school_abbreviation = Column(VARCHAR(10), nullable=False, comment='学校简称，如SDU')  # 学校简称，非空，唯一
+    school_abbreviation = Column(VARCHAR(10), nullable=False, comment='学校简称，如SDU')  # 学校简称，非空
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
     session = relationship("College")
 
@@ -105,7 +105,7 @@ class Operation(Base):  # 操作表
     __tablename__ = 'operation'
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     service_type = Column(Integer, nullable=False, index=True, comment='业务类型')  # 业务类型，非空，索引
-    service_id = Column(Integer, comment='业务id')  # 业务id，可空
+    service_id = Column(Integer, nullable=True, comment='业务id')  # 业务id，可空
     func = Column(VARCHAR(128), comment='操作')  # 操作
     parameters = Column(VARCHAR(4 * 1024), comment='操作参数')  # 操作参数
     oper_user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True,
