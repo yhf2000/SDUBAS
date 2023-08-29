@@ -160,6 +160,15 @@ class roleModel(dbSession):
             role_list = list(role_set)
             return role_list
 
+    def search_user_by_role(self, role_list: list):
+        with self.get_db() as session:
+            user_set = set()
+            user = session.query(UserRole).filter(UserRole.role_id.in_(role_list)).all()
+            for item in user:
+                user_set.add(item.user_id)
+            user_list = list(user_set)
+            return user_list
+
     def search_privilege_by_role(self, role_list: list):
         with self.get_db() as session:
             privilege_set = set()
