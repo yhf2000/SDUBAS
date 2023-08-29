@@ -17,12 +17,12 @@ send_email_app = Celery(
 def send_email(Email, token, update):  # 异步发送邮件
     mail = MIMEMultipart()
     mail_content = ''
-    if update == 0:  # 用户注册
+    if update == 0:  # 用户激活
         mail_content = '''
-                    <p>欢迎注册!</p>
+                    <p>欢迎激活!</p>
                     <p>您的验证码为:{}</p>
                     '''.format(token)
-        mail['Subject'] = '欢迎注册'
+        mail['Subject'] = '欢迎激活'
     elif update == 1:  # 修改绑定邮箱
         mail_content = '''
                     <p>修改绑定邮箱!</p>

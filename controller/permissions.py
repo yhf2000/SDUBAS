@@ -1,22 +1,14 @@
-from fastapi import APIRouter, Depends, FastAPI, Request, HTTPException
-from fastapi.encoders import jsonable_encoder
 import json
+
+from fastapi import APIRouter, Request, HTTPException
+from fastapi.encoders import jsonable_encoder
 
 import type.permissions
 from service.permissions import roleModel
-from controller.users import get_user_id
+from type.functions import get_user_id
 from utils.response import standard_response
-from utils.auth_permission import auth_permission
 
 permissions_router = APIRouter()
-
-
-def search_son_user(request: Request):
-    db = roleModel()
-    user_id = get_user_id(request)
-    role_list = db.search_role_by_user(user_id)
-    user_list = db.search_user_by_role(role_list)
-    return user_list
 
 
 @permissions_router.post("/select_son_user")  # 创建角色
