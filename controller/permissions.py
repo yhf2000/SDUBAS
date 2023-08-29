@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, FastAPI, Request, HTTPException
+from fastapi.encoders import jsonable_encoder
 import json
 
 import type.permissions
 from service.permissions import roleModel
+from controller.users import get_user_id
 from utils.response import standard_response
 from utils.auth_permission import auth_permission
 
@@ -12,39 +14,46 @@ permissions_router = APIRouter()
 @permissions_router.post("/select_son_user")  # 创建角色
 async def add(data: type.permissions.create_role_base):
     db = roleModel()
-    return {"new_role": db.get_role_info_by_id(db.create_role(data))}
+    obj_dict = jsonable_encoder(data)
+    return {"new_role": db.get_role_info_by_id(db.create_role(obj_dict['role_name'], obj_dict['role_superiorId']))}
 
 
 @permissions_router.post("/add")  # 创建角色
 async def add_role(data: type.permissions.create_role_base):
     db = roleModel()
-    return {"new_role": db.get_role_info_by_id(db.create_role(data))}
+    obj_dict = jsonable_encoder(data)
+    return {"new_role": db.get_role_info_by_id(db.create_role(obj_dict['role_name'], obj_dict['role_superiorId']))}
 
 
 @permissions_router.post("/delete")  # 删除角色
 @standard_response
 async def delete_role(data: type.permissions.delete_role_base):
     db = roleModel()
-    return {"status": db.delete_role(data)}
+    return {'message': '状态如下', "data": db.delete_role(data)}
 
 
-@permissions_router.post("/attribute_role")  # 分配用户角色
+@permissions_router.post("/attribute_role_for_user")  # 分配用户角色
 async def attribute_role(data: type.permissions.attribute_role_base):
     db = roleModel()
     return {"attribute_role": db.get_user_role_info_by_id(db.attribute_user_role(data))}
 
 
-@permissions_router.post("/attribute_privilege")  # 为角色添加权限
+@permissions_router.post("/attribute_privilege")  # 为角色添加权限(不可用）
 @standard_response
-async def attribute_privilege(data: type.permissions.attribute_privilege_base):
+async def attribute_privilege_for_role(data: type.permissions.attribute_privilege_base):
     db = roleModel()
     return {"status": db.attribute_privilege(data)}
 
 @permissions_router.post("/add_role_for_work")  # 为业务添加角色
 @standard_response
-async def attribute_privilege(data: type.permissions.attribute_privilege_base):
+async def add_role_for_work(request: Request, data: type.permissions.Add_Role_For_Work_Base):
     db = roleModel()
-    return {"status": db.attribute_privilege(data)}
+    obj_dict = jsonable_encoder(data)
+    user_id = get_user_id(request)
+    superiorId = db.search_user_default_role(user_id)
+    role_id = db.create_role(obj_dict['role_name'], superiorId)
+    WorkRole_id = db.attribute_role_for_work(obj_dict['service_type'], obj_dict['service_id'], role_id)
+    return WorkRole_id
 
 
 @permissions_router.post("/test")
@@ -60,7 +69,6 @@ async def test(request: Request):
 async def auth_privilege(request: Request):
     db = roleModel()
     user_id = int(request.headers.get("user_id"))
-    # user = auth_login(request)
     permission_key = request.url.path
     permission = None
     role_list = db.search_role_by_user(user_id)
