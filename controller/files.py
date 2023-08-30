@@ -137,7 +137,7 @@ async def file_preview(request: Request, pageNow: int, pageSize: int, session=De
     # 如果有权限
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_file = user_file_model.get_user_file_by_admin(Page, session['user_id'])  # 以分页形式返回
-    result = {None}
+    result = {"rows":None}
     parameters = await make_parameters(request)
     add_operation.delay(7, session['user_id'], '用户查看他能下载的文件', parameters, session['user_id'])
     if all_file != []:
