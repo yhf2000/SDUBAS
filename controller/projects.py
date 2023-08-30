@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Request
-from controller.users import make_parameters
+from type.functions import make_parameters
 from service.project import ProjectService
 from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
     ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew
