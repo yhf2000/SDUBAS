@@ -4,7 +4,7 @@ from utils.response import standard_response, makePageResult
 from service.Resource import ResourceModel, FinancialModel, BillModel
 from type.page import page
 from type import financial as financial_Basemodel
-from controller.users import make_parameters
+from type.functions import make_parameters
 from Celery.add_operation import add_operation
 
 resources_router = APIRouter()
