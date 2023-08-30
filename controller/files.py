@@ -30,15 +30,18 @@ user_model = UserModel()
 @user_standard_response
 async def file_upload_valid(request: Request, file: file_interface, user_agent: str = Header(None),
                             session=Depends(auth_login)):
+    global user_file_id
     id = file_model.get_file_by_hash(file)  # 查询文件是否存在
     if id is None or id[1] is False:  # 没有该file
         user_id = session['user_id']  # 得到user_id
         if id is None:
             file_id = file_model.add_file(file)  # 新建一个file
+            user_file_id = user_file_model.add_user_file(
+                user_file_interface(file_id=file_id, user_id=session['user_id']))
         else:
-            file_id = id[0]
+            user_file_id = user_file_model.get_user_file_id_by_file_id(id[0])[0]
         new_token = str(uuid.uuid4().hex)  # 生成token
-        new_session = session_interface(user_id=user_id, file_id=file_id, token=new_token, ip=request.client.host,
+        new_session = session_interface(user_id=user_id, file_id=user_file_id, token=new_token, ip=request.client.host,
                                         func_type=3, user_agent=user_agent, use_limit=1, exp_dt=(
                     datetime.datetime.now() + datetime.timedelta(hours=6)))  # 生成新session
         session_model.add_session(new_session)
@@ -61,7 +64,8 @@ async def file_upload(request: Request, file: UploadFile = File(...)):
         return {'message': 'token已失效，请重新上传', 'data': None, 'code': 1}
     old_session = json.loads(old_session)
     contents = await file.read()
-    get_file = file_model.get_file_by_id(old_session['file_id'])
+    file_id = user_file_model.get_file_id_by_id(old_session['file_id'])[0]
+    get_file = file_model.get_file_by_id(file_id)
     folder = "files" + '/' + get_file.hash_md5[:8] + '/' + get_file.hash_sha256[-8:] + '/'  # 先创建文件夹
     if not os.path.exists(folder):
         os.makedirs(folder)
@@ -71,17 +75,16 @@ async def file_upload(request: Request, file: UploadFile = File(...)):
     session_model.update_session_use_by_token(token, 1)  # 将该session使用次数设为1
     session_model.delete_session_by_token(token)  # 将该session设为已失效
     session_db.delete(token)  # 将缓存删掉
-    file_model.update_file_is_save(old_session['file_id'])  # 更新为已上传
-    file_information = user_file_interface(file_id=old_session['file_id'], user_id=old_session['user_id'],
-                                           name=file.filename, type=file.content_type)
-    id = user_file_model.add_user_file(file_information)  # 添加一条user_file的记录
+    user_file_model.update_user_file_name_type(old_session['file_id'], file.filename,
+                                                    file.content_type)  # 添加一条user_file的记录
+    file_model.update_file_is_save(file_id)  # 更新为已上传
     parameters = await make_parameters(request)
-    add_operation.delay(7, id, '用户上传了一个文件', parameters, file_information.user_id)
+    add_operation.delay(7, old_session['file_id'], '用户上传了一个文件', parameters, old_session['user_id'])
     data = dict()
     data['file_size'] = file.size
     data['file_name'] = file.filename,
     data['file_content_type'] = file.content_type
-    data['file_id'] = id
+    data['file_id'] = old_session['file_id']
     return {'message': '上传成功', 'data': data, 'code': 0}
 
 

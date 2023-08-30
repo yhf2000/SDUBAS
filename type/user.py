@@ -2,6 +2,7 @@ import hashlib
 from datetime import datetime, date
 from typing import Any
 
+from fastapi import File, UploadFile
 from pydantic import BaseModel, ConfigDict
 
 
@@ -118,6 +119,7 @@ class admin_user_add_interface(user_add_interface, user_info_interface):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
+    role_id: int
 
 
 class parameters_interface(BaseModel):
@@ -130,5 +132,11 @@ class user_interface(BaseModel):
     username: str
     realname: str
 
+
 class reason_interface(BaseModel):
-    reason:str
+    reason: str
+
+
+class file_interface(BaseModel):
+    file: UploadFile = File(...)
+    role_id: int

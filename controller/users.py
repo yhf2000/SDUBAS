@@ -8,19 +8,21 @@ import uuid
 from io import BytesIO
 import pandas as pd
 from captcha.image import ImageCaptcha
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Form
 from fastapi import File, UploadFile
 from fastapi import Request, Header, Depends
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
 from model.db import session_db, user_information_db
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, encrypted_password, CaptchaModel
+from service.permissions import roleModel
 from type.functions import make_parameters, search_son_user, get_email_token, get_user_id
 from type.page import page
 from type.user import user_info_interface, \
     session_interface, email_interface, password_interface, user_add_interface, admin_user_add_interface, \
     login_interface, \
-    captcha_interface, user_interface, reason_interface
+    captcha_interface, user_interface, reason_interface, file_interface
+from type.permissions import create_user_role_base
 from utils.auth_login import auth_login, auth_not_login
 from utils.response import user_standard_response, page_response, status_response, makePageResult
 
@@ -30,7 +32,7 @@ session_model = SessionModel()
 user_info_model = UserinfoModel()
 operation_model = OperationModel()
 captcha_model = CaptchaModel()
-
+role_model = roleModel()
 dtype_mapping = {
     'username': str,
     'password': str,
@@ -57,6 +59,7 @@ async def user_add(user_information: admin_user_add_interface, request: Request,
                                     enrollment_dt=user_information.enrollment_dt,
                                     graduation_dt=user_information.graduation_dt)
     user_info_model.add_userinfo(user_info)
+    role_model.add_user_role(create_user_role_base(role_id=user_information.role_id, user_id=user_id))
     parameters = await make_parameters(request)
     add_operation.delay(0, user_id, '管理员添加一个用户', parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}
@@ -64,7 +67,7 @@ async def user_add(user_information: admin_user_add_interface, request: Request,
 
 @users_router.post("/user_add_batch")  # 管理员批量添加用户(未添加权限认证)
 @user_standard_response
-async def user_add_all(request: Request, file: UploadFile = File(...), session=Depends(auth_login)):
+async def user_add_all(request: Request, file: UploadFile = File(...),session=Depends(auth_login),role_id: int = Form()):
     content = await file.read()
     df = pd.read_excel(content, dtype=dtype_mapping)
     user = []
@@ -86,6 +89,7 @@ async def user_add_all(request: Request, file: UploadFile = File(...), session=D
         user_info.append(user_info_data)
     user_id_list = user_model.add_all_user(user)
     user_info_model.add_all_user_info(user_info, user_id_list)
+    role_model.add_all_user_role(role_id, user_id_list)
     parameters = await make_parameters(request)
     add_operation.delay(0, None, '管理员批量添加用户', parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}
@@ -458,6 +462,7 @@ async def user_get_status(request: Request):
     data['email'] = user_information.email
     data['card_id'] = user_information.card_id
     return {'message': '结果如下', 'data': data, 'login_status': login_status, 'account_status': account_status, 'code': 0}
+
 
 '''
 @users_router.get("/error")  # 检查用户异常状态原因

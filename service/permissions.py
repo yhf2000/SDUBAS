@@ -73,6 +73,27 @@ class roleModel(dbSession):
                 session.commit()
                 return role.id
 
+    def add_user_role(self, obj: create_user_role_base):
+        obj_dict = jsonable_encoder(obj)
+        obj_add = UserRole(**obj_dict)
+        with self.get_db() as session:
+            session.add(obj_add)
+            session.flush()
+            session.commit()
+            return obj_add.id
+
+    def add_all_user_role(self, role_id, user_id_list):  # 管理员批量添加user_role
+        objects = []
+        for i in range(len(user_id_list)):
+            obj = create_user_role_base(role_id=role_id, user_id=user_id_list[i].id)
+            obj_dict = jsonable_encoder(obj)
+            objects.append(UserRole(**obj_dict))
+        with self.get_db() as session:
+            session.add_all(objects)
+            session.flush()
+            session.commit()
+            return 'ok'
+
     def delete_role(self, role_name: delete_role_base):  # 删除角色
         with self.get_db() as session:
             role_list = []
