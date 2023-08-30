@@ -4,6 +4,11 @@ from fastapi import Depends
 from pydantic import BaseModel
 
 
+class create_user_role_base(BaseModel):
+    role_id: int
+    user_id: int
+
+
 class create_role_base(BaseModel):  # 创建角色信息
     role_name: str
     role_superiorId: int
@@ -31,6 +36,7 @@ class attribute_role_for_work_base(BaseModel):  # 为业务分配角色
     role_name: str
     role_id: int
 
+
 class Add_Role_For_Work_Base(BaseModel):
     service_type: int = None
     service_id: int = None
@@ -38,9 +44,6 @@ class Add_Role_For_Work_Base(BaseModel):
     role_id: int = None
     status: Optional[int] = None
     has_delete: int = 0
-
-
-
 
 
 class Return_Service_Id(BaseModel):  # 返回业务id

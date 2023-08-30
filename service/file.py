@@ -54,6 +54,15 @@ class UserFileModel(dbSession):
             session.commit()
             return obj_add.id
 
+    def add_user_file_id(self, obj: user_file_interface):  # 用户上传文件(在user_file表中添加一个记录)
+        obj_dict = jsonable_encoder(obj)
+        obj_add = User_File(**obj_dict)
+        with self.get_db() as session:
+            session.add(obj_add)
+            session.flush()
+            session.commit()
+            return obj_add.id
+
     def delete_user_file(self, id: int):  # 删除一个文件
         with self.get_db() as session:
             session.query(User_File).filter(User_File.id == id).update({"has_delete": 1})
@@ -66,6 +75,12 @@ class UserFileModel(dbSession):
             session.commit()
             return id
 
+    def update_user_file_name_type(self, id: int, name: str, type: str):  # 更改文件名与type
+        with self.get_db() as session:
+            session.query(User_File).filter(User_File.id == id).update({"name": name, "type": type})
+            session.commit()
+            return id
+
     def update_user_file_type(self, id: int, type: str):  # 更改文件类型
         with self.get_db() as session:
             session.query(User_File).filter(User_File.id == id).update({"type": type})
@@ -75,6 +90,12 @@ class UserFileModel(dbSession):
     def get_user_file_by_id(self, id: int):  # 根据id查询user_file的基本信息
         with self.get_db() as session:
             user_file = session.query(User_File).filter(User_File.has_delete == 0, User_File.id == id).first()
+            session.commit()
+            return user_file
+
+    def get_file_id_by_id(self, id: int):  # 根据id查询user_file的基本信息
+        with self.get_db() as session:
+            user_file = session.query(User_File.file_id).filter(User_File.has_delete == 0, User_File.id == id).first()
             session.commit()
             return user_file
 

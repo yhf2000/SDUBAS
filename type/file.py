@@ -18,5 +18,3 @@ class user_file_interface(BaseModel):
     )
     file_id: int = None
     user_id: int = None
-    name: str = None
-    type: str = None

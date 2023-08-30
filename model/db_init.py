@@ -10,13 +10,12 @@ from model.financial import Financial, Resource, Bill
 from model.file import File, User_File
 from model.permissions import UserRole, WorkRole, Role, RolePrivilege, Privilege
 
-create_table_list = [
-    Project, ProjectCredit, ProjectContentSubmission, ProjectContent, ProjectContentUserScore,
-    ProjectContentUserSubmission,
-    Captcha, User, School, College, Major, Class, User_info, File, User_File, Operation, Session,
-    Financial, Resource, Bill, UserRole, WorkRole, Role, RolePrivilege, Privilege
-
-]
+create_table_list = [Role,
+                     Project, ProjectCredit, ProjectContent, ProjectContentSubmission, ProjectContentUserScore,
+                     ProjectContentUserSubmission,
+                     Captcha, User, School, College, Major, Class, User_info, File, User_File, Operation, Session,
+                     Financial, Resource, Bill, UserRole, WorkRole, Privilege, RolePrivilege
+                     ]
 
 if __name__ == "__main__":
     engine = create_engine(SQLALCHEMY_DATABASE_URL)
