@@ -17,6 +17,7 @@ from type.file import file_interface, user_file_interface
 from type.page import page
 from type.user import session_interface
 from utils.auth_login import auth_login
+from utils.auth_permission import auth_permission
 from utils.response import user_standard_response, page_response, makePageResult
 
 files_router = APIRouter()
@@ -26,13 +27,14 @@ session_model = SessionModel()
 user_model = UserModel()
 
 
-@files_router.post("/upload/valid")  # 文件存在验证
+# 文件存在验证，在上传文件之前先上传size和两个hash来判断文件是否存在：若文件存在则返回id，不存在则在cookie设置一个token
+@files_router.post("/upload/valid")
 @user_standard_response
 async def file_upload_valid(request: Request, file: file_interface, user_agent: str = Header(None),
-                            session=Depends(auth_login)):
+                            session=Depends(auth_login), permission=Depends(auth_permission)):
     global user_file_id
     id = file_model.get_file_by_hash(file)  # 查询文件是否存在
-    if id is None or id[1] is False:  # 没有该file
+    if id is None or id[1] is False:  # 没有该file或者有但是还未上传
         user_id = session['user_id']  # 得到user_id
         if id is None:
             file_id = file_model.add_file(file)  # 新建一个file
@@ -55,14 +57,18 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
         return {'message': '文件存在', 'data': {'file_id': user_file_id}, 'code': 0}
 
 
-@files_router.post("/upload")  # 上传文件
+# 上传文件。文件存储位置：files/hash_md5前八位/hash_sha256的后八位/文件名
+@files_router.post("/upload")
 @user_standard_response
-async def file_upload(request: Request, file: UploadFile = File(...)):
+async def file_upload(request: Request, file: UploadFile = File(...), permission=Depends(auth_permission)):
     token = request.cookies.get("TOKEN")
-    old_session = session_db.get(token)  # 有效session中没有
+    old_session = session_db.get(token)  # 有效session中没有，即session过期了
     if old_session is None:
         return {'message': 'token已失效，请重新上传', 'data': None, 'code': 1}
     old_session = json.loads(old_session)
+    id = user_file_model.get_user_file_by_file_name(file.filename)  # 查看文件名是否存在
+    if id is not None:
+        return {'message': '文件名已存在，请修改后重新上传', 'data': None, 'code': 2}
     contents = await file.read()
     file_id = user_file_model.get_file_id_by_id(old_session['file_id'])[0]
     get_file = file_model.get_file_by_id(file_id)
@@ -76,7 +82,7 @@ async def file_upload(request: Request, file: UploadFile = File(...)):
     session_model.delete_session_by_token(token)  # 将该session设为已失效
     session_db.delete(token)  # 将缓存删掉
     user_file_model.update_user_file_name_type(old_session['file_id'], file.filename,
-                                                    file.content_type)  # 添加一条user_file的记录
+                                               file.content_type)  # 添加一条user_file的记录
     file_model.update_file_is_save(file_id)  # 更新为已上传
     parameters = await make_parameters(request)
     add_operation.delay(7, old_session['file_id'], '用户上传了一个文件', parameters, old_session['user_id'])
@@ -88,9 +94,10 @@ async def file_upload(request: Request, file: UploadFile = File(...)):
     return {'message': '上传成功', 'data': data, 'code': 0}
 
 
-@files_router.get("/download")  # 下载文件
+# 下载文件，即返回一个下载链接
+@files_router.get("/download")
 @user_standard_response
-async def file_download(id: int, request: Request, user_agent: str = Header(None)):
+async def file_download(id: int, request: Request, user_agent: str = Header(None), permission=Depends(auth_permission)):
     user_file = user_file_model.get_user_file_by_id(id)
     new_token = str(uuid.uuid4().hex)  # 生成token
     #  通过权限认证，判断是永久下载地址还是临时下载地址
@@ -109,14 +116,15 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     return {'message': '请前往下载', 'data': {'url': 'http://127.0.0.1:8000/files/download/' + new_token}, 'code': 0}
 
 
-@files_router.get("/download/{token}")  # 下载文件
-async def file_download_files(request: Request, token: str):
+# 根据下载链接下载文件
+@files_router.get("/download/{token}")
+async def file_download_files(request: Request, token: str, permission=Depends(auth_permission)):
     old_session = session_db.get(token)  # 有效session中没有
     if old_session is None:
         return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
     old_session = json.loads(old_session)
-    if old_session['use'] != old_session['use_limit']:
-        if old_session['use'] + 1 == old_session['use_limit']:
+    if old_session['use'] != old_session['use_limit']:  # 查看下载链接是否还有下载次数
+        if old_session['use'] + 1 == old_session['use_limit']:  # 在下一次就失效
             session_model.delete_session_by_token(token)
             session_db.delete(token)
         else:
@@ -126,18 +134,18 @@ async def file_download_files(request: Request, token: str):
         folder = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:] + '/' + user_file.name  # 先找到路径
         parameters = await make_parameters(request)
         add_operation.delay(7, old_session['file_id'], '用户下载了一个文件', parameters, old_session['user_id'])
-        return FileResponse(folder, filename=user_file.name)
+        return FileResponse(folder, filename=user_file.name)  # 返回文件
     return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
 
 
-@files_router.get("/preview")  # 文件预览,用户查看所有他可以进行下载的文件
+# 文件预览,用户查看所有他可以进行下载的文件(目前是所有他上传的文件)
+@files_router.get("/preview")
 @page_response
-async def file_preview(request: Request, pageNow: int, pageSize: int, session=Depends(auth_login)):
-    # 判断是否有权限
-    # 如果有权限
+async def file_preview(request: Request, pageNow: int, pageSize: int, session=Depends(auth_login),
+                       permission=Depends(auth_permission)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_file = user_file_model.get_user_file_by_admin(Page, session['user_id'])  # 以分页形式返回
-    result = {"rows":None}
+    result = {"rows": None}
     parameters = await make_parameters(request)
     add_operation.delay(7, session['user_id'], '用户查看他能下载的文件', parameters, session['user_id'])
     if all_file != []:

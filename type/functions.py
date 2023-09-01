@@ -7,9 +7,12 @@ from fastapi import Request
 from model.db import session_db
 from service.permissions import roleModel
 from service.user import SessionModel
+from service.file import UserFileModel, FileModel
 from type.user import parameters_interface
 
 session_model = SessionModel()
+user_file_model = UserFileModel()
+file_model = FileModel()
 
 
 async def make_parameters(request: Request):  # 生成操作表里的parameters
@@ -52,6 +55,12 @@ def get_user_id(request: Request):  # 获取user_id
     else:
         return session_model.get_user_id_by_token(token)[0]
 
+
+def get_url_by_user_file_id(id):
+    user_file = user_file_model.get_user_file_by_id(id)
+    file = file_model.get_file_by_id(user_file.file_id)
+    url = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:] + '/' + user_file.name  # 找到路径
+    return url
 
 def search_son_user(request: Request):
     db = roleModel()

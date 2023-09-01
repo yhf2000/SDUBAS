@@ -8,7 +8,7 @@ from sqlalchemy import (
 from model.db import Base
 
 
-class File(Base):
+class File(Base):  # 文件表
     __tablename__ = 'file'
     __table_args__ = (
         Index('ix_file_has_delete_size_hash', "has_delete", "size", "hash_md5", "hash_sha256"),  # 非唯一的索引
@@ -22,8 +22,8 @@ class File(Base):
     has_delete = Column(Boolean, default=0)  # 是否已经删除
 
 
-# 定义文件用户表模型
-class User_File(Base):
+
+class User_File(Base):  # 文件用户表
     __tablename__ = 'user_file'
     id = Column(Integer, primary_key=True)  # 主键
     file_id = Column(Integer, ForeignKey('file.id'), nullable=False)  # 文件id，外键

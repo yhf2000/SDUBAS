@@ -4,7 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from utils.auth_login import auth_login
 from utils.response import standard_response
-from controller import files, projects, permissions, resources, users
+from controller import files, projects, permissions, resources, users, educations
 
 app = FastAPI()
 app.include_router(files.files_router, prefix="/files")
@@ -12,6 +12,7 @@ app.include_router(permissions.permissions_router, prefix="/permissions")
 app.include_router(projects.projects_router, prefix="/projects")
 app.include_router(resources.resources_router, prefix="/resources")
 app.include_router(users.users_router, prefix="/users")
+app.include_router(educations.users_router, prefix="/users")
 
 origins = [
     "*",
