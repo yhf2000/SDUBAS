@@ -24,6 +24,7 @@ from type.user import user_info_interface, \
     captcha_interface, user_interface, reason_interface, file_interface
 from type.permissions import create_user_role_base
 from utils.auth_login import auth_login, auth_not_login
+from utils.auth_permission import auth_permission
 from utils.response import user_standard_response, page_response, status_response, makePageResult
 
 users_router = APIRouter()
@@ -45,63 +46,66 @@ dtype_mapping = {
 }
 
 
-@users_router.post("/user_add")  # 管理员添加一个用户(未添加权限认证)
+# 管理员输入一堆信息添加一个用户
+@users_router.post("/user_add")
 @user_standard_response
-async def user_add(user_information: admin_user_add_interface, request: Request, session=Depends(auth_login)):
+async def user_add(user_information: admin_user_add_interface, request: Request, session=Depends(auth_login),
+                   permission=Depends(auth_permission)):
     user = user_add_interface(username=user_information.username, password=user_information.password,
                               email=user_information.email, card_id=user_information.card_id)
-    result = await user_unique_verify(user)
+    result = await user_unique_verify(user)  # 验证用户各项信息是否已存在
     ans = json.loads(result.body)
     if ans['code'] != 0:
         return ans
-    user_id = user_model.add_user(user)
+    user_id = user_model.add_user(user)  # 在user表里添加用户
     user_info = user_info_interface(user_id=user_id, realname=user_information.realname, gender=user_information.gender,
                                     enrollment_dt=user_information.enrollment_dt,
                                     graduation_dt=user_information.graduation_dt)
-    user_info_model.add_userinfo(user_info)
-    role_model.add_user_role(create_user_role_base(role_id=user_information.role_id, user_id=user_id))
+    user_info_model.add_userinfo(user_info)  # 在user_info表中添加用户
+    role_model.add_user_role(create_user_role_base(role_id=user_information.role_id, user_id=user_id))  # 为其分配一个角色
     parameters = await make_parameters(request)
     add_operation.delay(0, user_id, '管理员添加一个用户', parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}
 
 
-@users_router.post("/user_add_batch")  # 管理员批量添加用户(未添加权限认证)
+# 管理员通过导入一个文件批量添加用户
+@users_router.post("/user_add_batch")
 @user_standard_response
-async def user_add_all(request: Request, file: UploadFile = File(...),session=Depends(auth_login),role_id: int = Form()):
+async def user_add_all(request: Request, file: UploadFile = File(...), session=Depends(auth_login),
+                       role_id: int = Form(), permission=Depends(auth_permission)):
     content = await file.read()
-    df = pd.read_excel(content, dtype=dtype_mapping)
+    df = pd.read_excel(content, dtype=dtype_mapping)  # 读取文件
     user = []
     user_info = []
     for index, row in df.iterrows():
         temp = row[['username', 'password', 'email', 'card_id']].to_dict()
         user_data = user_add_interface(**temp)
-        result = await user_unique_verify(user_data)
+        result = await user_unique_verify(user_data)  # 验证要添加的用户各项信息是否存在
         ans = json.loads(result.body)
         if ans['code'] != 0:
-            ans['message'] = '第' + str(index + 1) + '位' + ans['message']
+            ans['message'] = '第' + str(index + 1) + '位' + ans['message']  # 报出第几位有问题
             return ans
         user_data.registration_dt = user_data.registration_dt.strftime(
             "%Y-%m-%d %H:%M:%S")
-        user_data.password = encrypted_password(user_data.password, user_data.registration_dt)
+        user_data.password = encrypted_password(user_data.password, user_data.registration_dt)  # 加密密码
         user.append(user_data)
         temp = row[['realname', 'gender', 'enrollment_dt', 'graduation_dt']].to_dict()
         user_info_data = user_info_interface(**temp)
         user_info.append(user_info_data)
-    user_id_list = user_model.add_all_user(user)
-    user_info_model.add_all_user_info(user_info, user_id_list)
-    role_model.add_all_user_role(role_id, user_id_list)
+    user_id_list = user_model.add_all_user(user)  # 添加所有的user得到user_id_list
+    user_info_model.add_all_user_info(user_info, user_id_list)  # 添加所有的user_info
+    role_model.add_all_user_role(role_id, user_id_list)  # 都分配一个默认角色
     parameters = await make_parameters(request)
     add_operation.delay(0, None, '管理员批量添加用户', parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}
 
 
-@users_router.get("/user_view")  # 查看管理员所能操作的所有用户(未添加权限认证)
+# 以分页形式查看管理员所能操作的所有用户
+@users_router.get("/user_view")
 @page_response
-async def user_view(pageNow: int, pageSize: int, request: Request):
-    # 判断是否有权限
-    # 如果有权限
+async def user_view(pageNow: int, pageSize: int, request: Request, permission=Depends(auth_permission)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    user_list = search_son_user(request)
+    user_list = search_son_user(request)  # 查看当前用户创建的所有子用户
     result = {'rows': None}
     if user_list != []:
         user_data = []
@@ -109,87 +113,88 @@ async def user_view(pageNow: int, pageSize: int, request: Request):
             name = user_model.get_name_by_user_id(user_id)
             temp = user_interface(username=name[0], realname=name[1])
             user_data.append(temp)
-        result = makePageResult(Page, len(user_list), user_data)
+        result = makePageResult(Page, len(user_list), user_data)  # 以分页形式返回
     return {'message': '人员如下', "data": result, "code": 0}
 
 
-@users_router.delete("/{user_id}/user_delete")  # 管理员删除人员(未添加权限认证)
+# 管理员根据user_id删除人员
+@users_router.delete("/user_delete/{user_id}")
 @user_standard_response
-async def user_delete(request: Request, user_id: int, session=Depends(auth_login)):
-    # 判断是否有权限
-    # 如果有权限
+async def user_delete(request: Request, user_id: int, session=Depends(auth_login), permission=Depends(auth_permission)):
     exist_user = user_model.get_user_status_by_user_id(user_id)
     if exist_user is None:
         return {'message': '没有该用户', 'data': False, 'code': 1}
-    id = user_model.delete_user(user_id)
-    user_info_model.delete_userinfo(user_id)
+    id = user_model.delete_user(user_id)  # 在user表里删除
+    user_info_model.delete_userinfo(user_id)  # 在user_info表里删除
     parameters = await make_parameters(request)
     add_operation.delay(0, id, '管理员删除一个用户', parameters, session['user_id'])
     return {'message': '删除成功', 'data': True, 'code': 0}
 
 
-@users_router.put("/{user_id}/user_ban")  # 管理员封禁人员(未添加权限认证)
+# 管理员根据user_id封禁人员
+@users_router.put("/user_ban/{user_id}")
 @user_standard_response
-async def user_ban(request: Request, user_id: int, reason: reason_interface, session=Depends(auth_login)):
-    # 判断是否有权限
-    # 如果有权限
-    exist_user = user_model.get_user_status_by_user_id(user_id)
-    if exist_user is None:
+async def user_ban(request: Request, user_id: int, reason: reason_interface, session=Depends(auth_login),
+                   permission=Depends(auth_permission)):
+    exist_user = user_model.get_user_status_by_user_id(user_id)  # 查询用户的帐号状态
+    if exist_user is None:  # 没有该用户
         return {'message': '没有该用户', 'data': False, 'code': 1}
-    if exist_user[0] == 2:
+    if exist_user[0] == 2:  # 账号已注销
         return {'message': '账号已注销', 'data': False, 'code': 2}
-    elif exist_user[0] == 3:
+    elif exist_user[0] == 3:  # 账号已被封禁
         return {'message': '账号已被封禁', 'data': False, 'code': 3}
-    id = user_model.update_user_status(user_id, 3)
+    id = user_model.update_user_status(user_id, 3)  # 将用户封禁
     parameters = await make_parameters(request)
     add_operation.delay(0, id, '封禁用户,原因:' + reason.reason, parameters, session['user_id'])
     return {'message': '封禁成功', 'data': True, 'code': 0}
 
 
-@users_router.put("/{user_id}/user_relieve")  # 管理员解封人员(未添加权限认证)
+# 管理员根据user_id解封人员
+@users_router.put("/user_relieve/{user_id}")
 @user_standard_response
-async def user_relieve(request: Request, user_id: int, reason: reason_interface, session=Depends(auth_login)):
-    # 判断是否有权限
-    # 如果有权限
+async def user_relieve(request: Request, user_id: int, reason: reason_interface, session=Depends(auth_login),
+                       permission=Depends(auth_permission)):
     exist_user = user_model.get_user_status_by_user_id(user_id)
-    if exist_user is None:
+    if exist_user is None:  # 没有该用户
         return {'message': '没有该用户', 'data': False, 'code': 1}
-    if exist_user[0] == 2:
+    if exist_user[0] == 2:  # 账号已注销
         return {'message': '账号已注销', 'data': False, 'code': 2}
-    elif exist_user[0] == 0 or exist_user[0] == 1:
-        return {'message': '账号已被封禁', 'data': False, 'code': 3}
-    id = user_model.update_user_status(user_id, 1)
+    elif exist_user[0] == 0 or exist_user[0] == 1:  # 账号未被封禁
+        return {'message': '账号未被封禁', 'data': False, 'code': 3}
+    id = user_model.update_user_status(user_id, 1)  # 解封账号
     parameters = await make_parameters(request)
     add_operation.delay(0, id, '解封用户,原因:' + reason.reason, parameters, session['user_id'])
     return {'message': '解封成功', 'data': True, 'code': 0}
 
 
-@users_router.post("/unique_verify")  # 注册时验证用户用户名和邮箱的唯一性
+# 验证用户用户名，邮箱，学号的唯一性
+@users_router.post("/unique_verify")
 @user_standard_response
 async def user_unique_verify(reg_data: user_add_interface):
     flag = 0
-    if reg_data.username is not None:
+    if reg_data.username is not None:  # 验证用户名唯一性
         exist_username = user_model.get_user_status_by_username(reg_data.username)
         if exist_username is not None:
             return {'message': '用户名已存在', 'code': 1, 'data': False}
-    if reg_data.email is not None:
+    if reg_data.email is not None:  # 验证邮箱唯一性
         exist_email = user_model.get_user_status_by_email(reg_data.email)
         if exist_email is not None:
             return {'message': '邮箱已存在', 'code': 2, 'data': False}
-    if reg_data.card_id is not None:
+    if reg_data.card_id is not None:  # 验证学号唯一性
         exist_card_id = user_model.get_user_status_by_card_id(reg_data.card_id)
         if exist_card_id is not None:
             return {'message': '学号已存在', 'code': 3, 'data': False}
     return {'message': '满足条件', 'code': 0, 'data': True}
 
 
-@users_router.get("/get_captcha")  # 获得图片验证码
+# 获得图片验证码
+@users_router.get("/get_captcha")
 @user_standard_response
 async def get_captcha():
     characters = string.digits + string.ascii_uppercase  # characters为验证码上的字符集，10个数字加26个大写英文字母
-    width, height, n_len, n_class = 170, 80, 4, len(characters)
+    width, height, n_len, n_class = 170, 80, 4, len(characters)  # 图片大小
     generator = ImageCaptcha(width=width, height=height)
-    random_str = ''.join([random.choice(characters) for j in range(4)])
+    random_str = ''.join([random.choice(characters) for j in range(4)])  # 生出四位随机数字与字母的组合
     img = generator.generate_image(random_str)
     img_byte = BytesIO()
     img.save(img_byte, format='JPEG')  # format: PNG or JPEG
@@ -201,9 +206,11 @@ async def get_captcha():
     return {'data': {'captcha': src, 'captchaId': str(id)}, 'message': '获取成功', 'code': 0}
 
 
-@users_router.post("/send_captcha")  # 验证图片验证码是否正确并发送邮箱验证码
+# 验证图片验证码是否正确并发送邮箱验证码
+@users_router.post("/send_captcha")
 @user_standard_response
-async def send_captcha(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None)):
+async def send_captcha(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None),
+                       permission=Depends(auth_permission)):
     value = captcha_model.get_captcha_by_id(int(captcha_data.captchaId))
     if value[0] != captcha_data.captcha:
         return {'message': '验证码输入错误', 'code': 1, 'data': False}
@@ -246,9 +253,11 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
     return {'data': True, 'token_header': token, 'message': '验证码已发送，请前往验证！', 'code': 0}
 
 
-@users_router.put("/activation")  # 用户激活
+# 用户通过输入邮箱验证码激活
+@users_router.put("/activation")
 @user_standard_response
-async def user_activation(email_data: email_interface, request: Request, token=Depends(auth_not_login), type: int = 0):
+async def user_activation(email_data: email_interface, request: Request, token=Depends(auth_not_login), type: int = 0,
+                          permission=Depends(auth_permission)):
     token = request.cookies.get("TOKEN")
     session = session_db.get(token)  # 从缓存中得到有效session
     user_session = session_model.get_session_by_token(token)  # 根据token获取用户的session
@@ -261,11 +270,11 @@ async def user_activation(email_data: email_interface, request: Request, token=D
             session_model.delete_session(user_session.id)  # 把这个session设为无效
             session_db.delete(token)
             parameters = await make_parameters(request)
-            if type == 0:
+            if type == 0:  # 用户激活时进行验证
                 user_model.update_user_status(user_session.user_id, 0)
                 add_operation.delay(0, user_session.user_id, '用户激活时输入了正确的邮箱验证码通过验证', parameters, user_session.user_id)
                 return {'message': '验证成功', 'data': True, 'token_header': '-1', 'code': 0}
-            if type == 1:
+            if type == 1:  # 修改邮箱时进行验证
                 user_model.update_user_email(user_session.user_id, email_data.email)
                 add_operation.delay(0, user_session.user_id, '修改邮箱时输入了正确的邮箱验证码通过验证', parameters, user_session.user_id)
                 return {'message': '验证成功', 'data': True, 'token_header': '-1', 'code': 0}
@@ -295,10 +304,11 @@ async def user_bind_information(request: Request, user_data: user_info_interface
 '''
 
 
-@users_router.post("/login")  # 登录
+# 输入账号密码进行登录
+@users_router.post("/login")
 @user_standard_response
 async def user_login(log_data: login_interface, request: Request, user_agent: str = Header(None),
-                     token=Depends(auth_not_login)):
+                     token=Depends(auth_not_login), permission=Depends(auth_permission)):
     user_information = user_model.get_user_by_username(log_data.username)  # 先查看要登录的用户名是否存在
     if user_information is None:  # 用户名不存在
         return {'message': '用户名或密码不正确', 'data': False, 'code': 1}
@@ -306,7 +316,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
         new_password = encrypted_password(log_data.password, user_information.registration_dt.strftime(
             "%Y-%m-%d %H:%M:%S"))  # 判定输入的密码是否正确
         if new_password == user_information.password:
-            status = user_model.get_user_status_by_username(log_data.username)[0]
+            status = user_model.get_user_status_by_username(log_data.username)[0]  # 登陆时检查帐号状态
             if status == 1:
                 return {'message': '账号未激活', 'data': False, 'code': 2}
             elif status == 2:
@@ -330,9 +340,10 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             return {'message': '用户名或密码不正确', 'data': False, 'code': 1}
 
 
-@users_router.put("/logout")  # 下线
+# 下线
+@users_router.put("/logout")
 @user_standard_response
-async def user_logout(request: Request, session=Depends(auth_login)):
+async def user_logout(request: Request, session=Depends(auth_login), permission=Depends(auth_permission)):
     token = session['token']
     mes = session_model.delete_session_by_token(token)  # 将session标记为已失效
     session_db.delete(token)  # 在缓存中删除
@@ -341,9 +352,11 @@ async def user_logout(request: Request, session=Depends(auth_login)):
     return {'message': '下线成功', 'data': {'result': mes}, 'token': '-1', 'code': 0}
 
 
-@users_router.put("/username_update")  # 修改用户名
+# 输入新的用户名进行修改用户名
+@users_router.put("/username_update")
 @user_standard_response
-async def user_username_update(request: Request, log_data: login_interface, session=Depends(auth_login)):
+async def user_username_update(request: Request, log_data: login_interface, session=Depends(auth_login),
+                               permission=Depends(auth_permission)):
     user_data = user_add_interface(username=log_data.username)
     await user_unique_verify(user_data)
     user_id = session['user_id']
@@ -358,9 +371,11 @@ async def user_username_update(request: Request, log_data: login_interface, sess
     return {'message': '修改成功', 'data': {'user_id': user_id}, 'code': 0}
 
 
-@users_router.put("/password_update")  # 更改密码
+# 输入原密码与新密码更改密码
+@users_router.put("/password_update")
 @user_standard_response
-async def user_password_update(request: Request, password: password_interface, session=Depends(auth_login)):
+async def user_password_update(request: Request, password: password_interface, session=Depends(auth_login),
+                               permission=Depends(auth_permission)):
     user_id = session['user_id']
     user = user_model.get_user_by_user_id(user_id)
     user.registration_dt = user.registration_dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -375,9 +390,11 @@ async def user_password_update(request: Request, password: password_interface, s
     return {'data': {'user_id': id}, 'message': '修改成功', 'code': 0}
 
 
-@users_router.post("/email_update")  # 更改邮箱
+# 输入更改邮箱，向更改邮箱发送链接
+@users_router.post("/email_update")
 @user_standard_response
-async def user_email_update(email_data: email_interface, request: Request, session=Depends(auth_login)):
+async def user_email_update(email_data: email_interface, request: Request, session=Depends(auth_login),
+                            permission=Depends(auth_permission)):
     token = request.cookies.get("TOKEN")
     result = await user_activation(email_data, request, token, 1)  # 验证验证码是否输入正确
     ans = json.loads(result.body)
@@ -389,9 +406,11 @@ async def user_email_update(email_data: email_interface, request: Request, sessi
     return {'data': True, 'message': ans['message'], 'code': 0}
 
 
-@users_router.post("/get_back_password")  # 找回密码
+# 输入用户名，邮箱找回密码
+@users_router.post("/get_back_password")
 @user_standard_response
-async def user_password_get_back(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None)):
+async def user_password_get_back(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None),
+                                 permission=Depends(auth_permission)):
     user_information = user_model.get_user_by_username(captcha_data.username)
     if user_information is None:  # 看看有没有这个用户名
         return {'data': False, 'message': '没有该用户', 'code': 1}
@@ -402,9 +421,10 @@ async def user_password_get_back(captcha_data: captcha_interface, request: Reque
     return {'data': True, 'message': ans['message'], 'code': 0}
 
 
-@users_router.get("/set_password/{token}")  # 找回密码后用户设置密码
+# 找回密码后用户输入新密码设置密码
+@users_router.get("/set_password/{token}")
 @user_standard_response
-async def user_set_password(request: Request, new_password: str, token: str):
+async def user_set_password(request: Request, new_password: str, token: str, permission=Depends(auth_permission)):
     user_id = session_model.get_user_id_by_token(token)  # 查出user_id
     if user_id is None:
         return {'data': False, 'message': '无法找到该页面', 'code': 1}
@@ -420,9 +440,10 @@ async def user_set_password(request: Request, new_password: str, token: str):
     return {'data': True, 'message': '修改成功', 'code': 0}
 
 
-@users_router.get("/getProfile")  # 查看用户信息
+# 查看用户信息
+@users_router.get("/getProfile")
 @user_standard_response
-async def user_get_Profile(session=Depends(auth_login)):
+async def user_get_Profile(session=Depends(auth_login), permission=Depends(auth_permission)):
     user_information = user_information_db.get(session['token'])  # 缓存中中没有
     if user_information is None:
         user_information = user_model.get_user_information_by_id(session['user_id'])
@@ -442,7 +463,8 @@ async def user_get_Profile(session=Depends(auth_login)):
     return {'data': json.loads(user_information), 'message': '结果如下', 'code': 0}
 
 
-@users_router.get("/status")  # 检查用户登录状态
+# 检查用户登录状态
+@users_router.get("/status")
 @status_response
 async def user_get_status(request: Request):
     token = request.cookies.get("SESSION")

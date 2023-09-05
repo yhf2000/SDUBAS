@@ -21,7 +21,7 @@ class FileModel(dbSession):
             session.commit()
             return id
 
-    def get_file_by_hash(self, obj: file_interface):  # 根据size与hash查询file的id
+    def get_file_by_hash(self, obj: file_interface):  # 根据size与两个hash查询file的id
         with self.get_db() as session:
             id = session.query(File.id, File.is_save).filter(
                 File.has_delete == 0,
@@ -54,7 +54,7 @@ class UserFileModel(dbSession):
             session.commit()
             return obj_add.id
 
-    def add_user_file_id(self, obj: user_file_interface):  # 用户上传文件(在user_file表中添加一个记录)
+    def add_user_file_id(self, obj: user_file_interface):  # 用户上传文件(在user_file表中添加一个记录)（不完全版）
         obj_dict = jsonable_encoder(obj)
         obj_add = User_File(**obj_dict)
         with self.get_db() as session:
@@ -93,15 +93,21 @@ class UserFileModel(dbSession):
             session.commit()
             return user_file
 
-    def get_file_id_by_id(self, id: int):  # 根据id查询user_file的基本信息
+    def get_file_id_by_id(self, id: int):  # 根据id查询user_file的file_id
         with self.get_db() as session:
             user_file = session.query(User_File.file_id).filter(User_File.has_delete == 0, User_File.id == id).first()
             session.commit()
             return user_file
 
-    def get_user_file_id_by_file_id(self, file_id: int):  # 根据id查询user_file的基本信息
+    def get_user_file_id_by_file_id(self, file_id: int):  # 根据file_id查询user_file的id
         with self.get_db() as session:
             id = session.query(User_File.id).filter(User_File.has_delete == 0, User_File.file_id == file_id).first()
+            session.commit()
+            return id
+
+    def get_user_file_by_file_name(self, file_name: str):  # 根据file_name查询user_file的基本信息
+        with self.get_db() as session:
+            id = session.query(User_File.id).filter(User_File.has_delete == 0, User_File.name == file_name).first()
             session.commit()
             return id
 
