@@ -50,6 +50,8 @@ class school_interface(BaseModel):
     )
     name: str = None
     school_abbreviation: str = None
+    file_id: int = None
+    school_logo: str = None
 
 
 class college_interface(BaseModel):
@@ -59,6 +61,8 @@ class college_interface(BaseModel):
     )
     name: str = None
     school_id: int = None
+    file_id: int = None
+    college_logo: str = None
 
 
 class major_interface(college_interface):

@@ -67,7 +67,7 @@ class UserModel(dbSession):
             session.commit()
             return id
 
-    def update_user_password(self, id: int, password: str):  # 更改用户名
+    def update_user_password(self, id: int, password: str):  # 更改用户密码
         with self.get_db() as session:
             session.query(User).filter(User.id == id).update({"password": password})
             session.commit()
@@ -173,13 +173,13 @@ class SessionModel(dbSession):
             session.commit()
             return obj_add.id
 
-    def delete_session(self, id: int):  # 删除一个session
+    def delete_session(self, id: int):  # 根据id删除一个session
         with self.get_db() as session:
             session.query(Session).filter(Session.id == id).update({"has_delete": 1})
             session.commit()
             return id
 
-    def delete_session_by_token(self, token: str):  # 删除一个session
+    def delete_session_by_token(self, token: str):  # 根据token删除一个session
         with self.get_db() as session:
             session.query(Session).filter(Session.token == token).update({"has_delete": 1})
             session.commit()
@@ -197,11 +197,6 @@ class SessionModel(dbSession):
             session.commit()
             return user_id
 
-    def get_user_id_by_token_s6(self, token_s6):  # 根据token查询session的user_id（不论是否有效）
-        with self.get_db() as session:
-            user_id = session.query(Session.user_id).filter(Session.token_s6 == token_s6).first()
-            session.commit()
-            return user_id
 
     def get_session_by_id(self, id):  # 根据id查询session的基本信息
         with self.get_db() as session:
@@ -209,13 +204,13 @@ class SessionModel(dbSession):
             session.commit()
             return ses
 
-    def update_session_use(self, id: int, use_add: int):  # 更改session中的use
+    def update_session_use(self, id: int, use_add: int):  # 根据id更改session中的use
         with self.get_db() as session:
             session.query(Session).filter(Session.id == id).update({"use": Session.use + use_add})
             session.commit()
             return id
 
-    def update_session_use_by_token(self, token: str, use_add: int):  # 更改session中的use by token
+    def update_session_use_by_token(self, token: str, use_add: int):  # 根据token更改session中的use by token
         with self.get_db() as session:
             session.query(Session).filter(Session.token == token).update({"use": Session.use + use_add})
             session.commit()
@@ -298,6 +293,13 @@ class UserinfoModel(dbSession):
             session.commit()
             return userinfo
 
+    def get_major_id_by_user_id(self, user_id):  # 根据user_id查询user的major_id
+        with self.get_db() as session:
+            userinfo = session.query(User_info.major_id).filter(User_info.user_id == user_id,
+                                                                                    User_info.has_delete == 0).first()
+            session.commit()
+            return userinfo
+
     def get_userinfo_by_id(self, id):  # 根据id查询userinfo的基本信息
         with self.get_db() as session:
             userinfo = session.query(User).filter(User_info.id == id, User_info.has_delete == 0).first()
@@ -359,7 +361,7 @@ class CaptchaModel(dbSession):
             session.commit()
             return id
 
-    def get_captcha_by_id(self, id):  # 根据id查询captcha的基本信息
+    def get_captcha_by_id(self, id):  # 根据id查询captcha的值
         with self.get_db() as session:
             value = session.query(Captcha.value).filter(Captcha.id == id, Captcha.has_delete == 0).first()
             session.commit()
