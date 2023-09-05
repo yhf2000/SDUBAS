@@ -4,7 +4,7 @@ from service.project import ProjectService
 from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
     ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew
 from utils.auth_login import auth_login
-from utils.auth_permission import auth_permission
+from utils.auth_permission import auth_permission, auth_permission1
 from utils.response import standard_response, makePageResult
 from type.page import page
 from Celery.add_operation import add_operation
@@ -16,14 +16,14 @@ project_service = ProjectService()
 
 @projects_router.post("/")
 @standard_response
-async def create_project(request: Request, project: ProjectCreate, user=Depends(auth_permission)) -> int:
+async def create_project(request: Request, project: ProjectCreate, user=Depends(auth_permission1)) -> int:
     results = project_service.create_project(project, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(7, results, "添加项目", parameters, user['user_id'])
+    # add_operation.delay(7, results, "添加项目", parameters, user['user_id'])
     return results
 
 
-@projects_router.put("/{project_id}")
+@projects_router.put("/{project_id}/update")
 @standard_response
 async def update_project(request: Request, project_id: int, project: ProjectUpdate, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
@@ -33,7 +33,7 @@ async def update_project(request: Request, project_id: int, project: ProjectUpda
     return results
 
 
-@projects_router.delete("/{project_id}")
+@projects_router.delete("/{project_id}/delete")
 @standard_response
 async def delete_project(request: Request, project_id: int, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
@@ -43,7 +43,7 @@ async def delete_project(request: Request, project_id: int, user=Depends(auth_pe
     return results
 
 
-@projects_router.get("/")
+@projects_router.get("/list")
 @standard_response
 async def list_projects(request: Request,
                         pageNow: int = Query(description="页码", gt=0),
@@ -57,7 +57,7 @@ async def list_projects(request: Request,
     # 实现查询项目列表的逻辑
 
 
-@projects_router.get("/{project_id}")
+@projects_router.get("/{project_id}/get")
 @standard_response
 async def get_project(request: Request, project_id: int, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
@@ -196,7 +196,7 @@ async def create_user_submission(request: Request, project_id: int,
     # 实现查询项目成绩的逻辑
 
 
-@projects_router.get("/project/type")
+@projects_router.get("/project/type")  # 作用？
 @standard_response
 async def list_projects(request: Request, projectType: str = Query(),
                         tag: str = Query(),
@@ -250,7 +250,7 @@ async def get_user_credits(request: Request, user=Depends(auth_permission)):
     # 查询学分
 
 
-@projects_router.get("/user/{project_id}/score/all")
+@projects_router.get("/{project_id}/user/score/all")
 @standard_response
 async def get_all_projects_score(request: Request, project_id: int,
                                  user=Depends(auth_permission)):

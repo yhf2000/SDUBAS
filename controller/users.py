@@ -113,7 +113,7 @@ async def user_view(pageNow: int, pageSize: int, request: Request):
     return {'message': '人员如下', "data": result, "code": 0}
 
 
-@users_router.delete("/user_delete/{user_id}")  # 管理员删除人员(未添加权限认证)
+@users_router.delete("/{user_id}/user_delete")  # 管理员删除人员(未添加权限认证)
 @user_standard_response
 async def user_delete(request: Request, user_id: int, session=Depends(auth_login)):
     # 判断是否有权限
@@ -128,7 +128,7 @@ async def user_delete(request: Request, user_id: int, session=Depends(auth_login
     return {'message': '删除成功', 'data': True, 'code': 0}
 
 
-@users_router.put("/user_ban/{user_id}")  # 管理员封禁人员(未添加权限认证)
+@users_router.put("/{user_id}/user_ban")  # 管理员封禁人员(未添加权限认证)
 @user_standard_response
 async def user_ban(request: Request, user_id: int, reason: reason_interface, session=Depends(auth_login)):
     # 判断是否有权限
@@ -146,7 +146,7 @@ async def user_ban(request: Request, user_id: int, reason: reason_interface, ses
     return {'message': '封禁成功', 'data': True, 'code': 0}
 
 
-@users_router.put("/user_relieve/{user_id}")  # 管理员解封人员(未添加权限认证)
+@users_router.put("/{user_id}/user_relieve")  # 管理员解封人员(未添加权限认证)
 @user_standard_response
 async def user_relieve(request: Request, user_id: int, reason: reason_interface, session=Depends(auth_login)):
     # 判断是否有权限

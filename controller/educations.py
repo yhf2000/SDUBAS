@@ -84,7 +84,7 @@ async def user_school_view(pageNow: int, pageSize: int):
     return {'message': '学校如下', "data": result, "code": 0}
 
 
-@users_router.delete("/school_delete/{school_id}")  # 管理员删除学校(未添加权限认证)
+@users_router.delete("/{school_id}/school_delete")  # 管理员删除学校(未添加权限认证)
 @user_standard_response
 async def user_school_delete(request: Request, school_id: int, session=Depends(auth_login)):
     # 判断是否有权限
@@ -98,7 +98,7 @@ async def user_school_delete(request: Request, school_id: int, session=Depends(a
     return {'message': '删除成功', 'data': True, 'code': 0}
 
 
-@users_router.put("/school_update/{school_id}")  # 管理员修改学校信息(未添加权限认证)
+@users_router.put("/{school_id}/school_update")  # 管理员修改学校信息(未添加权限认证)
 @user_standard_response
 async def user_school_update(request: Request, school_id: int, school_data: school_interface,
                              session=Depends(auth_login)):
@@ -142,7 +142,7 @@ async def user_college_add(request: Request, college_data: college_interface, se
     return {'message': '添加成功', 'data': True, 'code': 0}
 
 
-@users_router.delete("/college_delete/{college_id}")  # 管理员删除学院(未添加权限认证)
+@users_router.delete("/{college_id}/college_delete")  # 管理员删除学院(未添加权限认证)
 @user_standard_response
 async def user_college_delete(request: Request, college_id: int, session=Depends(auth_login)):
     # 判断是否有权限
@@ -176,7 +176,7 @@ async def user_college_view(school_id: int, pageNow: int, pageSize: int):
     return {'message': '学院如下', 'data': result, 'code': 0}
 
 
-@users_router.put("/college_update/{college_id}")  # 管理员修改学院信息(未添加权限认证)
+@users_router.put("/{college_id}/college_update")  # 管理员修改学院信息(未添加权限认证)
 @user_standard_response
 async def user_college_update(request: Request, college_id: int, college_data: college_interface,
                               session=Depends(auth_login)):
@@ -225,7 +225,7 @@ async def user_major_add(request: Request, major_data: major_interface, session=
     return {'message': '添加成功', 'data': True, 'code': 0}
 
 
-@users_router.delete("/major_delete/{major_id}")  # 管理员删除专业(未添加权限认证)
+@users_router.delete("/{major_id}/major_delete")  # 管理员删除专业(未添加权限认证)
 @user_standard_response
 async def user_major_delete(request: Request, major_id: int, session=Depends(auth_login)):
     # 判断是否有权限
@@ -265,7 +265,7 @@ async def user_major_view(college_id: int, pageNow: int, pageSize: int):
     return {'message': '专业如下', "data": result, 'code': 0}
 
 
-@users_router.put("/major_update/{major_id}")  # 管理员修改专业信息(未添加权限认证)
+@users_router.put("/{major_id}/major_update")  # 管理员修改专业信息(未添加权限认证)
 @user_standard_response
 async def user_major_update(request: Request, major_data: major_interface, major_id: int, session=Depends(auth_login)):
     # 判断是否有权限
@@ -316,7 +316,7 @@ async def user_class_add(request: Request, class_data: class_interface, session=
     return {'message': '添加成功', 'data': True, 'code': 0}
 
 
-@users_router.delete("/class_delete/{class_id}")  # 管理员删除班级(未添加权限认证)
+@users_router.delete("/{class_id}/class_delete")  # 管理员删除班级(未添加权限认证)
 @user_standard_response
 async def user_class_delete(request: Request, class_id: int, session=Depends(auth_login)):
     # 判断是否有权限
@@ -330,7 +330,7 @@ async def user_class_delete(request: Request, class_id: int, session=Depends(aut
     return {'message': '删除成功', 'data': {'class_id': id}, 'code': 0}
 
 
-@users_router.put("/class_update/{class_id}")  # 管理员修改班级信息(未添加权限认证)
+@users_router.put("/{class_id}/class_update")  # 管理员修改班级信息(未添加权限认证)
 @user_standard_response
 async def user_class_update(request: Request, class_id: int, class_data: class_interface, session=Depends(auth_login)):
     # 判断是否有权限

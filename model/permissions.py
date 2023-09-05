@@ -13,7 +13,7 @@ from model.db import Base
 class Role(Base):
     __tablename__ = "role"
     id = Column(Integer, primary_key=True, nullable=False, unique=True)  # 主键
-    name = Column(String(255), nullable=False, unique=True)  # 角色名称
+    name = Column(String(255), nullable=False)  # 角色名称
     description = Column(String(255), nullable=False)  # 角色描述
     superiorId = Column(Integer, nullable=False, index=True)  # 角色的上级角色
     template = Column(Integer, nullable=False, index=True)  # 是否为模板角色

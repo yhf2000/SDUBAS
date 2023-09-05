@@ -117,18 +117,6 @@ async def return_user_id(request: Request, data: type.permissions.Return_User_Id
     return {"user_id": user_list}
 
 
-@permissions_router.post("/search_service_id1")  # 返回业务id
-@standard_response
-async def return_service_id1(request: Request, data: type.permissions.Return_Service_Id):
-    db = roleModel()
-    user_id = int(request.headers.get("user_id"))
-    permission_key = request.url.path
-    permission = None
-    role_list = db.search_role_by_user(user_id)
-    service_id = db.search_service_id1(role_list, data.service_type, data.name)
-    return {"service_id": service_id}
-
-
 @permissions_router.post("/default_role_id")  # 返回学院默认角色id
 @standard_response
 async def default_role_id(request: Request):
