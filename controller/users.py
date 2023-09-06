@@ -24,7 +24,7 @@ from type.user import user_info_interface, \
     captcha_interface, user_interface, reason_interface, file_interface
 from type.permissions import create_user_role_base
 from utils.auth_login import auth_login, auth_not_login
-from utils.auth_permission import auth_permission
+from utils.auth_permission import auth_permission, auth_permission_default
 from utils.response import user_standard_response, page_response, status_response, makePageResult
 
 users_router = APIRouter()
@@ -49,8 +49,8 @@ dtype_mapping = {
 # 管理员输入一堆信息添加一个用户
 @users_router.post("/user_add")
 @user_standard_response
-async def user_add(user_information: admin_user_add_interface, request: Request, session=Depends(auth_login),
-                   permission=Depends(auth_permission)):
+async def user_add(user_information: admin_user_add_interface, request: Request,
+                   session=Depends(auth_permission_default)):
     user = user_add_interface(username=user_information.username, password=user_information.password,
                               email=user_information.email, card_id=user_information.card_id)
     result = await user_unique_verify(user)  # 验证用户各项信息是否已存在
@@ -71,8 +71,8 @@ async def user_add(user_information: admin_user_add_interface, request: Request,
 # 管理员通过导入一个文件批量添加用户
 @users_router.post("/user_add_batch")
 @user_standard_response
-async def user_add_all(request: Request, file: UploadFile = File(...), session=Depends(auth_login),
-                       role_id: int = Form(), permission=Depends(auth_permission)):
+async def user_add_all(request: Request, file: UploadFile = File(...),
+                       role_id: int = Form(), session=Depends(auth_permission_default)):
     content = await file.read()
     df = pd.read_excel(content, dtype=dtype_mapping)  # 读取文件
     user = []
@@ -103,7 +103,7 @@ async def user_add_all(request: Request, file: UploadFile = File(...), session=D
 # 以分页形式查看管理员所能操作的所有用户
 @users_router.get("/user_view")
 @page_response
-async def user_view(pageNow: int, pageSize: int, request: Request, permission=Depends(auth_permission)):
+async def user_view(pageNow: int, pageSize: int, request: Request, session=Depends(auth_permission_default)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     user_list = search_son_user(request)  # 查看当前用户创建的所有子用户
     result = {'rows': None}
@@ -120,7 +120,7 @@ async def user_view(pageNow: int, pageSize: int, request: Request, permission=De
 # 管理员根据user_id删除人员
 @users_router.delete("/user_delete/{user_id}")
 @user_standard_response
-async def user_delete(request: Request, user_id: int, session=Depends(auth_login), permission=Depends(auth_permission)):
+async def user_delete(request: Request, user_id: int, session=Depends(auth_permission_default)):
     exist_user = user_model.get_user_status_by_user_id(user_id)
     if exist_user is None:
         return {'message': '没有该用户', 'data': False, 'code': 1}
@@ -134,8 +134,8 @@ async def user_delete(request: Request, user_id: int, session=Depends(auth_login
 # 管理员根据user_id封禁人员
 @users_router.put("/user_ban/{user_id}")
 @user_standard_response
-async def user_ban(request: Request, user_id: int, reason: reason_interface, session=Depends(auth_login),
-                   permission=Depends(auth_permission)):
+async def user_ban(request: Request, user_id: int, reason: reason_interface,
+                   session=Depends(auth_permission_default)):
     exist_user = user_model.get_user_status_by_user_id(user_id)  # 查询用户的帐号状态
     if exist_user is None:  # 没有该用户
         return {'message': '没有该用户', 'data': False, 'code': 1}
@@ -152,8 +152,8 @@ async def user_ban(request: Request, user_id: int, reason: reason_interface, ses
 # 管理员根据user_id解封人员
 @users_router.put("/user_relieve/{user_id}")
 @user_standard_response
-async def user_relieve(request: Request, user_id: int, reason: reason_interface, session=Depends(auth_login),
-                       permission=Depends(auth_permission)):
+async def user_relieve(request: Request, user_id: int, reason: reason_interface,
+                       session=Depends(auth_permission_default)):
     exist_user = user_model.get_user_status_by_user_id(user_id)
     if exist_user is None:  # 没有该用户
         return {'message': '没有该用户', 'data': False, 'code': 1}
@@ -209,8 +209,7 @@ async def get_captcha():
 # 验证图片验证码是否正确并发送邮箱验证码
 @users_router.post("/send_captcha")
 @user_standard_response
-async def send_captcha(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None),
-                       permission=Depends(auth_permission)):
+async def send_captcha(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None)):
     value = captcha_model.get_captcha_by_id(int(captcha_data.captchaId))
     if value[0] != captcha_data.captcha:
         return {'message': '验证码输入错误', 'code': 1, 'data': False}
@@ -256,8 +255,7 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
 # 用户通过输入邮箱验证码激活
 @users_router.put("/activation")
 @user_standard_response
-async def user_activation(email_data: email_interface, request: Request, token=Depends(auth_not_login), type: int = 0,
-                          permission=Depends(auth_permission)):
+async def user_activation(email_data: email_interface, request: Request, token=Depends(auth_not_login), type: int = 0):
     token = request.cookies.get("TOKEN")
     session = session_db.get(token)  # 从缓存中得到有效session
     user_session = session_model.get_session_by_token(token)  # 根据token获取用户的session
@@ -308,7 +306,7 @@ async def user_bind_information(request: Request, user_data: user_info_interface
 @users_router.post("/login")
 @user_standard_response
 async def user_login(log_data: login_interface, request: Request, user_agent: str = Header(None),
-                     token=Depends(auth_not_login), permission=Depends(auth_permission)):
+                     token=Depends(auth_not_login)):
     user_information = user_model.get_user_by_username(log_data.username)  # 先查看要登录的用户名是否存在
     if user_information is None:  # 用户名不存在
         return {'message': '用户名或密码不正确', 'data': False, 'code': 1}
@@ -343,7 +341,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
 # 下线
 @users_router.put("/logout")
 @user_standard_response
-async def user_logout(request: Request, session=Depends(auth_login), permission=Depends(auth_permission)):
+async def user_logout(request: Request, session=Depends(auth_login)):
     token = session['token']
     mes = session_model.delete_session_by_token(token)  # 将session标记为已失效
     session_db.delete(token)  # 在缓存中删除
@@ -355,8 +353,7 @@ async def user_logout(request: Request, session=Depends(auth_login), permission=
 # 输入新的用户名进行修改用户名
 @users_router.put("/username_update")
 @user_standard_response
-async def user_username_update(request: Request, log_data: login_interface, session=Depends(auth_login),
-                               permission=Depends(auth_permission)):
+async def user_username_update(request: Request, log_data: login_interface, session=Depends(auth_login)):
     user_data = user_add_interface(username=log_data.username)
     await user_unique_verify(user_data)
     user_id = session['user_id']
@@ -374,8 +371,7 @@ async def user_username_update(request: Request, log_data: login_interface, sess
 # 输入原密码与新密码更改密码
 @users_router.put("/password_update")
 @user_standard_response
-async def user_password_update(request: Request, password: password_interface, session=Depends(auth_login),
-                               permission=Depends(auth_permission)):
+async def user_password_update(request: Request, password: password_interface, session=Depends(auth_login)):
     user_id = session['user_id']
     user = user_model.get_user_by_user_id(user_id)
     user.registration_dt = user.registration_dt.strftime("%Y-%m-%d %H:%M:%S")
@@ -393,8 +389,7 @@ async def user_password_update(request: Request, password: password_interface, s
 # 输入更改邮箱，向更改邮箱发送链接
 @users_router.post("/email_update")
 @user_standard_response
-async def user_email_update(email_data: email_interface, request: Request, session=Depends(auth_login),
-                            permission=Depends(auth_permission)):
+async def user_email_update(email_data: email_interface, request: Request, session=Depends(auth_login)):
     token = request.cookies.get("TOKEN")
     result = await user_activation(email_data, request, token, 1)  # 验证验证码是否输入正确
     ans = json.loads(result.body)
@@ -409,8 +404,7 @@ async def user_email_update(email_data: email_interface, request: Request, sessi
 # 输入用户名，邮箱找回密码
 @users_router.post("/get_back_password")
 @user_standard_response
-async def user_password_get_back(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None),
-                                 permission=Depends(auth_permission)):
+async def user_password_get_back(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None)):
     user_information = user_model.get_user_by_username(captcha_data.username)
     if user_information is None:  # 看看有没有这个用户名
         return {'data': False, 'message': '没有该用户', 'code': 1}
@@ -424,7 +418,7 @@ async def user_password_get_back(captcha_data: captcha_interface, request: Reque
 # 找回密码后用户输入新密码设置密码
 @users_router.get("/set_password/{token}")
 @user_standard_response
-async def user_set_password(request: Request, new_password: str, token: str, permission=Depends(auth_permission)):
+async def user_set_password(request: Request, new_password: str, token: str):
     user_id = session_model.get_user_id_by_token(token)  # 查出user_id
     if user_id is None:
         return {'data': False, 'message': '无法找到该页面', 'code': 1}
@@ -443,7 +437,7 @@ async def user_set_password(request: Request, new_password: str, token: str, per
 # 查看用户信息
 @users_router.get("/getProfile")
 @user_standard_response
-async def user_get_Profile(session=Depends(auth_login), permission=Depends(auth_permission)):
+async def user_get_Profile(session=Depends(auth_login)):
     user_information = user_information_db.get(session['token'])  # 缓存中中没有
     if user_information is None:
         user_information = user_model.get_user_information_by_id(session['user_id'])

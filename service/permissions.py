@@ -53,25 +53,15 @@ class roleModel(dbSession):
             if result is None:
                 raise HTTPException(detail="父节点无效",
                                     status_code=404)
-            role = session.query(Role).filter(Role.name == role_name).first()
-            if role is None:
-                temp_dict = json.loads(result.superiorListId)
-                superiorListId = add_superiorId(temp_dict, role_superiorId)
-                NewRole = Role(name=role_name, description=role_name,
-                               superiorId=role_superiorId, superiorListId=superiorListId, template=0,
-                               status=0,
-                               has_delete=0)
-                session.add(NewRole)
-                session.commit()
-                return NewRole.id
-            elif role.has_delete == 0:
-                raise HTTPException(detail="角色已存在",
-                                    status_code=404)
-            elif role.has_delete == 1:
-                role.has_delete = 0
-                session.add(role)
-                session.commit()
-                return role.id
+            temp_dict = json.loads(result.superiorListId)
+            superiorListId = add_superiorId(temp_dict, role_superiorId)
+            NewRole = Role(name=role_name, description=role_name,
+                            superiorId=role_superiorId, superiorListId=superiorListId, template=0,
+                            status=0,
+                            has_delete=0)
+            session.add(NewRole)
+            session.commit()
+            return NewRole.id
 
     def add_user_role(self, obj: create_user_role_base):
         obj_dict = jsonable_encoder(obj)
@@ -133,19 +123,15 @@ class roleModel(dbSession):
             else:
                 return '-1'
 
-    def attribute_privilege(self, data: attribute_privilege_base):
-        obj_dict = jsonable_encoder(data)
+    def attribute_privilege_for_role(self, privilege_list: list, role_id: int):
         with self.get_db() as session:
-            UserRole_query_result = session.query(UserRole).filter_by(user_id=obj_dict['user_id']).first()  # 先从用户查到角色
-            now_role_id = UserRole_query_result.role_id
-            Privilege_query_result = session.query(Privilege).filter_by(
-                name=obj_dict['privilege_name']).first()  # 再从角色查到权限
-            if Privilege_query_result is not None:
-                new_role_privilege = RolePrivilege(role_id=now_role_id, privilege_id=Privilege_query_result.id,
-                                                   has_delete=0)
+            for item in privilege_list:
+                new_role_privilege = RolePrivilege(
+                    role_id=role_id, privilege_id=item, has_delete=0
+                )
                 session.add(new_role_privilege)
-                session.commit()
-                return 'OK'
+            session.commit()
+            return 'OK'
 
     def attribute_role_for_work(self, service_type: int, service_id: int, role_id: int):
         with self.get_db() as session:
@@ -201,6 +187,13 @@ class roleModel(dbSession):
                     privilege_set.add(item.privilege_id)
             return privilege_set
 
+    def search_privilege_name_by_privilege_id(self, privilege_name: str):
+        with self.get_db() as session:
+            privilege_id = session.query(Privilege).filter(
+                Privilege.name == privilege_name
+            ).first()
+            return privilege_id.id
+
     def search_work_by_role(self, role_list: list):
         with self.get_db() as session:
             work_list = []
@@ -225,28 +218,13 @@ class roleModel(dbSession):
     def search_service_id(self, role_list: list, service_type: int, name: str):
         with self.get_db() as session:
             service_ids = []
-            role_set = self.get_son_role(role_list)
-            for i in role_set:
-                role_privilege = session.query(RolePrivilege).filter(
-                    RolePrivilege.role_id == i
+            for i in role_list:
+                work_role = session.query(WorkRole).filter(
+                    WorkRole.role_id == i,
+                    WorkRole.service_type == service_type
                 ).all()
-                for item in role_privilege:
-                    privilege = session.query(Privilege).filter(
-                        Privilege.id == item.privilege_id,
-                        Privilege.service_type == service_type,
-                        Privilege.name == name
-                    ).first()
-                    if privilege is not None:
-                        service_ids.append(privilege.service_id)
-            return service_ids
-
-    def search_service_id1(self, role_list: list, service_type: int, name: str):
-        with self.get_db() as session:
-            service_ids = []
-            role_set = self.get_son_role(role_list)
-            query = session.query(RolePrivilege).filter(RolePrivilege.role_id.in_(role_set)).all()
-            for item in query:
-                service_ids.append(item.privilege_id)
+                for item in work_role:
+                    service_ids.append(item.service_id)
             return service_ids
 
     def search_user_id_by_service(self, service_type: int, service_id: int):
@@ -260,24 +238,6 @@ class roleModel(dbSession):
                 WorkRole.service_id == service_id
             )
             return query
-
-    def search_user_id_by_service1(self, service_type: int, service_id: int):
-        with self.get_db() as session:
-            user_list = []
-            query = session.query(WorkRole, UserRole).join(
-                UserRole,
-                WorkRole.role_id == UserRole.role_id,
-            ).filter(
-                WorkRole.service_type == service_type,
-                WorkRole.service_id == service_id
-            )
-
-            user_query = query.join(
-                User,
-                UserRole.user_id == User.id
-            )
-            user_list = user_query.all()
-            return user_list
 
     def search_college_default_role_id(self, role_list: list):
         with self.get_db() as session:
@@ -294,7 +254,7 @@ class roleModel(dbSession):
             for item in role_list:
                 role = session.query(Role).filter(
                     Role.id == item,
-                    Role.template == 1
+                    Role.name == 'default'
                 ).first()
                 if role is not None:
                     return role.id
@@ -305,21 +265,53 @@ class roleModel(dbSession):
         WorkRole_id = self.attribute_role_for_work(service_type, service_id, role_id)  # 连接业务角色
         return WorkRole_id
 
-    def test(self, query):
+    def search_role_by_service(self, service_id: int, service_type: int):
         with self.get_db() as session:
-            query.all()
+            role_list = []
+            query = session.query(WorkRole).filter(
+                WorkRole.service_id == service_id,
+                WorkRole.service_type == service_type
+            ).all()
+            for item in query:
+                role_list.append(item.role_id)
+            return role_list
+
+    def search_privilege_list(self, service_type: int):
+        with self.get_db() as session:
+            privilege_list = []
+            privilege = session.query(Privilege).filter(
+                Privilege.service_type == service_type
+            ).all()
+            for item in privilege:
+                temp = {
+                    'id': item.id,
+                    'name': item.name
+                }
+                privilege_list.append(temp)
+            return privilege_list
+
+
+    def add_role_for_user(self, user_id: int, role_id: int):
+        with self.get_db() as session:
+            user_role = UserRole(
+                role_id=role_id, user_id=user_id, has_delete=0
+            )
+            session.add(user_role)
+            session.commit()
+            return user_role.id
+
+
+    def add_default_role(self, user_id: int, superiorId: int):
+        with self.get_db() as session:
+            role_id = self.create_role('默认角色', superiorId)
+            user_role_id = self.add_role_for_user(user_id,role_id)
+            return user_role_id
+
+
+    def test(self):
+        with self.get_db() as session:
+            query = session.query(Privilege).all()
             user_list = []
             for item in query:
                 user_list.append(item[1].user_id)
-            return user_list
-
-    def test1(self, query):
-        with self.get_db() as session:
-            query1 = query.join(
-                User,
-                UserRole.user_id == User.id
-            ).all()
-            user_list = []
-            for item in query1:
-                user_list.append(item[1].id)
             return user_list

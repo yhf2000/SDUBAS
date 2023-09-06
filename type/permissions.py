@@ -22,12 +22,14 @@ class attribute_role_base(BaseModel):  # 分配用户角色信息
     user_id: int
     role_name: str
 
+class add_default_role_base(BaseModel):  # 为用户添加默认角色
+    user_id: int
+
 
 class attribute_privilege_base(BaseModel):  # 为角色添加权限信息
-    user_id: int
-    role_name: str
-    privilege_name: str
-    privilege_id: int
+    role_id: int
+    privilege_list: list
+    # privilege_id: int
 
 
 class attribute_role_for_work_base(BaseModel):  # 为业务分配角色
