@@ -1,20 +1,11 @@
 #!/bin/bash
 sudo su
-current_directory=$(pwd)
-cd /usr/local
-wget http://download.redis.io/releases/redis-6.2.5.tar.gz
-tar -zvxf redis-6.2.5.tar.gz
-mv redis-6.2.5 redis/
-cd redis/
-make
-make install
-cd /usr/local/bin
-cd /usr/local/redis
-cp redis.conf redis.conf.bak
-cd /usr/local/bin
-redis-server /usr/local/redis/redis.conf
-
 sudo apt update
+
+current_directory=$(pwd)
+sudo apt-get install -y redis-server
+sudo vim /etc/redis/redis/redis.conf
+
 sudo apt install mysql-server
 sudo /etc/init.d/mysql start
 sudo mysql_secure_installation
