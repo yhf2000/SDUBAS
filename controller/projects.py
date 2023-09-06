@@ -43,11 +43,11 @@ async def delete_project(request: Request, project_id: int, user=Depends(auth_pe
     return results
 
 
-@projects_router.get("/list")  # 去掉权限认证
+@projects_router.get("/list")
 @standard_response
 async def list_projects(request: Request,
                         pageNow: int = Query(description="页码", gt=0),
-                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission_default)):
     user_id = user['user_id']
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, res = project_service.list_projects(pg=Page, user_id=user_id)  # 返回总额，分页数据
@@ -196,12 +196,12 @@ async def create_user_submission(request: Request, project_id: int,
     # 实现查询项目成绩的逻辑
 
 
-@projects_router.get("/project/type")  # 去掉权限认证
+@projects_router.get("/project/type")
 @standard_response
 async def list_projects(request: Request, projectType: str = Query(),
                         tag: str = Query(),
                         pageNow: int = Query(description="页码", gt=0),
-                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission_default)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, res = project_service.get_projects_by_type(project_type=projectType, pg=Page, tags=tag,
                                                    user_id=user['user_id'])  # 返回总额，分页数据
@@ -240,7 +240,7 @@ async def renew_project(request: Request, project_id: int, project_content: proj
     return results
 
 
-@projects_router.get("/user/credits")
+@projects_router.get("/user/credits")  # 没改好
 @standard_response
 async def get_user_credits(request: Request, user=Depends(auth_permission_default)):
     results = project_service.get_credits_user_get(user_id=user['user_id'])
