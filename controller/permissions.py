@@ -7,11 +7,12 @@ import type.permissions
 from service.permissions import roleModel
 from type.functions import get_user_id
 from utils.response import standard_response
+from utils.auth_permission import *
 
 permissions_router = APIRouter()
 
 
-@permissions_router.post("/select_son_user")  # 创建角色
+@permissions_router.post("/select_son_user")
 async def add(data: type.permissions.create_role_base):
     db = roleModel()
     obj_dict = jsonable_encoder(data)
@@ -22,10 +23,10 @@ async def add(data: type.permissions.create_role_base):
 async def add_role(data: type.permissions.create_role_base):
     db = roleModel()
     obj_dict = jsonable_encoder(data)
-    return {"new_role": db.get_role_info_by_id(db.create_role(obj_dict['role_name'], obj_dict['role_superiorId']))}
+    return {'message': '状态如下', "new_role": db.get_role_info_by_id(db.create_role(obj_dict['role_name'], obj_dict['role_superiorId']))}
 
 
-@permissions_router.post("/delete")  # 删除角色
+@permissions_router.post("/delete")  # 删除角色(取消)
 @standard_response
 async def delete_role(data: type.permissions.delete_role_base):
     db = roleModel()
@@ -35,14 +36,24 @@ async def delete_role(data: type.permissions.delete_role_base):
 @permissions_router.post("/attribute_role_for_user")  # 分配用户角色
 async def attribute_role(data: type.permissions.attribute_role_base):
     db = roleModel()
-    return {"attribute_role": db.get_user_role_info_by_id(db.attribute_user_role(data))}
+    return {'message': '状态如下', "attribute_role": db.get_user_role_info_by_id(db.attribute_user_role(data))}
 
 
-@permissions_router.post("/attribute_privilege")  # 为角色添加权限(不可用）
+@permissions_router.post("/attribute_privilege")  # 为角色添加权限
 @standard_response
 async def attribute_privilege_for_role(data: type.permissions.attribute_privilege_base):
     db = roleModel()
-    return {"status": db.attribute_privilege(data)}
+    return {'message': '状态如下', "status": db.attribute_privilege_for_role(data.privilege_list, data.role_id)}
+
+
+@permissions_router.post("/add_default_role_for_user")  # 为用户添加默认角色
+async def add_default_role_for_user(request: Request, data: type.permissions.add_default_role_base, user=Depends(auth_permission_default)):
+    db = roleModel()
+    user_id = user['user_id']
+    default_role_id = db.search_user_default_role(user_id)
+    user_role_id = db.add_default_role(user_id, default_role_id)
+    return {'message': '状态如下', "data": user_role_id}
+
 
 
 @permissions_router.post("/add_role_for_work")  # 为业务添加角色
@@ -127,3 +138,13 @@ async def default_role_id(request: Request):
     role_list = db.search_role_by_user(user_id)
     role_id = db.search_college_default_role_id(role_list)
     return {"role_id": role_id}
+
+
+@permissions_router.post("/return_privilege_list")
+@standard_response
+async def return_privilege_list(request: Request):
+    url = request.url.path
+    service_type = extract_type_from_string(url)
+    db = roleModel()
+    privilege_list = db.search_privilege_list(service_type)
+    return {'message': '状态如下', "privilege_list": privilege_list}
