@@ -71,7 +71,7 @@ def auth_permission(request: Request):
     session = {
         "user_id": user_id
     }
-    # user_id = json.loads(session)['user_id']
+    # user_id = session['user_id']
     db = roleModel()
     url = request.url.path
     permission_key = remove_numbers(url)
@@ -94,12 +94,12 @@ def auth_permission(request: Request):
 
 
 def auth_permission_default(request: Request):
-    # session = auth_login(request)
-    user_id = int(request.headers.get("user_id"))
-    session = {
-        "user_id": user_id
-    }
-    # user_id = json.loads(session)['user_id']
+    session = auth_login(request)
+    # user_id = int(request.headers.get("user_id"))
+    # session = {
+    #     "user_id": user_id
+    # }
+    user_id = session['user_id']
     db = roleModel()
     url = request.url.path
     permission_key = remove_numbers(url)

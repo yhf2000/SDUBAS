@@ -68,7 +68,7 @@ class ProjectService(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'img_id'})
+            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete'})
 
     def get_project(self, project_id: int, user_id: int):
         with self.get_db() as session:
@@ -318,15 +318,17 @@ class ProjectService(dbSession):
                     total_credits += current_credit.credit
         return total_credits
 
-    def get_all_project_score(self, project_id: int, user_id: int):
+    def get_all_project_score(self, project_id: int, user_id: int, pg: page):
         with self.get_db() as session:
             scores = session.query(ProjectContent, ProjectContentUserScore).outerjoin(ProjectContentUserScore,
                                                                                       ProjectContent.id == ProjectContentUserScore.user_pcs_id) \
                 .filter(ProjectContent.project_id == project_id,
                         or_(ProjectContentUserScore.user_id == user_id,
-                            ProjectContentUserScore.user_id.is_(None))).all()
+                            ProjectContentUserScore.user_id.is_(None)))
             lis = []
-            for score in scores:
+            total_num = scores.count()
+            scores_list = scores.offset(pg.offset()).limit(pg.limit())
+            for score in scores_list:
                 if score[1] is None:
                     score_value = 0
                 else:
@@ -334,30 +336,36 @@ class ProjectService(dbSession):
                 print(score[0].id)
                 now_score = {'content_name': score[0].name, 'score': score_value}
                 lis.append(now_score)
-            return lis
+            return total_num, lis
 
     def get_content_user_score_all(self, project_id: int, content_id: int, pg: page, user_id: int):
         with self.get_db() as session:
             role_model = roleModel()
             query = role_model.search_user_id_by_service(service_type=7, service_id=project_id)
             query = query.join(User, User.id == UserRole.user_id)
+            cont = query.count()
+            print(cont)
+            print("ceshi")
             query = query.add_entity(User)
-            query = query.outerjoin(ProjectContentUserScore, ProjectContentUserScore.user_id == UserRole.user_id)
+            subquery = session.query(ProjectContentUserScore).filter(ProjectContentUserScore.user_pcs_id == content_id)\
+                .subquery()
+            query = query.outerjoin(subquery, ProjectContentUserScore.user_id == UserRole.user_id)
             query = query.add_entity(ProjectContentUserScore)
-            query = query.filter(or_(ProjectContentUserScore.user_pcs_id == content_id,
-                                     ProjectContentUserScore.user_pcs_id.is_(None)))
-            total_count = query.distinct(User.id).count()  # 总共
+            total_count = query.count()  # 总共
             print(total_count)
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             lis = []
             for d in data:
-                user = d[2]
-                score = d[3]
+                user = d[1]
+                score = d[2]
                 user_name = user.username
+                print(user.id)
+                user_id = user.id
+                print(user.username)
                 if score is None:
                     score_now = 0
                 else:
                     score_now = score.score
-                lis.append({'user_name': user_name, 'score': score_now})
+                lis.append({'user_id': user_id, 'user_name': user_name, 'score': score_now})
             return total_count, lis

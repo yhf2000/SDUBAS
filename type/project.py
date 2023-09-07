@@ -90,11 +90,11 @@ class ScoreCreate(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    user_pcs_id: int
+    user_pcs_id: int = None
     judger: int = None
     user_id: int
     honesty: str
-    honesty_weight: float
+    honesty_weight: float = None
     is_pass: int
     score: Optional[float] = None
     comment: str
@@ -108,8 +108,8 @@ class user_submission(BaseModel):
     )
     pc_submit_id: int
     user_id: int = None
-    file_id: Optional[int]
-    content: Optional[str]
+    file_id: Optional[int] = None
+    content: Optional[str] = None
     submit_dt: datetime = None
 
 
