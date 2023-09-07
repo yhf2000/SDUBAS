@@ -85,7 +85,8 @@ async def get_specific_project_content(request: Request, project_id: int, conten
                                        user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
-    results = project_service.get_projects_content(content_id=content_id, project_id=project_id, user_id=user['user_id'])
+    results = project_service.get_projects_content(content_id=content_id, project_id=project_id,
+                                                   user_id=user['user_id'])
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "查看某一项目内容", parameters, user['user_id'])
     return results
@@ -137,7 +138,8 @@ async def score_project_content(request: Request, project_id: int, content_id: i
 async def view_user_submission(request: Request, project_id: int, content_id: int, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
-    results = project_service.get_user_submission_list(project_id=project_id, content_id=content_id, user_id=user['user_id'])
+    results = project_service.get_user_submission_list(project_id=project_id, content_id=content_id,
+                                                       user_id=user['user_id'])
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "查看用户提交", parameters, user['user_id'])
     return results
@@ -279,3 +281,15 @@ async def get_all_content_user_score(request: Request, project_id: int, content_
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "查看某项目内容所有用户成绩", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
+
+
+@projects_router.get("/user/credits/all")
+@standard_response
+async def get_all_content_user_score(request: Request,
+                                     pageNow: int = Query(description="页码", gt=0),
+                                     pageSize: int = Query(description="每页数量", gt=0),
+                                     user=Depends(auth_permission)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
+    tn, results = project_service.get_user_credit_all(user_id=user['user_id'], pg=Page)
+    # add_operation.delay(7, 0, "查看某项目内容所有用户成绩", parameters, user['user_id'])
+    return makePageResult(pg=Page, tn=tn, data=results)
