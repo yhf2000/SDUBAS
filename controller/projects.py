@@ -123,7 +123,8 @@ async def score_project_content(request: Request, project_id: int, content_id: i
                                 user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
-    score.judger = user
+    score.judger = user['user_id']
+    score.user_pcs_id = content_id
     results = project_service.create_score(scoremodel=score, user_id=user['user_id'], project_id=project_id)
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "对项目内容打分", parameters, user['user_id'])
@@ -253,12 +254,15 @@ async def get_user_credits(request: Request, user=Depends(auth_permission_defaul
 @projects_router.get("/{project_id}/user/score/all")
 @standard_response
 async def get_all_projects_score(request: Request, project_id: int,
+                                 pageNow: int = Query(description="页码", gt=0),
+                                 pageSize: int = Query(description="每页数量", gt=0),
                                  user=Depends(auth_permission)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
     project_service.check_project_exist(project_id=project_id)
-    results = project_service.get_all_project_score(project_id=project_id, user_id=user['user_id'])
+    tn, results = project_service.get_all_project_score(project_id=project_id, user_id=user['user_id'], pg=Page)
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "查看用户项目内容成绩", parameters, user['user_id'])
-    return results
+    return makePageResult(Page, tn, results)
 
 
 @projects_router.get("/content/{project_id}/{content_id}/score/all")

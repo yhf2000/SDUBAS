@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 
 import type.permissions
@@ -23,7 +23,8 @@ async def add(data: type.permissions.create_role_base):
 async def add_role(data: type.permissions.create_role_base):
     db = roleModel()
     obj_dict = jsonable_encoder(data)
-    return {'message': '状态如下', "new_role": db.get_role_info_by_id(db.create_role(obj_dict['role_name'], obj_dict['role_superiorId']))}
+    return {'message': '状态如下',
+            "new_role": db.get_role_info_by_id(db.create_role(obj_dict['role_name'], obj_dict['role_superiorId']))}
 
 
 @permissions_router.post("/delete")  # 删除角色(取消)
@@ -45,14 +46,6 @@ async def attribute_privilege_for_role(data: type.permissions.attribute_privileg
     db = roleModel()
     return {'message': '状态如下', "status": db.attribute_privilege_for_role(data.privilege_list, data.role_id)}
 
-
-@permissions_router.post("/add_default_role_for_user")  # 为用户添加默认角色
-async def add_default_role_for_user(request: Request, data: type.permissions.add_default_role_base, user=Depends(auth_permission_default)):
-    db = roleModel()
-    user_id = user['user_id']
-    default_role_id = db.search_user_default_role(user_id)
-    user_role_id = db.add_default_role(user_id, default_role_id)
-    return {'message': '状态如下', "data": user_role_id}
 
 
 
@@ -140,11 +133,27 @@ async def default_role_id(request: Request):
     return {"role_id": role_id}
 
 
-@permissions_router.post("/return_privilege_list")
+@permissions_router.get("/return_privilege_list")
 @standard_response
-async def return_privilege_list(request: Request):
-    url = request.url.path
-    service_type = extract_type_from_string(url)
+async def return_privilege_list(request: Request, service_type: int = Query()):
     db = roleModel()
     privilege_list = db.search_privilege_list(service_type)
-    return {'message': '状态如下', "privilege_list": privilege_list}
+    return privilege_list
+
+
+@permissions_router.post("/add_default_role")  # 创建默认角色
+@standard_response
+async def add_role(request: Request, data: type.permissions.create_default_role_base, user=Depends(auth_login)):
+    db = roleModel()
+    obj_dict = jsonable_encoder(data)
+    superiorId = db.search_user_default_role(user['user_id'])
+    return db.create_role(obj_dict['role_name'], superiorId)
+
+
+@permissions_router.post("/add_default_work_role")  # 业务角色表里添加默认角色
+@standard_response
+async def add_work_role(request: Request, data: type.permissions.create_default_work_role_base, user=Depends(auth_login)):
+    db = roleModel()
+    obj_dict = jsonable_encoder(data)
+    user_id = user['user_id']
+    return db.add_default_work_role(user_id, obj_dict['role_id'])

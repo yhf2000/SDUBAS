@@ -1,6 +1,12 @@
 import uvicorn
 from fastapi import FastAPI, Depends
 from starlette.middleware.cors import CORSMiddleware
+from datetime import datetime
+
+from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
+from starlette.responses import JSONResponse
+from utils.times import getMsTime
 
 from utils.auth_login import auth_login
 from utils.response import standard_response
@@ -17,6 +23,52 @@ app.include_router(educations.users_router, prefix="/users")
 origins = [
     "*",
 ]
+
+
+@app.exception_handler(HTTPException)  # 自定义HttpRequest 请求异常
+async def http_exception_handle(request, exc):
+    response = JSONResponse({
+        "code": exc.status_code,
+        "message": str(exc.detail),
+        "data": None,
+        "timestamp": getMsTime(datetime.now())
+    }, status_code=exc.status_code)
+    return response
+
+
+@app.exception_handler(RequestValidationError)
+async def request_validatoion_error(request, exc):
+    try:
+        message = str(exc.detail)
+    except:
+        try:
+            message = str(exc.raw_errors[0].exc)
+        except:
+            message = "请求错误"
+    response = JSONResponse({
+        "code": 400,
+        "message": message,
+        "data": None,
+        "timestamp": getMsTime(datetime.now())
+    }, status_code=400)
+    return response
+
+
+@app.exception_handler(Exception)
+async def request_validatoion_error(request, exc):
+    try:
+        message = str(exc)
+    except:
+        message = None
+    response = JSONResponse({
+        "code": 500,
+        "message": "内部错误",
+        "data": message,
+        "timestamp": getMsTime(datetime.now())
+    }, status_code=500)
+    return response
+
+
 
 # 添加CORS中间件
 app.add_middleware(
@@ -41,7 +93,7 @@ async def say_hello(name: str):
 
 
 def main():
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 
 if __name__ == "__main__":

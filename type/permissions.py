@@ -72,3 +72,14 @@ class RolePydantic(BaseModel):  # 将数据库查询结果转化为字典的模�
 
     class Config:
         from_attributes = True
+
+class privilege_base(BaseModel):
+    service_type: int
+
+
+class create_default_role_base(BaseModel):  # 创建角色信息
+    role_name: str
+
+
+class create_default_work_role_base(BaseModel):  # 创建角色信息
+    role_id: int
