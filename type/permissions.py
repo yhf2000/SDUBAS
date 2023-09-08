@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from fastapi import Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class create_user_role_base(BaseModel):
@@ -42,7 +42,7 @@ class attribute_role_for_work_base(BaseModel):  # 为业务分配角色
 class Add_Role_For_Work_Base(BaseModel):
     service_type: int = None
     service_id: int = None
-    role_name: str
+    role_name: str = Field(..., strip_whitespace=True, min_length=1)
     role_id: int = None
     status: Optional[int] = None
     has_delete: int = 0

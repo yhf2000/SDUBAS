@@ -11,8 +11,8 @@ class ProjectContentBase(BaseModel):
         from_attributes=True,
     )
     project_id: int = None
-    type: int
-    name: str
+    type: int = Field(..., ge=0, le=2)
+    name: str = Field(..., strip_whitespace=True, min_length=1)
     prefix: Optional[str] = None
     file_id: Optional[int] = None
     content: Optional[str] = None
@@ -30,11 +30,11 @@ class ProjectBase(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    name: str
-    type: str
-    tag: str
-    img_id: int
-    active: int
+    name: str = Field(..., strip_whitespace=True, min_length=1)
+    type: str = Field(..., strip_whitespace=True, min_length=1)
+    tag: str = Field(..., strip_whitespace=True, min_length=1)
+    img_id: int = Field(..., gt=0)
+    active: int = Field(..., ge=0, le=2)
     create_dt: datetime = None
     has_delete: int = 0
 
@@ -59,8 +59,8 @@ class ProjectUpdate(BaseModel):
 
 
 class CreditCreate(BaseModel):
-    project_id: int
-    role_id: int
+    project_id: int = Field(..., gt=0)
+    role_id: int = Field(..., gt=0)
     credit: Optional[float] = None
 
 
@@ -69,9 +69,9 @@ class SubmissionCreate(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    name: str
-    pro_content_id: int
-    type: int
+    name: str = Field(..., description="Name of the project", min_length=1, strip_whitespace=True)
+    pro_content_id: int = Field(..., gt=0)
+    type: int = Field(..., ge=0, le=1)
     count_limit: Optional[int] = None
     size_limit: Optional[int] = None
     type_limit: Optional[str] = None
@@ -92,10 +92,10 @@ class ScoreCreate(BaseModel):
     )
     user_pcs_id: int = None
     judger: int = None
-    user_id: int
+    user_id: int = Field(..., gt=0)
     honesty: str
     honesty_weight: float = None
-    is_pass: int
+    is_pass: int = Field(..., ge=-1, le=1)
     score: Optional[float] = None
     comment: str
     judge_dt: datetime = None
@@ -106,7 +106,7 @@ class user_submission(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    pc_submit_id: int
+    pc_submit_id: int = Field(..., gt=0)
     user_id: int = None
     file_id: Optional[int] = None
     content: Optional[str] = None
