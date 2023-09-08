@@ -3,7 +3,7 @@ from sqlalchemy import func, or_, distinct
 
 from model.db import dbSession
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 from typing import List, Any, Optional
 from model.project import Project, ProjectContent, ProjectCredit, ProjectContentSubmission, \
     ProjectContentUserSubmission, ProjectContentUserScore
@@ -172,27 +172,18 @@ class ProjectService(dbSession):
 
     def get_user_project_score(self, project_id: int, user_id: int):
         with self.get_db() as session:
-            xd = 1
+            total_score = session.query(
+                func.sum(func.coalesce(ProjectContentUserScore.score, 0) * ProjectContent.weight)
+            ).outerjoin(ProjectContentUserScore,
+                        ProjectContentUserScore.user_pcs_id == ProjectContent.id) \
+                .filter(ProjectContent.project_id == project_id,
+                        ProjectContent.has_delete == 0,
+                        ProjectContentUserScore.user_id == user_id) \
+                .scalar()
 
-            def calculate_content_score(pcs_id: int, content_weight: float):
-                # 查询当前项目内容
-                content_scores = session.query(ProjectContentUserScore.score) \
-                    .filter(ProjectContentUserScore.user_id == user_id,
-                            ProjectContentUserScore.user_pcs_id == pcs_id).scalar()
-                if content_scores is None:
-                    content_scores = 0
-                content_scores = content_scores * content_weight
-                return content_scores
+            if total_score is None:
+                total_score = 0
 
-            total_score = 0
-
-            # 查询该项目下的所有项目内容
-            project_contents = session.query(ProjectContent).filter(ProjectContent.project_id == project_id,
-                                                                    ProjectContent.has_delete == 0).all()
-
-            # 遍历项目内容并计算总分
-            for project_content in project_contents:
-                total_score += calculate_content_score(project_content.id, project_content.weight)
             return total_score
 
     def get_projects_by_type(self, project_type: str, pg: page, tags: str, user_id: int):
@@ -321,20 +312,26 @@ class ProjectService(dbSession):
 
     def get_all_project_score(self, project_id: int, user_id: int, pg: page):
         with self.get_db() as session:
-            scores = session.query(ProjectContent, ProjectContentUserScore).outerjoin(ProjectContentUserScore,
-                                                                                      ProjectContent.id == ProjectContentUserScore.user_pcs_id) \
+            subquery = session.query(
+                ProjectContentUserScore
+            ).filter(
+                ProjectContentUserScore.user_id == user_id
+            ).subquery()
+
+            scores = session.query(
+                ProjectContent, subquery
+            ).outerjoin(subquery,
+                        subquery.c.user_pcs_id == ProjectContent.id) \
                 .filter(ProjectContent.project_id == project_id,
-                        or_(ProjectContentUserScore.user_id == user_id,
-                            ProjectContentUserScore.user_id.is_(None)))
+                        ProjectContent.has_delete == 0)
             lis = []
             total_num = scores.count()
             scores_list = scores.offset(pg.offset()).limit(pg.limit())
             for score in scores_list:
-                if score[1] is None:
-                    score_value = 0
+                if score[8] is None:
+                    score_value = None
                 else:
-                    score_value = score[1].score
-                print(score[0].id)
+                    score_value = score[8]
                 now_score = {'content_name': score[0].name, 'score': score_value}
                 lis.append(now_score)
             return total_num, lis
@@ -355,16 +352,15 @@ class ProjectService(dbSession):
             lis = []
             for d in data:
                 user = d[1]
-                score = d[2]
+                score = d[9]
                 user_name = user.username
                 user_id = user.id
                 if score is None:
                     score_now = None
                 else:
-                    score_now = score.score
+                    score_now = score
                 lis.append({'user_id': user_id, 'user_name': user_name, 'score': score_now})
             return total_count, lis
-
 
     def get_user_credit_all(self, user_id: int, pg: page):
         with self.get_db() as session:
@@ -391,10 +387,11 @@ class ProjectService(dbSession):
             credit_list = []
             for project in projects:
                 current_credit = session.query(ProjectCredit).filter(ProjectCredit.project_id == project.id,
-                                                                 ProjectCredit.role_id == credit_role_id).first()
+                                                                     ProjectCredit.role_id == credit_role_id).first()
                 is_pass = check_content_finish(project_id=project.id)
                 if current_credit is None:
-                    credit_lis = {'project_id': project.id, 'project_name': project.name, 'credit': 0, 'is_pass': is_pass}
+                    credit_lis = {'project_id': project.id, 'project_name': project.name, 'credit': 0,
+                                  'is_pass': is_pass}
                 else:
                     credit_lis = \
                         {'project_id': project.id, 'project_name': project.name, 'credit': current_credit.credit,
