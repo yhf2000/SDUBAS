@@ -15,6 +15,7 @@ from sqlalchemy import and_
 from service.permissions import roleModel
 from model.permissions import UserRole
 from model.user import User
+from type.functions import get_url_by_user_file_id
 from type.user import operation_interface
 from service.user import OperationModel
 
@@ -68,13 +69,17 @@ class ProjectService(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete'})
+            results = dealDataList(data, ProjectBase_Opt, {'has_delete'})
+            for result in results:
+                result['url'] = get_url_by_user_file_id(result['img_id'])
+            return total_count, results
 
     def get_project(self, project_id: int, user_id: int):
         with self.get_db() as session:
             project = session.query(Project).filter(Project.id == project_id).first()
             project = ProjectBase_Opt.model_validate(project)
             date = project.model_dump(exclude={'has_delete'})
+            date['url'] = get_url_by_user_file_id(date['img_id'])
             date['contents'] = self.list_projects_content(project_id=project_id, user_id=user_id)
             return date
 
@@ -82,14 +87,21 @@ class ProjectService(dbSession):
         with self.get_db() as session:
             query = session.query(ProjectContent).filter_by(project_id=project_id,
                                                             has_delete=0).all()
-            return dealDataList(query, ProjectContentBaseOpt, {})
+            results = dealDataList(query, ProjectContentBaseOpt, {})
+            for result in results:
+                if result['file_id'] is not None:
+                    result['url'] = get_url_by_user_file_id(result['file_id'])
+            return results
 
     def get_projects_content(self, content_id: int, project_id: int, user_id: int):
         with self.get_db() as session:
             project_content = session.query(ProjectContent).filter_by(id=content_id, project_id=project_id,
                                                                       has_delete=0).first()
             project_content = ProjectContentBaseOpt.model_validate(project_content)
-            return project_content.model_dump()
+            result = project_content.model_dump()
+            if result['file_id'] is not None:
+                result['url'] = get_url_by_user_file_id(result['file_id'])
+            return result
 
     def create_credit(self, credit: CreditCreate, user_id: int) -> int:
         with self.get_db() as session:
@@ -151,7 +163,11 @@ class ProjectService(dbSession):
                       ProjectContentUserSubmission.pc_submit_id == ProjectContentSubmission.id) \
                 .filter(ProjectContentSubmission.pro_content_id == content_id,
                         ProjectContentUserSubmission.user_id == user_id).all()
-            return dealDataList(list_user_submission, user_submission_Opt)
+            results = dealDataList(list_user_submission, user_submission_Opt)
+            for result in results:
+                if result['file_id'] is not None:
+                    result['url'] = get_url_by_user_file_id(result['file_id'])
+            return results
 
     def get_project_progress(self, project_id: int, user_id: int):
         with self.get_db() as session:
@@ -202,7 +218,10 @@ class ProjectService(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            return total_count, dealDataList(data, ProjectBase_Opt, {'has_delete', 'img_id'})
+            results = dealDataList(data, ProjectBase_Opt, {'has_delete'})
+            for result in results:
+                result['url'] = get_url_by_user_file_id(result['img_id'])
+            return total_count, results
 
     def get_content_by_projectcontentid_userid(self, user_id: int, content_id: int, pg: page, project_id: int):
         with self.get_db() as session:

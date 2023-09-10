@@ -113,7 +113,7 @@ async def submit_project_content(request: Request, project_id: int, content_id: 
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     results = project_service.create_submission(submission=submission, user_id=user['user_id'], project_id=project_id)
     parameters = await make_parameters(request)
-    add_operation.delay(7, project_id, "查看项目提交要求", parameters, user['user_id'])
+    add_operation.delay(7, project_id, "增加项目提交要求", parameters, user['user_id'])
     return results
     # 实现提交项目要求内容的逻辑
 
@@ -291,5 +291,6 @@ async def get_all_content_user_score(request: Request,
                                      user=Depends(auth_permission)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, results = project_service.get_user_credit_all(user_id=user['user_id'], pg=Page)
-    # add_operation.delay(7, 0, "查看某项目内容所有用户成绩", parameters, user['user_id'])
+    parameters = await make_parameters(request)
+    add_operation.delay(0, 0, "查看用户学分明细", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)

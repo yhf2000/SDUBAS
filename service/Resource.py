@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import func
 from service.permissions import roleModel
 from service.permissions import roleModel
+from type.functions import get_url_by_user_file_id
 
 
 class ResourceModel(dbSession):
@@ -117,7 +118,11 @@ class BillModel(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
-            return total_count, dealDataList(data, BillModelOpt, {'has_delete'})
+            results = dealDataList(data, BillModelOpt, {'has_delete'})
+            for result in results:
+                if result['log_file_id'] is not None:
+                    result['url'] = get_url_by_user_file_id(result['log_file_id'])
+            return total_count, results
 
     def delete_by_id(self, Id: int, user_id: int, financial_id: int):
         with self.get_db() as session:
