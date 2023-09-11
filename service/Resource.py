@@ -119,9 +119,13 @@ class BillModel(dbSession):
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
             results = dealDataList(data, BillModelOpt, {'has_delete'})
+            file_id_list = []
+            for result in results:
+                file_id_list.append(result['log_file_id'])
+            file_url_list = get_url_by_user_file_id(file_id_list)
             for result in results:
                 if result['log_file_id'] is not None:
-                    result['url'] = get_url_by_user_file_id(result['log_file_id'])
+                    result['url'] = file_url_list[result['log_file_id']]
             return total_count, results
 
     def delete_by_id(self, Id: int, user_id: int, financial_id: int):
