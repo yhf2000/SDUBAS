@@ -81,8 +81,7 @@ async def user_college_logo_get(session=Depends(auth_login)):
 # 管理员添加学校:通过输入学校名字，学校简称，上传的学校logo的id新建一个学校。
 @users_router.post("/school_add")
 @user_standard_response
-async def user_school_add(request: Request, school_data: school_interface, session=Depends(auth_login),
-                          permission=Depends(auth_permission)):
+async def user_school_add(request: Request, school_data: school_interface, session=Depends(auth_login)):
     exist_school_name = school_model.get_school_information_by_name(school_data.name)
     str = ''
     if exist_school_name is not None:  # 首先查看学校是否存在即学校名存在且未被删除
@@ -93,13 +92,13 @@ async def user_school_add(request: Request, school_data: school_interface, sessi
             if school_data.school_abbreviation != exist_school_name.school_abbreviation:  # 学校简称如果变化则进行更新
                 school_model.update_school_information(exist_school_name.id, school_data.name,
                                                        school_data.school_abbreviation)
-            url = get_url_by_user_file_id(school_data.file_id)
+            url = get_url_by_user_file_id(school_data.file_id)[school_data.file_id]
             if url != exist_school_name.school_logo:  # 学校logo如果变化则进行更新
                 school_model.update_school_logo(exist_school_name.id, url)
             str = '管理员恢复一个曾删除的学校'
             id = exist_school_name.id
     else:
-        url = get_url_by_user_file_id(school_data.file_id)  # 获取学校logo保存的路径
+        url = get_url_by_user_file_id(school_data.file_id)[school_data.file_id]  # 获取学校logo保存的路径
         school_data.school_logo = url
         id = school_model.add_school(school_data)
         str = '管理员通过输入学校名称和学校简称添加一个学校'
@@ -176,7 +175,7 @@ async def user_college_add(request: Request, college_data: college_interface, se
             str = '管理员恢复一个曾删除的学院'
             id = college[1]
     else:  # 新建一个学院
-        url = get_url_by_user_file_id(college_data.file_id)  # 获取学院logo
+        url = get_url_by_user_file_id(college_data.file_id)[college_data.file_id]  # 获取学院logo
         college_data.college_logo = url
         id = college_model.add_college(college_data)
         str = '管理员通过选择学校和输入学院名称添加一个学院'

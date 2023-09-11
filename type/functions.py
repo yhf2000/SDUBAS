@@ -56,11 +56,24 @@ def get_user_id(request: Request):  # 获取user_id
         return session_model.get_user_id_by_token(token)[0]
 
 
-def get_url_by_user_file_id(id):
-    user_file = user_file_model.get_user_file_by_id(id)
-    file = file_model.get_file_by_id(user_file.file_id)
-    url = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:] + '/' + user_file.name  # 找到路径
-    return url
+def get_url_by_user_file_id(id_list):
+    urls = dict()
+    file = file_model.get_file_by_user_file_id(id_list)
+    if file is None:
+        urls.update({id_list: None})
+    else:
+        if type(id_list) == int:
+            url = "files" + '/' + file[0][:8] + '/' + file[1][-8:] + '/' + file[3]  # 找到路径
+            urls.update({id_list: url})
+        else:
+            for i in range(len(file)):
+                url = "files" + '/' + file[i][0][:8] + '/' + file[i][1][-8:] + '/' + file[i][3]  # 找到路径
+                urls.update({file[i][2]: url})
+            for i in range(len(id_list)):
+                if id_list[i] not in urls.keys():
+                    urls.update({id_list[i]: None})
+    return urls
+
 
 def search_son_user(request: Request):
     db = roleModel()

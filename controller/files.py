@@ -60,7 +60,7 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
 # 上传文件。文件存储位置：files/hash_md5前八位/hash_sha256的后八位/文件名
 @files_router.post("/upload")
 @user_standard_response
-async def file_upload(request: Request, file: UploadFile = File(...)):
+async def file_upload(request: Request, file: UploadFile = File(...),session=Depends(auth_login)):
     token = request.cookies.get("TOKEN")
     old_session = session_db.get(token)  # 有效session中没有，即session过期了
     if old_session is None:
@@ -97,7 +97,7 @@ async def file_upload(request: Request, file: UploadFile = File(...)):
 # 下载文件，即返回一个下载链接
 @files_router.get("/download")
 @user_standard_response
-async def file_download(id: int, request: Request, user_agent: str = Header(None)):
+async def file_download(id: int, request: Request, user_agent: str = Header(None),session=Depends(auth_login)):
     user_file = user_file_model.get_user_file_by_id(id)
     new_token = str(uuid.uuid4().hex)  # 生成token
     #  通过权限认证，判断是永久下载地址还是临时下载地址
