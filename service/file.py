@@ -43,6 +43,24 @@ class FileModel(dbSession):
             session.commit()
             return file
 
+    def get_file_by_user_file_id(self, user_file_id_list):  # 根据user_file_id_list查询file的基本信息
+        with self.get_db() as session:
+            if type(user_file_id_list) is list:
+                file = session.query(File.hash_md5, File.hash_sha256, User_File.id,
+                                     User_File.name).outerjoin(User_File, User_File.file_id == File.id).filter(
+                    User_File.id.in_(user_file_id_list),
+                    File.has_delete == 0
+                ).all()
+            else:
+                file = session.query(File.hash_md5, File.hash_sha256, User_File.id,
+                                                     User_File.name).outerjoin(User_File,
+                                                                               User_File.file_id == File.id).filter(
+                    User_File.id == user_file_id_list,
+                    File.has_delete == 0
+                ).first()
+            session.commit()
+            return file
+
 
 class UserFileModel(dbSession):
     def add_user_file(self, obj: user_file_interface):  # 用户上传文件(在user_file表中添加一个记录)
