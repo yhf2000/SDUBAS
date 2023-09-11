@@ -79,7 +79,8 @@ class ProjectService(dbSession):
             project = session.query(Project).filter(Project.id == project_id).first()
             project = ProjectBase_Opt.model_validate(project)
             date = project.model_dump(exclude={'has_delete'})
-            date['url'] = get_url_by_user_file_id(date['img_id'])
+            file_url = get_url_by_user_file_id(date['img_id'])
+            date['url'] = file_url[date['img_id']]
             date['contents'] = self.list_projects_content(project_id=project_id, user_id=user_id)
             return date
 
@@ -88,9 +89,13 @@ class ProjectService(dbSession):
             query = session.query(ProjectContent).filter_by(project_id=project_id,
                                                             has_delete=0).all()
             results = dealDataList(query, ProjectContentBaseOpt, {})
+            file_id_list = []
+            for result in results:
+                file_id_list.append(result['file_id'])
+            file_url_list = get_url_by_user_file_id(file_id_list)
             for result in results:
                 if result['file_id'] is not None:
-                    result['url'] = get_url_by_user_file_id(result['file_id'])
+                    result['url'] = file_url_list[result['file_id']]
             return results
 
     def get_projects_content(self, content_id: int, project_id: int, user_id: int):
@@ -100,7 +105,8 @@ class ProjectService(dbSession):
             project_content = ProjectContentBaseOpt.model_validate(project_content)
             result = project_content.model_dump()
             if result['file_id'] is not None:
-                result['url'] = get_url_by_user_file_id(result['file_id'])
+                file_url_list = get_url_by_user_file_id(result['file_id'])
+                result['url'] = file_url_list[result['file_id']]
             return result
 
     def create_credit(self, credit: CreditCreate, user_id: int) -> int:
@@ -164,9 +170,13 @@ class ProjectService(dbSession):
                 .filter(ProjectContentSubmission.pro_content_id == content_id,
                         ProjectContentUserSubmission.user_id == user_id).all()
             results = dealDataList(list_user_submission, user_submission_Opt)
+            file_id_list = []
+            for result in results:
+                file_id_list.append(result['file_id'])
+            file_url_list = get_url_by_user_file_id(file_id_list)
             for result in results:
                 if result['file_id'] is not None:
-                    result['url'] = get_url_by_user_file_id(result['file_id'])
+                    result['url'] = file_url_list[result['file_id']]
             return results
 
     def get_project_progress(self, project_id: int, user_id: int):
@@ -219,8 +229,12 @@ class ProjectService(dbSession):
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
             results = dealDataList(data, ProjectBase_Opt, {'has_delete'})
+            file_id_list = []
             for result in results:
-                result['url'] = get_url_by_user_file_id(result['img_id'])
+                file_id_list.append(result['img_id'])
+            file_url_list = get_url_by_user_file_id(file_id_list)
+            for result in results:
+                result['url'] = file_url_list[result['img_id']]
             return total_count, results
 
     def get_content_by_projectcontentid_userid(self, user_id: int, content_id: int, pg: page, project_id: int):
