@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy import func, or_, distinct
+from sqlalchemy import func, or_, distinct, case
 
 from model.db import dbSession
 
@@ -239,20 +239,29 @@ class ProjectService(dbSession):
 
     def get_content_by_projectcontentid_userid(self, user_id: int, content_id: int, pg: page, project_id: int):
         with self.get_db() as session:
-            query = session.query(ProjectContentSubmission) \
-                .filter(ProjectContentSubmission.pro_content_id == content_id)
+            subquery = session.query(distinct(ProjectContentUserSubmission.pc_submit_id).label('pc_submit_id')). \
+                filter(ProjectContentUserSubmission.user_id == user_id).subquery()
+            query = session.query(ProjectContentSubmission, subquery.c.pc_submit_id). \
+                filter(ProjectContentSubmission.pro_content_id == content_id). \
+                outerjoin(subquery, ProjectContentSubmission.id == subquery.c.pc_submit_id). \
+                add_columns(case((subquery.c.pc_submit_id.is_(None), 0), else_=1).label('commit'))
+
             total_count = query.count()  # 总共
             # 执行分页查询
-            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
-            finial_dates = dealDataList(data, Submission_Opt, {})
-            for finial_date in finial_dates:
-                flag_commit = session.query(ProjectContentUserSubmission) \
-                    .filter(ProjectContentUserSubmission.pc_submit_id == finial_date['id'],
-                            ProjectContentUserSubmission.user_id == user_id).first()
-                if flag_commit is None:
-                    finial_date['commit'] = 0
-                else:
-                    finial_date['commit'] = 1
+            datas = query.offset(pg.offset()).limit(pg.limit()).all()
+            finial_dates = []
+            for data, pc_submit_id, commit in datas:
+                finial_date = {
+                    "name": data.name,
+                    "pro_content_id": data.pro_content_id,
+                    "type": data.type,
+                    "count_limit": data.count_limit,
+                    "size_limit": data.size_limit,
+                    "type_limit": data.type_limit,
+                    "id": data.id,
+                    "commit": commit
+                }
+                finial_dates.append(finial_date)
             return total_count, finial_dates
 
     def renew_project_content(self, project_id: int, project_contents: project_content_renew, user_id: int):
@@ -316,32 +325,31 @@ class ProjectService(dbSession):
 
     def get_credits_user_get(self, user_id: int):
         with self.get_db() as session:
-            def check_content_finish(project_id: int):
-                contents = session.query(ProjectContent).filter(ProjectContent.project_id == project_id).all()
-                for content in contents:
-                    score = session.query(ProjectContentUserScore).filter(
-                        ProjectContentUserScore.user_pcs_id == content.id,
-                        ProjectContentUserScore.user_id == user_id).first()
-                    if score is None:
-                        return 0
-                    elif score.is_pass != 0:
-                        return 0
-                return 1
-
             role_model = roleModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="提交项目内容")
-            projects = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids)).all()
-            # 获取角色ID
             credit_role_id = 1
-            total_credits = 0
-            for project in projects:
-                if check_content_finish(project_id=project.id):
-                    current_credit = session.query(ProjectCredit).filter(ProjectCredit.project_id == project.id,
-                                                                         ProjectCredit.role_id == credit_role_id).first()
-                    if current_credit is not None:
-                        total_credits += current_credit.credit
-        return total_credits
+            subquery = session.query(ProjectCredit).filter(
+                ProjectCredit.role_id == credit_role_id).subquery()
+            query = session.query(Project, subquery.c.credit). \
+                select_from(Project). \
+                join(ProjectContent). \
+                join(subquery, Project.id == subquery.c.project_id). \
+                outerjoin(ProjectContentUserScore,
+                          (ProjectContentUserScore.user_pcs_id == ProjectContent.id) &
+                          (ProjectContentUserScore.user_id == user_id)). \
+                filter(ProjectCredit.role_id == credit_role_id,
+                       ProjectContent.project_id.in_(service_ids),
+                       Project.has_delete == 0). \
+                group_by(Project.id). \
+                having(func.sum(ProjectContentUserScore.is_pass) == func.count(ProjectContent.id))
+
+            results = query.all()
+            total_count = 0
+            for project, projectCredit in results:
+                total_count += projectCredit
+
+        return total_count
 
     def get_all_project_score(self, project_id: int, user_id: int, pg: page):
         with self.get_db() as session:
@@ -361,11 +369,7 @@ class ProjectService(dbSession):
             total_num = scores.count()
             scores_list = scores.offset(pg.offset()).limit(pg.limit())
             for score in scores_list:
-                if score[8] is None:
-                    score_value = None
-                else:
-                    score_value = score[8]
-                now_score = {'content_name': score[0].name, 'score': score_value}
+                now_score = {'content_name': score[0].name, 'score': score[8]}
                 lis.append(now_score)
             return total_num, lis
 
@@ -388,47 +392,37 @@ class ProjectService(dbSession):
                 score = d[9]
                 user_name = user.username
                 user_id = user.id
-                if score is None:
-                    score_now = None
-                else:
-                    score_now = score
-                lis.append({'user_id': user_id, 'user_name': user_name, 'score': score_now})
+                lis.append({'user_id': user_id, 'user_name': user_name, 'score': score})
             return total_count, lis
 
     def get_user_credit_all(self, user_id: int, pg: page):
         with self.get_db() as session:
-            def check_content_finish(project_id: int):
-                contents = session.query(ProjectContent).filter(ProjectContent.project_id == project_id).all()
-                for content in contents:
-                    score = session.query(ProjectContentUserScore).filter(
-                        ProjectContentUserScore.user_pcs_id == content.id,
-                        ProjectContentUserScore.user_id == user_id).first()
-                    if score is None:
-                        return 0
-                    elif score.is_pass != 0:
-                        return 0
-                return 1
-
             role_model = roleModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="提交项目内容")
-            query = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids))
-            total_num = query.count()
-            projects = query.offset(pg.offset()).limit(pg.limit())
-            # 获取角色ID
             credit_role_id = 1
-            credit_list = []
-            for project in projects:
-                current_credit = session.query(ProjectCredit).filter(ProjectCredit.project_id == project.id,
-                                                                     ProjectCredit.role_id == credit_role_id).first()
-                is_pass = check_content_finish(project_id=project.id)
-                if current_credit is None:
-                    credit_lis = {'project_id': project.id, 'project_name': project.name, 'credit': 0,
-                                  'is_pass': is_pass}
-                else:
-                    credit_lis = \
-                        {'project_id': project.id, 'project_name': project.name, 'credit': current_credit.credit,
-                         'is_pass': is_pass}
-                credit_list.append(credit_lis)
+            subquery = session.query(ProjectCredit).filter(
+                ProjectCredit.role_id == credit_role_id).subquery()
+            query = session.query(Project, subquery.c.credit). \
+                select_from(Project). \
+                join(ProjectContent). \
+                outerjoin(subquery, Project.id == subquery.c.project_id). \
+                outerjoin(ProjectContentUserScore,
+                          (ProjectContentUserScore.user_pcs_id == ProjectContent.id) &
+                          (ProjectContentUserScore.user_id == user_id)). \
+                filter(ProjectContent.project_id.in_(service_ids),
+                       Project.has_delete == 0). \
+                group_by(Project.id)
 
-        return total_num, credit_list
+            query = query.add_columns(
+                case((func.sum(ProjectContentUserScore.is_pass) == func.count(ProjectContent.id), 1), else_=0).label(
+                    "is_pass")
+            )
+            total_count = query.count()
+            projects = query.offset(pg.offset()).limit(pg.limit())
+            results = []
+            for project, project_credit, is_pass in projects:
+                result = {'project_id': project.id, 'project_name': project.name, 'credit': project_credit,
+                          'is_pass': is_pass}
+                results.append(result)
+        return total_count, results
