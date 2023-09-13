@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 class login_interface(BaseModel):
     username: str = None
     password: str = None
+    has_delete: int = 0
 
 
 class register_interface(login_interface):
@@ -20,10 +21,12 @@ class captcha_interface(register_interface):
     captchaId: str = None
     captcha: str = None
     type: int = None
+    has_delete: int = 0
 
 
 class user_add_interface(register_interface):
     card_id: str = None
+    status : int = 1
 
 
 class session_interface(BaseModel):
@@ -40,7 +43,9 @@ class session_interface(BaseModel):
     exp_dt: datetime
     ip: str
     user_agent: str
+    create_dt: datetime = datetime.now()
     func_type: int
+    has_delete: int = 0
 
 
 class school_interface(BaseModel):
@@ -52,6 +57,7 @@ class school_interface(BaseModel):
     school_abbreviation: str = None
     file_id: int = None
     school_logo: str = None
+    has_delete: int = 0
 
 
 class college_interface(BaseModel):
@@ -63,6 +69,7 @@ class college_interface(BaseModel):
     school_id: int = None
     file_id: int = None
     college_logo: str = None
+    has_delete: int = 0
 
 
 class major_interface(college_interface):
@@ -71,6 +78,7 @@ class major_interface(college_interface):
         from_attributes=True,
     )
     college_id: int = None
+    has_delete: int = 0
 
 
 class class_interface(college_interface):
@@ -79,6 +87,7 @@ class class_interface(college_interface):
         from_attributes=True,
     )
     college_id: int = None
+    has_delete: int = 0
 
 
 class password_interface(BaseModel):
@@ -116,6 +125,7 @@ class user_info_interface(BaseModel):
     class_id: str = None
     enrollment_dt: date = None
     graduation_dt: date = None
+    has_delete: int = 0
 
 
 class admin_user_add_interface(user_add_interface, user_info_interface):
@@ -130,6 +140,7 @@ class parameters_interface(BaseModel):
     url: str
     para: Any
     body: Any
+    has_delete: int = 0
 
 
 class user_interface(BaseModel):
@@ -139,6 +150,7 @@ class user_interface(BaseModel):
 
 class reason_interface(BaseModel):
     reason: str
+    has_delete: int = 0
 
 
 class file_interface(BaseModel):

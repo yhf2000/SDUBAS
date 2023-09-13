@@ -49,6 +49,8 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
         session_model.add_session(new_session)
         new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
             "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+        new_session.create_dt = time.strptime(new_session.create_dt.strftime(
+            "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
         user_session = json.dumps(new_session.model_dump())
         session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
         return {'message': '文件不存在', 'data': {'file_id': None}, 'token_header': new_token, 'code': 0}
@@ -111,6 +113,8 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     session_model.add_session(new_session)
     new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
         "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+    new_session.create_dt = time.strptime(new_session.create_dt.strftime(
+        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
     return {'message': '请前往下载', 'data': {'url': 'http://127.0.0.1:8000/files/download/' + new_token}, 'code': 0}
@@ -142,7 +146,7 @@ async def file_download_files(request: Request, token: str):
 @files_router.get("/preview")
 @page_response
 async def file_preview(request: Request, pageNow: int, pageSize: int, session=Depends(auth_login),
-                       permission=Depends(auth_permission)):
+                       permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_file = user_file_model.get_user_file_by_admin(Page, session['user_id'])  # 以分页形式返回
     result = {"rows": None}

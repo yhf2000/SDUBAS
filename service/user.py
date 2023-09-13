@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 
 from fastapi.encoders import jsonable_encoder
@@ -173,6 +174,14 @@ class SessionModel(dbSession):
             session.commit()
             return obj_add.id
 
+    def add_all_session(self, sessions):  # 批量添加session
+        objects = [Session(**jsonable_encoder(sessions[i])) for i in range(len(sessions))]
+        with self.get_db() as session:
+            session.add_all(objects)
+            session.flush()
+            session.commit()
+            return 'ok'
+
     def delete_session(self, id: int):  # 根据id删除一个session
         with self.get_db() as session:
             session.query(Session).filter(Session.id == id).update({"has_delete": 1})
@@ -196,7 +205,6 @@ class SessionModel(dbSession):
             user_id = session.query(Session.user_id).filter(Session.has_delete == 0, Session.token == token).first()
             session.commit()
             return user_id
-
 
     def get_session_by_id(self, id):  # 根据id查询session的基本信息
         with self.get_db() as session:
@@ -296,7 +304,7 @@ class UserinfoModel(dbSession):
     def get_major_id_by_user_id(self, user_id):  # 根据user_id查询user的major_id
         with self.get_db() as session:
             userinfo = session.query(User_info.major_id).filter(User_info.user_id == user_id,
-                                                                                    User_info.has_delete == 0).first()
+                                                                User_info.has_delete == 0).first()
             session.commit()
             return userinfo
 
@@ -318,6 +326,7 @@ class OperationModel(dbSession):
     def add_operation(self, obj: operation_interface):  # 添加一个操作(在operation表中添加一个操作)
         obj.oper_hash = obj.get_oper_hash()
         obj_dict = jsonable_encoder(obj)
+        obj_dict['oper_dt'] = datetime.datetime.now()
         obj_add = Operation(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
@@ -348,7 +357,7 @@ class OperationModel(dbSession):
 
 class CaptchaModel(dbSession):
     def add_captcha(self, value):  # 添加一个验证码
-        obj_add = Captcha(value=value)
+        obj_add = Captcha(value=value,has_delete = 0)
         with self.get_db() as session:
             session.add(obj_add)
             session.flush()

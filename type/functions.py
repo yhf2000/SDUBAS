@@ -1,14 +1,17 @@
-import hashlib
+import copy
+import datetime
 import json
 import random
+import time
+import uuid
 
 from fastapi import Request
 
-from model.db import session_db
+from model.db import session_db, url_db
+from service.file import UserFileModel, FileModel
 from service.permissions import roleModel
 from service.user import SessionModel
-from service.file import UserFileModel, FileModel
-from type.user import parameters_interface
+from type.user import parameters_interface, session_interface
 
 session_model = SessionModel()
 user_file_model = UserFileModel()
@@ -56,7 +59,77 @@ def get_user_id(request: Request):  # 获取user_id
         return session_model.get_user_id_by_token(token)[0]
 
 
-def get_url_by_user_file_id(id_list):
+def make_download_session(token, request, user_id, file_id, use_limit, hours):
+    #  通过权限认证，判断是永久下载地址还是临时下载地址
+    exp_dt = (datetime.datetime.now() + datetime.timedelta(hours=hours))
+    new_session = session_interface(user_id=user_id, file_id=file_id, token=token,
+                                    ip=request.client.host,
+                                    func_type=2, user_agent=request.headers.get("user-agent"), use_limit=use_limit,
+                                    exp_dt=exp_dt)  # 生成新session
+    return new_session
+
+
+def get_url_by_user_file_id(request, id_list):
+    user_file = user_file_model.get_user_file_id_by_id_list(id_list)
+    urls = dict()
+    if user_file is None:
+        urls.update({id_list: None})
+    else:
+        if type(id_list) == int:
+            if user_file[1] is None:
+                urls.update({id_list: None})
+            else:
+                url = url_db.get(id_list)
+                if url is not None:  # 有效url中有
+                    urls.update({id_list: url.decode('utf-8')})
+                else:
+                    new_token = str(uuid.uuid4().hex)  # 生成token
+                    new_session = make_download_session(new_token, request, user_file[1], id_list, 100, 72)
+                    session_model.add_session(new_session)
+                    new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
+                        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+                    new_session.create_dt = time.strptime(new_session.create_dt.strftime(
+                        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+                    user_session = json.dumps(new_session.model_dump())
+                    session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
+                    url = 'http://127.0.0.1:8000/files/download/' + new_token
+                    url_db.set(id_list, url)
+                    urls.update({id_list: url})
+        else:
+            sessions = []
+            for i in range(len(user_file)):
+                if user_file[i][1] is None:
+                    urls.update({id_list[i]: None})
+                else:
+                    url = url_db.get(id_list[i])
+                    if url is not None:  # 有效url中有
+                        urls.update({id_list[i]: url.decode('utf-8')})
+                    else:
+                        new_token = str(uuid.uuid4().hex)  # 生成token
+                        new_session = make_download_session(new_token, request, user_file[i][1], id_list[i], 100, 72)
+
+                        temp = copy.deepcopy(new_session)
+                        sessions.append(temp)
+                        new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
+                            "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+                        new_session.create_dt = time.strptime(new_session.create_dt.strftime(
+                            "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+                        user_session = json.dumps(new_session.model_dump())
+                        session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
+                        url = 'http://127.0.0.1:8000/files/download/' + new_token
+                        url_db.set(id_list[i], url)
+                        urls.update({id_list[i]: url})
+            if len(sessions) == 1:
+                session_model.add_session(sessions[0])
+            else:
+                session_model.add_all_session(sessions)
+            for i in range(len(id_list)):
+                if id_list[i] not in urls.keys():
+                    urls.update({id_list[i]: None})
+    return urls
+
+
+def get_locate_url_by_user_file_id(id_list):
     urls = dict()
     file = file_model.get_file_by_user_file_id(id_list)
     if file is None:
