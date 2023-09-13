@@ -5,13 +5,15 @@ from email.mime.text import MIMEText
 
 from celery import Celery
 
-broker = 'redis://127.0.0.1:6379/4'
-backend = 'redis://127.0.0.1:6379/3'
+broker = 'redis://127.0.0.1:6379/12'
+backend = 'redis://127.0.0.1:6379/13'
 send_email_app = Celery(
     'tasks',
     broker=broker,
     backend=backend,
 )
+
+
 # 异步发送邮件，Email为邮箱，token可能为token或token_s6，type为发送邮箱时的操作类型
 @send_email_app.task()
 def send_email(Email, token, type):
@@ -46,6 +48,3 @@ def send_email(Email, token, type):
         server.sendmail('13244445877@163.com', Email, msg=mail.as_string())  # 发送邮箱
     finally:
         server.quit()
-
-
-

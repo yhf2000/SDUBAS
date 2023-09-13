@@ -6,25 +6,27 @@ import string
 import time
 import uuid
 from io import BytesIO
+
 import pandas as pd
 from captcha.image import ImageCaptcha
-from fastapi import APIRouter, Query, Form
+from fastapi import APIRouter, Form
 from fastapi import File, UploadFile
 from fastapi import Request, Header, Depends
+
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
 from model.db import session_db, user_information_db
-from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, encrypted_password, CaptchaModel
 from service.permissions import roleModel
+from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, encrypted_password, CaptchaModel
 from type.functions import make_parameters, search_son_user, get_email_token, get_user_id
 from type.page import page
+from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
     session_interface, email_interface, password_interface, user_add_interface, admin_user_add_interface, \
     login_interface, \
-    captcha_interface, user_interface, reason_interface, file_interface
-from type.permissions import create_user_role_base
+    captcha_interface, user_interface, reason_interface
 from utils.auth_login import auth_login, auth_not_login
-from utils.auth_permission import auth_permission, auth_permission_default
+from utils.auth_permission import auth_permission_default
 from utils.response import user_standard_response, page_response, status_response, makePageResult
 
 users_router = APIRouter()
@@ -50,7 +52,7 @@ dtype_mapping = {
 @users_router.post("/user_add")
 @user_standard_response
 async def user_add(user_information: admin_user_add_interface, request: Request,
-                   session=Depends(auth_permission_default)):
+                   session=Depends(auth_login)):
     user = user_add_interface(username=user_information.username, password=user_information.password,
                               email=user_information.email, card_id=user_information.card_id)
     result = await user_unique_verify(user)  # 验证用户各项信息是否已存在
@@ -247,6 +249,8 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
     id = session_model.add_session(session)
     session.exp_dt = time.strptime(session.exp_dt.strftime(
         "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+    session.create_dt = time.strptime(session.create_dt.strftime(
+        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
     user_session = json.dumps(session.model_dump())
     session_db.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
     return {'data': True, 'token_header': token, 'message': '验证码已发送，请前往验证！', 'code': 0}
@@ -329,6 +333,8 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             id = session_model.add_session(session)
             session.exp_dt = time.strptime(session.exp_dt.strftime(
                 "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+            session.create_dt = time.strptime(session.create_dt.strftime(
+                "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
             user_session = json.dumps(session.model_dump())
             session_db.set(token, user_session, ex=1209600)  # 缓存有效session
             parameters = await make_parameters(request)
@@ -386,7 +392,7 @@ async def user_password_update(request: Request, password: password_interface, s
     return {'data': {'user_id': id}, 'message': '修改成功', 'code': 0}
 
 
-# 输入更改邮箱，向更改邮箱发送链接
+# 输入验证码确认正确后，输入更改邮箱对邮箱进行更改
 @users_router.post("/email_update")
 @user_standard_response
 async def user_email_update(email_data: email_interface, request: Request, session=Depends(auth_login)):
@@ -410,6 +416,7 @@ async def user_password_get_back(captcha_data: captcha_interface, request: Reque
         return {'data': False, 'message': '没有该用户', 'code': 1}
     if user_information.email != captcha_data.email:  # 看看有没有这个邮箱
         return {'data': False, 'message': '邮箱不正确，不是之前绑定的邮箱', 'code': 2}
+    captcha_data.type = 2
     result = await send_captcha(captcha_data, request, user_agent)
     ans = json.loads(result.body)
     return {'data': True, 'message': ans['message'], 'code': 0}

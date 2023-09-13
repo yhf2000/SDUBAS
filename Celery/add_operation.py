@@ -3,8 +3,8 @@ from celery import Celery
 from service.user import OperationModel
 from type.user import operation_interface
 
-broker = 'redis://127.0.0.1:6379/5'  # 消息队列
-backend = 'redis://127.0.0.1:6379/6'  # 存储结果
+broker = 'redis://127.0.0.1:6379/14'  # 消息队列
+backend = 'redis://127.0.0.1:6379/15'  # 存储结果
 
 add_operation_app = Celery(
     'tasks',

@@ -9,6 +9,8 @@ class file_interface(BaseModel):
     size: int
     hash_md5: str
     hash_sha256: str
+    has_delete: int = 0
+    is_save:int = 0
 
 
 class user_file_interface(BaseModel):
@@ -18,3 +20,4 @@ class user_file_interface(BaseModel):
     )
     file_id: int = None
     user_id: int = None
+    has_delete: int = 0

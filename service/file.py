@@ -53,8 +53,8 @@ class FileModel(dbSession):
                 ).all()
             else:
                 file = session.query(File.hash_md5, File.hash_sha256, User_File.id,
-                                                     User_File.name).outerjoin(User_File,
-                                                                               User_File.file_id == File.id).filter(
+                                     User_File.name).outerjoin(User_File,
+                                                               User_File.file_id == File.id).filter(
                     User_File.id == user_file_id_list,
                     File.has_delete == 0
                 ).first()
@@ -109,6 +109,16 @@ class UserFileModel(dbSession):
         with self.get_db() as session:
             user_file = session.query(User_File).filter(User_File.has_delete == 0, User_File.id == id).first()
             session.commit()
+            return user_file
+
+    def get_user_file_id_by_id_list(self, id_list):  # 根据id_list查询user_file的file_id
+        with self.get_db() as session:
+            if type(id_list) is list:
+                user_file = session.query(User_File.id,User_File.user_id).filter(User_File.id.in_(id_list), User_File.has_delete == 0).all()
+                session.commit()
+            else:
+                user_file = session.query(User_File.id,User_File.user_id).filter(User_File.id == id_list, User_File.has_delete == 0).first()
+                session.commit()
             return user_file
 
     def get_file_id_by_id(self, id: int):  # 根据id查询user_file的file_id

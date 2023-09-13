@@ -1,16 +1,14 @@
+from datetime import datetime
 import uvicorn
 from fastapi import FastAPI, Depends
-from starlette.middleware.cors import CORSMiddleware
-from datetime import datetime
-
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
+from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
-from utils.times import getMsTime
-
+from controller import files, projects, permissions, resources, users, educations
 from utils.auth_login import auth_login
 from utils.response import standard_response
-from controller import files, projects, permissions, resources, users, educations
+from utils.times import getMsTime
 
 app = FastAPI()
 app.include_router(files.files_router, prefix="/files")
