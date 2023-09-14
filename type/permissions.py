@@ -20,7 +20,7 @@ class delete_role_base(BaseModel):  # 删除角色信息
 
 class attribute_role_base(BaseModel):  # 分配用户角色信息
     user_id: int
-    role_name: str
+    role_id: int
 
 class add_default_role_base(BaseModel):  # 为用户添加默认角色
     user_id: int
@@ -29,7 +29,6 @@ class add_default_role_base(BaseModel):  # 为用户添加默认角色
 class attribute_privilege_base(BaseModel):  # 为角色添加权限信息
     role_id: int
     privilege_list: list
-    # privilege_id: int
 
 
 class attribute_role_for_work_base(BaseModel):  # 为业务分配角色
@@ -74,12 +73,20 @@ class RolePydantic(BaseModel):  # 将数据库查询结果转化为字典的模�
         from_attributes = True
 
 class privilege_base(BaseModel):
-    service_type: int
+    privilege: str
 
 
 class create_default_role_base(BaseModel):  # 创建角色信息
     role_name: str
+    privilege_list: list
+
+class create_default_role_Base(BaseModel):
+    roles: List[create_default_role_base]
 
 
 class create_default_work_role_base(BaseModel):  # 创建角色信息
     role_id: int
+
+
+class UserBase_Opt(BaseModel):
+    id: int

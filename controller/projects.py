@@ -47,7 +47,7 @@ async def delete_project(request: Request, project_id: int, user=Depends(auth_pe
 @standard_response
 async def list_projects(request: Request,
                         pageNow: int = Query(description="页码", gt=0),
-                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission_default)):
+                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     user_id = user['user_id']
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, res = project_service.list_projects(pg=Page, user_id=user_id)  # 返回总额，分页数据
@@ -204,7 +204,7 @@ async def create_user_submission(request: Request, project_id: int,
 async def list_projects(request: Request, projectType: str = Query(),
                         tag: str = Query(None),
                         pageNow: int = Query(description="页码", gt=0),
-                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission_default)):
+                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, res = project_service.get_projects_by_type(project_type=projectType, pg=Page, tags=tag,
                                                    user_id=user['user_id'])  # 返回总额，分页数据
