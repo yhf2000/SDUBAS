@@ -78,6 +78,8 @@ def auth_permission(request: Request):
     service_id = extract_id_from_string(url)
     service_type = extract_type_from_string(url)
     user_role_list = db.search_role_by_user(user_id)
+    if 1 in user_role_list:
+        return session
     service_role_list = db.search_role_by_service(service_id, service_type)
     common_role_list = find_common_role(user_role_list, service_role_list)
 
@@ -104,7 +106,8 @@ def auth_permission_default(request: Request):
     url = request.url.path
     permission_key = remove_numbers(url)
     user_role_list = db.search_role_by_user(user_id)
-
+    if 1 in user_role_list:
+        return session
     privilege = privilege_dict[permission_key]
     privilege_id = db.search_privilege_name_by_privilege_id(privilege)
     privilege_set = db.search_privilege_by_role(user_role_list)
