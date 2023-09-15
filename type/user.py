@@ -26,7 +26,12 @@ class captcha_interface(register_interface):
 
 class user_add_interface(register_interface):
     card_id: str = None
-    status : int = 1
+    status: int = 1
+
+
+class user_add_batch_interface(BaseModel):
+    information_list: list
+    role_id: int
 
 
 class session_interface(BaseModel):
