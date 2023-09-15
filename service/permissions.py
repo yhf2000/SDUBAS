@@ -8,6 +8,7 @@ from model.permissions import Role, RolePrivilege, UserRole, Privilege, WorkRole
 from model.user import User
 from model.db import dbSession
 from type.permissions import *
+from type.page import page
 
 
 def add_superiorId(data: dict, super_id: int):  # 在superiorListId中添加父节点
@@ -114,7 +115,7 @@ class roleModel(dbSession):
     def attribute_user_role(self, data: attribute_role_base):  # 分配用户角色
         obj_dict = jsonable_encoder(data)
         with self.get_db() as session:
-            query_result = session.query(Role).filter_by(name=obj_dict['role_name']).first()  # 依照role_name先查找角色
+            query_result = session.query(Role).filter_by(name=obj_dict['role_id']).first()  # 依照role_name先查找角色
             if query_result:
                 result_dict = RolePydantic.from_orm(query_result).dict()
                 new_user_role = UserRole(role_id=result_dict['id'], user_id=obj_dict['user_id'], has_delete=0)
@@ -305,6 +306,48 @@ class roleModel(dbSession):
             session.add(WorkRole)
             session.commit()
             return 'OK'
+
+    def search_created_user_id(self, user_id: int, pg: page):
+        with self.get_db() as session:
+            user = session.query(distinct(UserRole.user_id)).join(
+                WorkRole,
+                WorkRole.role_id == UserRole.role_id,
+            ).filter(
+                WorkRole.service_type == 0,
+                WorkRole.service_id == user_id
+            )
+            total_count = user.count()
+            data = user.offset(pg.offset()).limit(pg.limit()).all()
+            dicts = []
+            for item in data:
+                 dicts.append(item[0])
+            return total_count, dicts
+
+    def search_role_by_user_2(self, user_id: int, pg: page):
+        with self.get_db() as session:
+            res_list = []
+            user_role = session.query(UserRole.role_id).filter(
+                UserRole.user_id == user_id
+            )
+            role_ids = [row[0] for row in user_role.all()]
+            role_set = self.get_son_role(role_ids)
+            role_list = list(role_set)
+            role = session.query(Role).filter(
+                Role.id.in_(role_list)
+            ).all()
+            for item in role:
+                temp = {
+                    "role_id": item.id,
+                    "role_name": item.name
+                }
+                res_list.append(temp)
+            total_count = user_role.count()
+            return total_count, res_list
+
+    # def get_user_info_by_role(self, role_id: int):
+    #     with self.get_db() as session:
+    #         query =
+
 
     def test(self):
         with self.get_db() as session:
