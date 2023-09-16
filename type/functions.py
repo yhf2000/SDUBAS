@@ -69,6 +69,17 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
     return new_session
 
 
+def get_url(new_session, new_token):
+    new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
+        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+    new_session.create_dt = time.strptime(new_session.create_dt.strftime(
+        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+    user_session = json.dumps(new_session.model_dump())
+    session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
+    url = 'http://127.0.0.1:8000/files/download/' + new_token
+    return url
+
+
 def get_url_by_user_file_id(request, id_list):
     user_file = user_file_model.get_user_file_id_by_id_list(id_list)
     urls = dict()
@@ -84,15 +95,9 @@ def get_url_by_user_file_id(request, id_list):
                     urls.update({id_list: url.decode('utf-8')})
                 else:
                     new_token = str(uuid.uuid4().hex)  # 生成token
-                    new_session = make_download_session(new_token, request, user_file[1], id_list, 100, 72)
+                    new_session = make_download_session(new_token, request, user_file[1], id_list, 408, 72)
                     session_model.add_session(new_session)
-                    new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
-                        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-                    new_session.create_dt = time.strptime(new_session.create_dt.strftime(
-                        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-                    user_session = json.dumps(new_session.model_dump())
-                    session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-                    url = 'http://127.0.0.1:8000/files/download/' + new_token
+                    url = get_url(new_session, new_token)
                     url_db.set(id_list, url)
                     urls.update({id_list: url})
         else:
@@ -106,17 +111,10 @@ def get_url_by_user_file_id(request, id_list):
                         urls.update({id_list[i]: url.decode('utf-8')})
                     else:
                         new_token = str(uuid.uuid4().hex)  # 生成token
-                        new_session = make_download_session(new_token, request, user_file[i][1], id_list[i], 100, 72)
-
+                        new_session = make_download_session(new_token, request, user_file[i][1], id_list[i], 408, 72)
                         temp = copy.deepcopy(new_session)
                         sessions.append(temp)
-                        new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
-                            "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-                        new_session.create_dt = time.strptime(new_session.create_dt.strftime(
-                            "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-                        user_session = json.dumps(new_session.model_dump())
-                        session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-                        url = 'http://127.0.0.1:8000/files/download/' + new_token
+                        url = get_url(new_session, new_token)
                         url_db.set(id_list[i], url)
                         urls.update({id_list[i]: url})
             if len(sessions) == 1:
@@ -161,3 +159,7 @@ def get_email_token():  # 生成email的验证码
     for i in range(6):
         email_token += str(random.randint(0, 9))  # 生成六位随机验证码
     return email_token
+
+
+def get_video_time(user_file_id):
+    return user_file_model.get_video_time_by_id(user_file_id)[0]

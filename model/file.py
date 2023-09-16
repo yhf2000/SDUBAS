@@ -30,4 +30,5 @@ class User_File(Base):  # 文件用户表
     user_id = Column(Integer, ForeignKey('user.id'), nullable=True)  # 用户id，外键
     name = Column(String(128), nullable=True)  # 文件名
     type = Column(String(128), nullable=True)  # 文件类型
+    video_time = Column(Integer, nullable=True)  # 视频类型的文件的播放时长
     has_delete = Column(Boolean, index=True)  # 是否已经删除

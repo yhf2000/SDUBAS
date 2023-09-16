@@ -7,10 +7,8 @@ import time
 import uuid
 from io import BytesIO
 
-import pandas as pd
 from captcha.image import ImageCaptcha
-from fastapi import APIRouter, Form
-from fastapi import File, UploadFile
+from fastapi import APIRouter
 from fastapi import Request, Header, Depends
 
 from Celery.add_operation import add_operation
@@ -24,7 +22,7 @@ from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
     session_interface, email_interface, password_interface, user_add_interface, admin_user_add_interface, \
     login_interface, \
-    captcha_interface, user_interface, reason_interface
+    captcha_interface, user_interface, reason_interface, user_add_batch_interface
 from utils.auth_login import auth_login, auth_not_login
 from utils.auth_permission import auth_permission_default
 from utils.response import user_standard_response, page_response, status_response, makePageResult
@@ -73,30 +71,46 @@ async def user_add(user_information: admin_user_add_interface, request: Request,
 # 管理员通过导入一个文件批量添加用户
 @users_router.post("/user_add_batch")
 @user_standard_response
-async def user_add_all(request: Request, file: UploadFile = File(...),
-                       role_id: int = Form(), session=Depends(auth_permission_default)):
-    content = await file.read()
-    df = pd.read_excel(content, dtype=dtype_mapping)  # 读取文件
+async def user_add_all(request: Request, information: user_add_batch_interface, session=Depends(auth_login)):
     user = []
     user_info = []
-    for index, row in df.iterrows():
-        temp = row[['username', 'password', 'email', 'card_id']].to_dict()
+    for i in range(len(information.information_list)):
+        user_key = ['用户名', '密码', '邮箱', '学号']
+        user_info_key = ['姓名', '性别', '入学时间', '毕业时间']
+        temp = {key: information.information_list[i][key] for key in user_key if key in information.information_list[i]}
+        new_key1 = 'username'
+        new_key2 = 'password'
+        new_key3 = 'email'
+        new_key4 = 'card_id'
+        temp[new_key1] = temp.pop('用户名')
+        temp[new_key2] = temp.pop('密码')
+        temp[new_key3] = temp.pop('邮箱')
+        temp[new_key4] = temp.pop('学号')
         user_data = user_add_interface(**temp)
         result = await user_unique_verify(user_data)  # 验证要添加的用户各项信息是否存在
         ans = json.loads(result.body)
         if ans['code'] != 0:
-            ans['message'] = '第' + str(index + 1) + '位' + ans['message']  # 报出第几位有问题
+            ans['message'] = '第' + str(i + 1) + '位' + ans['message']  # 报出第几位有问题
             return ans
         user_data.registration_dt = user_data.registration_dt.strftime(
             "%Y-%m-%d %H:%M:%S")
         user_data.password = encrypted_password(user_data.password, user_data.registration_dt)  # 加密密码
         user.append(user_data)
-        temp = row[['realname', 'gender', 'enrollment_dt', 'graduation_dt']].to_dict()
+        temp = {key: information.information_list[i][key] for key in user_info_key if
+                key in information.information_list[i]}
+        new_key1 = 'realname'
+        new_key2 = 'gender'
+        new_key3 = 'enrollment_dt'
+        new_key4 = 'graduation_dt'
+        temp[new_key1] = temp.pop('姓名')
+        temp[new_key2] = temp.pop('性别')
+        temp[new_key3] = temp.pop('入学时间')
+        temp[new_key4] = temp.pop('毕业时间')
         user_info_data = user_info_interface(**temp)
         user_info.append(user_info_data)
     user_id_list = user_model.add_all_user(user)  # 添加所有的user得到user_id_list
     user_info_model.add_all_user_info(user_info, user_id_list)  # 添加所有的user_info
-    role_model.add_all_user_role(role_id, user_id_list)  # 都分配一个默认角色
+    role_model.add_all_user_role(information.role_id, user_id_list)  # 都分配一个默认角色
     parameters = await make_parameters(request)
     add_operation.delay(0, None, '管理员批量添加用户', parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}

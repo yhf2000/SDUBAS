@@ -1,4 +1,5 @@
 import datetime
+import io
 import json
 import os
 import time
@@ -7,7 +8,7 @@ import uuid
 from fastapi import APIRouter
 from fastapi import File, UploadFile
 from fastapi import Request, Header, HTTPException, Depends
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from Celery.add_operation import add_operation
 from controller.users import make_parameters
 from model.db import session_db
@@ -87,7 +88,7 @@ async def file_upload(request: Request, file: UploadFile = File(...),session=Dep
                                                file.content_type)  # 添加一条user_file的记录
     file_model.update_file_is_save(file_id)  # 更新为已上传
     parameters = await make_parameters(request)
-    add_operation.delay(7, old_session['file_id'], '用户上传了一个文件', parameters, old_session['user_id'])
+    add_operation.delay(8, old_session['file_id'], '用户上传了一个文件', parameters, old_session['user_id'])
     data = dict()
     data['file_size'] = file.size
     data['file_name'] = file.filename,
@@ -133,12 +134,15 @@ async def file_download_files(request: Request, token: str):
             session_db.delete(token)
         else:
             session_model.update_session_use_by_token(token, 1)  # 将该session使用次数加1
-        user_file = user_file_model.get_user_file_by_id(old_session['file_id'])
-        file = file_model.get_file_by_id(user_file.file_id)
-        folder = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:] + '/' + user_file.name  # 先找到路径
-        parameters = await make_parameters(request)
-        add_operation.delay(7, old_session['file_id'], '用户下载了一个文件', parameters, old_session['user_id'])
-        return FileResponse(folder, filename=user_file.name)  # 返回文件
+            user_file = user_file_model.get_user_file_by_id(old_session['file_id'])
+            file = file_model.get_file_by_id(user_file.file_id)
+            folder = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:] + '/' + user_file.name  # 先找到路径
+        if old_session['use_limit'] == 408:
+            return FileResponse(folder, headers={"Content-Disposition": "inline"})
+        else:
+            parameters = await make_parameters(request)
+            add_operation.delay(8, old_session['file_id'], '用户下载了一个文件', parameters, old_session['user_id'])
+            return FileResponse(folder, filename=user_file.name)  # 返回文件
     return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
 
 

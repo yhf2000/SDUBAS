@@ -1,10 +1,12 @@
 from datetime import datetime
+
 import uvicorn
 from fastapi import FastAPI, Depends
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
+
 from controller import files, projects, permissions, resources, users, educations
 from utils.auth_login import auth_login
 from utils.response import standard_response
@@ -65,7 +67,6 @@ async def request_validatoion_error(request, exc):
         "timestamp": getMsTime(datetime.now())
     }, status_code=500)
     return response
-
 
 
 # 添加CORS中间件

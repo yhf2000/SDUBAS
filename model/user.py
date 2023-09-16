@@ -141,3 +141,23 @@ class Captcha(Base):  # 验证码表
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     value = Column(VARCHAR(8), nullable=False, comment='验证码值')  # 验证码值，非空
     has_delete = Column(Integer, nullable=False, index=True, comment='是否已经删除')  # 是否已经删除
+
+
+class Development_Program(Base):  # 培养方案表
+    __tablename__ = 'development_program'
+    id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
+    major_id = Column(Integer, ForeignKey('majore.id'), nullable=False, index=True,
+                        comment='外键，专业ID')  # 外键，专业id，非空，索引
+    political_education = Column(Integer, nullable=True,comment="思想政治理论课")
+    physical_education = Column(Integer, nullable=True, comment="大学体育")
+    english = Column(Integer, nullable=True, comment="大学英语")
+    general_education = Column(Integer, nullable=True, comment="通识教育核心课程")
+    chinese_studies = Column(Integer, nullable=True, comment="国学修养")
+    art_aesthetics = Column(Integer, nullable=True, comment="艺术审美")
+    innovation_entrepreneurship = Column(Integer, nullable=True, comment="创新创业")
+    humanities = Column(Integer, nullable=True, comment="人文学科")
+    social_sciences = Column(Integer, nullable=True, comment="社会科学")
+    scientific_literacy = Column(Integer, nullable=True, comment="科学素养")
+    information_technology = Column(Integer, nullable=True, comment="信息技术")
+    general_elective = Column(Integer, nullable=True, comment="通识教育选修课程")
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
