@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from type.functions import make_parameters
 from service.project import ProjectService
 from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
-    ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew
+    ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress
 from utils.auth_login import auth_login
 from utils.auth_permission import auth_permission, auth_permission_default
 from utils.response import standard_response, makePageResult
@@ -294,3 +294,15 @@ async def get_all_content_user_score(request: Request,
     parameters = await make_parameters(request)
     add_operation.delay(0, 0, "查看用户学分明细", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
+
+
+@projects_router.put("/{project_id}/content/video/renew")
+@standard_response
+async def get_all_content_user_score(request: Request,
+                                     project_id: int,
+                                     content_renew: video_finish_progress,
+                                     user=Depends(auth_permission)):
+    result = project_service.video_content_progress_renew(content_renew=content_renew, user_id=user['user_id'])
+    parameters = await make_parameters(request)
+    add_operation.delay(7, project_id, "视频观看进度更新", parameters, user['user_id'])
+    return result
