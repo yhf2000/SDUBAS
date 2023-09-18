@@ -1,6 +1,8 @@
+from datetime import datetime
+
 from fastapi import HTTPException
 from sqlalchemy import func, or_, distinct, case
-
+from utils.times import getMsTime
 from model.db import dbSession
 
 from sqlalchemy.orm import Session, aliased
@@ -9,7 +11,7 @@ from model.project import Project, ProjectContent, ProjectCredit, ProjectContent
     ProjectContentUserSubmission, ProjectContentUserScore
 from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate, ProjectBase_Opt, \
     ProjectContentBaseOpt, user_submission, user_submission_Opt, Submission_Opt, SubmissionListCreate, \
-    project_content_renew, content_score, User_Opt, ProjectCreate
+    project_content_renew, content_score, User_Opt, ProjectCreate, video_finish_progress
 from type.page import page, dealDataList
 from sqlalchemy import and_
 from service.permissions import roleModel
@@ -34,6 +36,7 @@ class ProjectService(dbSession):
             # Create the project contents
             for content in project.contents:
                 content.project_id = db_project.id
+                content.file_time = 200
                 db_content = ProjectContent(**content.model_dump())
                 session.add(db_content)
                 session.commit()
@@ -86,9 +89,22 @@ class ProjectService(dbSession):
 
     def list_projects_content(self, project_id: int, user_id: int):
         with self.get_db() as session:
-            query = session.query(ProjectContent).filter_by(project_id=project_id,
-                                                            has_delete=0).all()
-            results = dealDataList(query, ProjectContentBaseOpt, {})
+            subquery = session.query(ProjectContentUserScore). \
+                filter(ProjectContentUserScore.user_id == user_id).subquery()
+            query = session.query(ProjectContent, subquery.c.is_pass). \
+                outerjoin(subquery,
+                          ProjectContent.id == subquery.c.user_pcs_id). \
+                filter(ProjectContent.project_id == project_id,
+                       ProjectContent.has_delete == 0).all()
+            results = []
+            for re in query:
+                result = ProjectContentBaseOpt.model_validate(re[0])
+                result = result.model_dump(exclude={'has_delete'})
+                if re[1] is None:
+                    result['is_pass'] = 0
+                else:
+                    result['is_pass'] = re[1]
+                results.append(result)
             file_id_list = []
             for result in results:
                 file_id_list.append(result['file_id'])
@@ -329,25 +345,31 @@ class ProjectService(dbSession):
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="提交项目内容")
             credit_role_id = 1
-            subquery = session.query(ProjectCredit).filter(
-                ProjectCredit.role_id == credit_role_id).subquery()
-            query = session.query(Project, subquery.c.credit). \
+            service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+            subquery = session.query(Project). \
                 select_from(Project). \
-                join(ProjectContent). \
-                join(subquery, Project.id == subquery.c.project_id). \
+                join(ProjectContent,
+                     ProjectContent.project_id == Project.id). \
                 outerjoin(ProjectContentUserScore,
                           (ProjectContentUserScore.user_pcs_id == ProjectContent.id) &
                           (ProjectContentUserScore.user_id == user_id)). \
-                filter(ProjectCredit.role_id == credit_role_id,
-                       ProjectContent.project_id.in_(service_ids),
+                filter(ProjectContent.project_id.in_(service_ids),
                        Project.has_delete == 0). \
                 group_by(Project.id). \
-                having(func.sum(ProjectContentUserScore.is_pass) == func.count(ProjectContent.id))
+                having(func.sum(ProjectContentUserScore.is_pass) == func.count(ProjectContent.id)).subquery()
+            query = session.query(ProjectCredit.type, func.sum(ProjectCredit.credit)). \
+                join(subquery, ProjectCredit.project_id == subquery.c.id). \
+                filter(ProjectCredit.role_id == credit_role_id). \
+                group_by(ProjectCredit.type). \
+                add_columns(func.sum(ProjectCredit.credit).label("credit_count"))
 
             results = query.all()
-            total_count = 0
-            for project, projectCredit in results:
-                total_count += projectCredit
+            total_count = []
+            for project in results:
+                count = {'credit_type': project[0],
+                         'credit_count': project[1]}
+                total_count.append(count)
 
         return total_count
 
@@ -397,21 +419,18 @@ class ProjectService(dbSession):
 
     def get_user_credit_all(self, user_id: int, pg: page):
         with self.get_db() as session:
-            role_model = roleModel()
-            role_list = role_model.search_role_by_user(user_id)
-            service_ids = role_model.search_service_id(role_list, service_type=7, name="提交项目内容")
             credit_role_id = 1
             subquery = session.query(ProjectCredit).filter(
                 ProjectCredit.role_id == credit_role_id).subquery()
-            query = session.query(Project, subquery.c.credit). \
+            query = session.query(Project, subquery.c.credit, subquery.c.type). \
                 select_from(Project). \
-                join(ProjectContent). \
-                outerjoin(subquery, Project.id == subquery.c.project_id). \
+                join(subquery, subquery.c.project_id == Project.id). \
+                join(ProjectContent, ProjectContent.project_id == Project.id). \
                 outerjoin(ProjectContentUserScore,
                           (ProjectContentUserScore.user_pcs_id == ProjectContent.id) &
                           (ProjectContentUserScore.user_id == user_id)). \
-                filter(ProjectContent.project_id.in_(service_ids),
-                       Project.has_delete == 0). \
+                filter(Project.has_delete == 0,
+                       ProjectContent.has_delete == 0). \
                 group_by(Project.id)
 
             query = query.add_columns(
@@ -421,8 +440,50 @@ class ProjectService(dbSession):
             total_count = query.count()
             projects = query.offset(pg.offset()).limit(pg.limit())
             results = []
-            for project, project_credit, is_pass in projects:
+            for project, project_credit, credit_type, is_pass in projects:
                 result = {'project_id': project.id, 'project_name': project.name, 'credit': project_credit,
+                          'type': credit_type,
                           'is_pass': is_pass}
                 results.append(result)
         return total_count, results
+
+    def video_content_progress_renew(self, content_renew: video_finish_progress, user_id: int):
+        with self.get_db() as session:
+            time1 = datetime.now()
+            time = time1.timestamp()
+            content_user_score_check = session.query(ProjectContentUserScore). \
+                filter(ProjectContentUserScore.user_id == user_id,
+                       ProjectContentUserScore.user_pcs_id == content_renew.content_id).first()
+            content = session.query(ProjectContent). \
+                filter(ProjectContent.id == content_renew.content_id,
+                       ProjectContent.has_delete == 0).first()
+            if content_user_score_check is None:
+                db_score = ProjectContentUserScore(id=None,
+                                                   user_pcs_id=content_renew.content_id, user_id=user_id,
+                                                   judger=1, honesty='', honesty_weight=0,
+                                                   is_pass=-1, score=None, comment='',
+                                                   judge_dt=time1, viewed_time=0,
+                                                   last_check_time=time1)
+                session.add(db_score)
+                session.commit()
+                session.refresh(db_score)
+                return 'renew_finish'
+            elif content_user_score_check.is_pass == -1:
+                last_check = content_user_score_check.last_check_time.timestamp()
+                if time - last_check >= 30:
+                    has_view_time = content_user_score_check.viewed_time + 30
+                    is_pass = -1
+                    if has_view_time >= content.file_time:
+                        is_pass = 1
+                    session.query(ProjectContentUserScore). \
+                        filter(ProjectContentUserScore.user_id == user_id,
+                               ProjectContentUserScore.user_pcs_id == content_renew.content_id).update(
+                        {'viewed_time': has_view_time,
+                         'last_check_time': time1,
+                         'is_pass': is_pass})
+                    session.commit()
+                    if is_pass == 1:
+                        return 'video_finish'
+                    else:
+                        return 'renew_finish'
+            return 'renew_failure'
