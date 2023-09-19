@@ -11,8 +11,8 @@ from type.user import operation_interface
 from utils.response import page
 from fastapi import HTTPException
 from sqlalchemy import func
-from service.permissions import roleModel
-from service.permissions import roleModel
+from service.permissions import permissionModel
+from service.permissions import permissionModel
 from type.functions import get_url_by_user_file_id
 
 
@@ -24,7 +24,7 @@ class ResourceModel(dbSession):
             session.add(obj_add)
             session.flush()
             session.commit()
-            role_model = roleModel()
+            role_model = permissionModel()
             for role in obj_in.roles:
                 role_model.add_role_for_work(service_type=5, service_id=obj_add.Id, user_id=user_id,
                                              role_name=role.role_name)
@@ -47,7 +47,7 @@ class ResourceModel(dbSession):
 
     def get_resource_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可用资源
         with self.get_db() as session:
-            role_model = roleModel()
+            role_model = permissionModel()
             role_list = role_model.search_role_by_user(user)
             service_id = role_model.search_service_id(role_list, service_type=5, name="查看资源")
             query = session.query(Resource).filter(Resource.has_delete == 0, Resource.Id.in_(service_id))
@@ -153,7 +153,7 @@ class FinancialModel(dbSession):
             session.add(obj_add)
             session.flush()
             session.commit()
-            role_model = roleModel()
+            role_model = permissionModel()
             for role in obj_in.roles:
                 role_model.add_role_for_work(service_type=6, service_id=obj_add.Id, user_id=user_id,
                                              role_name=role.role_name)
@@ -181,7 +181,7 @@ class FinancialModel(dbSession):
 
     def get_financial_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可用资金
         with self.get_db() as session:
-            role_model = roleModel()
+            role_model = permissionModel()
             role_list = role_model.search_role_by_user(user)
             service_id = role_model.search_service_id(role_list, service_type=6, name="查看资金")
             query = session.query(Financial).filter(Financial.has_delete == 0, Financial.Id.in_(service_id))

@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, field_serializer, Field
 from typing import List, Optional
 from datetime import datetime
-from type.permissions import Add_Role_For_Work_Base
+from type.permissions import Add_Role_For_Work_Base, create_role_privilege_base
 from utils.times import getMsTime
 
 
