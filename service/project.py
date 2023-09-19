@@ -14,7 +14,7 @@ from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCre
     project_content_renew, content_score, User_Opt, ProjectCreate, video_finish_progress
 from type.page import page, dealDataList
 from sqlalchemy import and_
-from service.permissions import roleModel
+from service.permissions import permissionModel
 from model.permissions import UserRole
 from model.user import User
 from type.functions import get_url_by_user_file_id
@@ -40,10 +40,11 @@ class ProjectService(dbSession):
                 db_content = ProjectContent(**content.model_dump())
                 session.add(db_content)
                 session.commit()
-            role_model = roleModel()
+            role_model = permissionModel()
             for role in project.roles:
-                role_model.add_role_for_work(service_id=db_project.id,
+                role_id = role_model.add_role_for_work(service_id=db_project.id,
                                              service_type=7, user_id=user_id, role_name=role.role_name)
+                role_model.attribute_privilege_for_role(role.privilege_list, role_id)
             return db_project.id
 
     def update_project(self, project_id: int, newproject: ProjectUpdate, user_id: int) -> int:
@@ -64,7 +65,7 @@ class ProjectService(dbSession):
 
     def list_projects(self, pg: page, user_id: int):
         with self.get_db() as session:
-            role_model = roleModel()
+            role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="查看项目")
             query = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids))
@@ -230,7 +231,7 @@ class ProjectService(dbSession):
 
     def get_projects_by_type(self, project_type: str, pg: page, tags: str, user_id: int):
         with self.get_db() as session:
-            role_model = roleModel()
+            role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="查看项目")
             query = session.query(Project).filter(Project.type == project_type, Project.has_delete == 0,
@@ -324,7 +325,7 @@ class ProjectService(dbSession):
                 return projectCount_model
 
     def get_user_by_project_id(self, project_id: int, pg: page, user_id: int):
-        role_model = roleModel()
+        role_model = permissionModel()
         query = role_model.search_user_id_by_service(service_type=7, service_id=project_id)
         query = query.join(User, User.id == UserRole.user_id)
         query = query.add_entity(User)
@@ -341,7 +342,7 @@ class ProjectService(dbSession):
 
     def get_credits_user_get(self, user_id: int):
         with self.get_db() as session:
-            role_model = roleModel()
+            role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="提交项目内容")
             credit_role_id = 1
@@ -397,7 +398,7 @@ class ProjectService(dbSession):
 
     def get_content_user_score_all(self, project_id: int, content_id: int, pg: page, user_id: int):
         with self.get_db() as session:
-            role_model = roleModel()
+            role_model = permissionModel()
             query = role_model.search_user_id_by_service(service_type=7, service_id=project_id)
             query = query.join(User, User.id == UserRole.user_id)
             query = query.add_entity(User)

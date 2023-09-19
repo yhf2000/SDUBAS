@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, Request
 from type.functions import make_parameters
+from service.permissions import permissionModel
 from service.project import ProjectService
 from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
     ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress
@@ -306,3 +307,21 @@ async def get_all_content_user_score(request: Request,
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "视频观看进度更新", parameters, user['user_id'])
     return result
+
+
+@projects_router.post("/delete_user_in_project/{project_id}")  # 删除项目用户
+@standard_response
+async def delete_user_in_project(request: Request, project_id: int, delete_user: int = Query(),
+                                 user=Depends(auth_permission)):
+    db = permissionModel()
+    db.delete_project_user(delete_user, project_id)
+    return 'OK'
+
+
+@projects_router.post("/add_user_in_project/{project_id}")  # 添加项目用户
+@standard_response
+async def add_user_in_project(request: Request, project_id: int, delete_user: int = Query(),
+                                 user=Depends(auth_permission)):
+    db = permissionModel()
+    db.delete_project_user(delete_user, project_id)
+    return 'OK'

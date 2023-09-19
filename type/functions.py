@@ -9,7 +9,7 @@ from fastapi import Request
 
 from model.db import session_db, url_db
 from service.file import UserFileModel, FileModel
-from service.permissions import roleModel
+from service.permissions import permissionModel
 from service.user import SessionModel
 from type.user import parameters_interface, session_interface
 
@@ -147,7 +147,7 @@ def get_locate_url_by_user_file_id(id_list):
 
 
 def search_son_user(request: Request):
-    db = roleModel()
+    db = permissionModel()
     user_id = get_user_id(request)
     role_list = db.search_role_by_user(user_id)
     user_list = db.search_user_by_role(role_list)

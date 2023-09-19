@@ -42,6 +42,7 @@ class Add_Role_For_Work_Base(BaseModel):
     service_type: int = None
     service_id: int = None
     role_name: str = Field(..., strip_whitespace=True, min_length=1)
+    privilege_list: list
     role_id: int = None
     status: Optional[int] = None
     has_delete: int = 0
@@ -90,3 +91,7 @@ class create_default_work_role_base(BaseModel):  # 创建角色信息
 
 class UserBase_Opt(BaseModel):
     id: int
+
+
+class create_role_privilege_base(BaseModel):  # 创建角色信息
+    privilege_list: list
