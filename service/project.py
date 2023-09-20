@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from sqlalchemy import func, or_, distinct, case
 from utils.times import getMsTime
 from model.db import dbSession
@@ -17,7 +17,7 @@ from sqlalchemy import and_
 from service.permissions import permissionModel
 from model.permissions import UserRole
 from model.user import User
-from type.functions import get_url_by_user_file_id
+from type.functions import get_url_by_user_file_id, get_video_time
 from type.user import operation_interface
 from service.user import OperationModel
 
@@ -36,14 +36,15 @@ class ProjectService(dbSession):
             # Create the project contents
             for content in project.contents:
                 content.project_id = db_project.id
-                content.file_time = 200
+                if content.file_id is not None:
+                    content.file_time = get_video_time(content.file_id)
                 db_content = ProjectContent(**content.model_dump())
                 session.add(db_content)
                 session.commit()
             role_model = permissionModel()
             for role in project.roles:
                 role_id = role_model.add_role_for_work(service_id=db_project.id,
-                                             service_type=7, user_id=user_id, role_name=role.role_name)
+                                                       service_type=7, user_id=user_id, role_name=role.role_name)
                 role_model.attribute_privilege_for_role(role.privilege_list, role_id)
             return db_project.id
 
@@ -63,7 +64,7 @@ class ProjectService(dbSession):
             # session.query(ProjectContent).filter_by(ProjectContent.project_id == project_id).update({'has_delete': 1})
             return project_id
 
-    def list_projects(self, pg: page, user_id: int):
+    def list_projects(self, request: Request, pg: page, user_id: int):
         with self.get_db() as session:
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
@@ -75,20 +76,20 @@ class ProjectService(dbSession):
             # 序列化结
             results = dealDataList(data, ProjectBase_Opt, {'has_delete'})
             for result in results:
-                result['url'] = get_url_by_user_file_id(result['img_id'])
+                result['url'] = get_url_by_user_file_id(request, result['img_id'])
             return total_count, results
 
-    def get_project(self, project_id: int, user_id: int):
+    def get_project(self, request: Request, project_id: int, user_id: int):
         with self.get_db() as session:
             project = session.query(Project).filter(Project.id == project_id).first()
             project = ProjectBase_Opt.model_validate(project)
             date = project.model_dump(exclude={'has_delete'})
-            file_url = get_url_by_user_file_id(date['img_id'])
+            file_url = get_url_by_user_file_id(request, date['img_id'])
             date['url'] = file_url[date['img_id']]
             date['contents'] = self.list_projects_content(project_id=project_id, user_id=user_id)
             return date
 
-    def list_projects_content(self, project_id: int, user_id: int):
+    def list_projects_content(self, request: Request, project_id: int, user_id: int):
         with self.get_db() as session:
             subquery = session.query(ProjectContentUserScore). \
                 filter(ProjectContentUserScore.user_id == user_id).subquery()
@@ -109,20 +110,20 @@ class ProjectService(dbSession):
             file_id_list = []
             for result in results:
                 file_id_list.append(result['file_id'])
-            file_url_list = get_url_by_user_file_id(file_id_list)
+            file_url_list = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 if result['file_id'] is not None:
                     result['url'] = file_url_list[result['file_id']]
             return results
 
-    def get_projects_content(self, content_id: int, project_id: int, user_id: int):
+    def get_projects_content(self, request: Request, content_id: int, project_id: int, user_id: int):
         with self.get_db() as session:
             project_content = session.query(ProjectContent).filter_by(id=content_id, project_id=project_id,
                                                                       has_delete=0).first()
             project_content = ProjectContentBaseOpt.model_validate(project_content)
             result = project_content.model_dump()
             if result['file_id'] is not None:
-                file_url_list = get_url_by_user_file_id(result['file_id'])
+                file_url_list = get_url_by_user_file_id(request, result['file_id'])
                 result['url'] = file_url_list[result['file_id']]
             return result
 
@@ -179,7 +180,7 @@ class ProjectService(dbSession):
             session.refresh(db_user_submission)
             return db_user_submission.id
 
-    def get_user_submission_list(self, project_id: int, content_id: int, user_id: int):
+    def get_user_submission_list(self, request: Request, project_id: int, content_id: int, user_id: int):
         with self.get_db() as session:
             list_user_submission = session.query(ProjectContentUserSubmission) \
                 .join(ProjectContentSubmission,
@@ -190,7 +191,7 @@ class ProjectService(dbSession):
             file_id_list = []
             for result in results:
                 file_id_list.append(result['file_id'])
-            file_url_list = get_url_by_user_file_id(file_id_list)
+            file_url_list = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 if result['file_id'] is not None:
                     result['url'] = file_url_list[result['file_id']]
@@ -229,11 +230,12 @@ class ProjectService(dbSession):
 
             return total_score
 
-    def get_projects_by_type(self, project_type: str, pg: page, tags: str, user_id: int):
+    def get_projects_by_type(self, request: Request, project_type: str, pg: page, tags: str, user_id: int):
         with self.get_db() as session:
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="查看项目")
+            # service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
             query = session.query(Project).filter(Project.type == project_type, Project.has_delete == 0,
                                                   Project.id.in_(service_ids))
             if tags:
@@ -249,7 +251,7 @@ class ProjectService(dbSession):
             file_id_list = []
             for result in results:
                 file_id_list.append(result['img_id'])
-            file_url_list = get_url_by_user_file_id(file_id_list)
+            file_url_list = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 result['url'] = file_url_list[result['img_id']]
             return total_count, results

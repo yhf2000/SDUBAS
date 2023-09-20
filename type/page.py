@@ -7,10 +7,8 @@ from typing import get_type_hints
 
 def dealDataList(data, model_class, popKeys=None):  # 参数：查询结果list,basemodel类，移除属性
     dicts = []
-    print(type(model_class))
     for d in data:
         base_model = model_class.model_validate(d)
-        print(type(base_model))
         dicts.append(base_model.model_dump(exclude=popKeys))
     return dicts
 
