@@ -1,5 +1,4 @@
 import datetime
-import io
 import json
 import os
 import time
@@ -7,8 +6,9 @@ import uuid
 
 from fastapi import APIRouter
 from fastapi import File, UploadFile
-from fastapi import Request, Header, HTTPException, Depends
-from starlette.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi import Request, Header, Depends
+from starlette.responses import FileResponse, JSONResponse
+
 from Celery.add_operation import add_operation
 from controller.users import make_parameters
 from model.db import session_db
@@ -18,7 +18,6 @@ from type.file import file_interface, user_file_interface
 from type.page import page
 from type.user import session_interface
 from utils.auth_login import auth_login
-from utils.auth_permission import auth_permission
 from utils.response import user_standard_response, page_response, makePageResult
 
 files_router = APIRouter()
@@ -40,7 +39,7 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
         if id is None:
             file_id = file_model.add_file(file)  # 新建一个file
             user_file_id = user_file_model.add_user_file(
-                user_file_interface(file_id=file_id, user_id=session['user_id']))
+                user_file_interface(file_id=file_id, user_id=session['user_id'],video_time= file.time))
         else:
             user_file_id = user_file_model.get_user_file_id_by_file_id(id[0])[0]
         new_token = str(uuid.uuid4().hex)  # 生成token

@@ -8,6 +8,7 @@ from type.file import file_interface, user_file_interface
 class FileModel(dbSession):
     def add_file(self, obj: file_interface):  # 用户上传文件(在file表中添加一个记录)
         obj_dict = jsonable_encoder(obj)
+        obj_dict.pop('time')
         obj_add = File(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
