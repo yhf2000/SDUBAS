@@ -11,6 +11,7 @@ class file_interface(BaseModel):
     hash_sha256: str
     has_delete: int = 0
     is_save: int = 0
+    time: int = None
 
 
 class user_file_interface(BaseModel):
@@ -20,5 +21,5 @@ class user_file_interface(BaseModel):
     )
     file_id: int = None
     user_id: int = None
-    time: int = None
     has_delete: int = 0
+    video_time: int = None

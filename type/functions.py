@@ -5,6 +5,8 @@ import random
 import time
 import uuid
 
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.PublicKey import RSA
 from fastapi import Request
 
 from model.db import session_db, url_db
@@ -80,7 +82,7 @@ def get_url(new_session, new_token):
     return url
 
 
-def get_url_by_user_file_id(request, id_list):
+def get_url_by_user_file_id(request, id_list):   # 得到下载链接
     user_file = user_file_model.get_user_file_id_by_id_list(id_list)
     urls = dict()
     if user_file is None:
@@ -127,7 +129,7 @@ def get_url_by_user_file_id(request, id_list):
     return urls
 
 
-def get_locate_url_by_user_file_id(id_list):
+def get_locate_url_by_user_file_id(id_list):  # 得到本地路由
     urls = dict()
     file = file_model.get_file_by_user_file_id(id_list)
     if file is None:
@@ -144,8 +146,6 @@ def get_locate_url_by_user_file_id(id_list):
                 if id_list[i] not in urls.keys():
                     urls.update({id_list[i]: None})
     return urls
-
-
 def search_son_user(request: Request):
     db = permissionModel()
     user_id = get_user_id(request)
@@ -161,5 +161,39 @@ def get_email_token():  # 生成email的验证码
     return email_token
 
 
-def get_video_time(user_file_id):
+def get_video_time(user_file_id):  # 获取视频时间
     return user_file_model.get_video_time_by_id(user_file_id)[0]
+
+'''
+def encrypt_file(file_path, public_key_path, encrypted_file_path):  # 加密文件
+    with open(public_key_path, 'rb') as public_key_file:
+        public_key = RSA.import_key(public_key_file.read())
+
+    cipher = PKCS1_OAEP.new(public_key)
+
+    with open(file_path, 'rb') as file_to_encrypt:
+        file_contents = file_to_encrypt.read()
+        encrypted_data = cipher.encrypt(file_contents)
+
+    with open(encrypted_file_path, 'wb') as encrypted_file:
+        encrypted_file.write(encrypted_data)
+
+def decrypt_file(encrypted_file_path, private_key_path, decrypted_file_path):  # 解密文件
+    with open(private_key_path, 'rb') as private_key_file:
+        private_key = RSA.import_key(private_key_file.read())
+
+    cipher = PKCS1_OAEP.new(private_key)
+
+    with open(encrypted_file_path, 'rb') as encrypted_file:
+        encrypted_data = encrypted_file.read()
+        decrypted_data = cipher.decrypt(encrypted_data)
+
+    with open(decrypted_file_path, 'wb') as decrypted_file:
+        decrypted_file.write(decrypted_data)
+
+key = RSA.generate(2048)  # 使用2048位密钥长度
+private_key = key.export_key()  # 获取私钥
+public_key = key.publickey().export_key()  # 获取公钥
+encrypt_file('plain_text.txt', 'public_key.pem', 'encrypted_file.bin')
+decrypt_file('encrypted_file.bin', 'private_key.pem', 'decrypted_text.txt')
+'''
