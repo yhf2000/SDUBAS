@@ -1,12 +1,21 @@
 import os
 import mysql.connector
+import json
 
+file_path = './config.json'
+with open(file_path, 'r') as file:
+    json_data = file.read()
+
+# 解析 JSON 数据
+data = json.loads(json_data)
+data = data['database']
 # 建立数据库连接
 conn = mysql.connector.connect(
-    host='127.0.0.1',
-    user='root',
-    password='123456',
-    database='demo61'
+    host=data['host'],
+    user=data['user'],
+    password=data['password'],
+    database=data['database'],
+    port=data['port']
 )
 
 # 创建游标对象
