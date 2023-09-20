@@ -9,7 +9,7 @@ from model.db import dbSession
 from type.page import dealDataList
 from type.user import operation_interface
 from utils.response import page
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from sqlalchemy import func
 from service.permissions import permissionModel
 from service.permissions import permissionModel
@@ -111,7 +111,7 @@ class BillModel(dbSession):
             result2 = 0
         return result - result2
 
-    def query_amount(self, ID: int, pg: page, user_id: int):  # 查询分页流水
+    def query_amount(self, request: Request, ID: int, pg: page, user_id: int):  # 查询分页流水
         with self.get_db() as session:
             query = session.query(Bill).filter_by(finance_id=ID, has_delete=0)
             total_count = query.count()  # 总共
@@ -122,7 +122,7 @@ class BillModel(dbSession):
             file_id_list = []
             for result in results:
                 file_id_list.append(result['log_file_id'])
-            file_url_list = get_url_by_user_file_id(file_id_list)
+            file_url_list = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 if result['log_file_id'] is not None:
                     result['url'] = file_url_list[result['log_file_id']]
