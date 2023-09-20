@@ -14,7 +14,7 @@ from fastapi import Request, Header, Depends
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
 from model.db import session_db, user_information_db
-from service.permissions import roleModel
+from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, encrypted_password, CaptchaModel
 from type.functions import make_parameters, search_son_user, get_email_token, get_user_id
 from type.page import page
@@ -33,7 +33,7 @@ session_model = SessionModel()
 user_info_model = UserinfoModel()
 operation_model = OperationModel()
 captcha_model = CaptchaModel()
-role_model = roleModel()
+role_model = permissionModel()
 dtype_mapping = {
     'username': str,
     'password': str,

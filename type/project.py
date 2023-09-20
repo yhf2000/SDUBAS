@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, field_serializer, Field
 from typing import List, Optional
 from datetime import datetime
-from type.permissions import Add_Role_For_Work_Base
+from type.permissions import Add_Role_For_Work_Base, create_role_privilege_base
 from utils.times import getMsTime
 
 
@@ -19,6 +19,7 @@ class ProjectContentBase(BaseModel):
     weight: float
     feature: Optional[str] = None
     has_delete: int = 0
+    file_time: int = None
 
 
 class ProjectContentBaseOpt(ProjectContentBase):
@@ -62,6 +63,7 @@ class CreditCreate(BaseModel):
     project_id: int = Field(..., gt=0)
     role_id: int = Field(..., gt=0)
     credit: Optional[float] = None
+    type: str = Field(..., description="Type of the projectContent", min_length=1, strip_whitespace=True)
 
 
 class SubmissionCreate(BaseModel):
@@ -99,6 +101,8 @@ class ScoreCreate(BaseModel):
     score: Optional[float] = None
     comment: str
     judge_dt: datetime = None
+    viewed_time: int = None  # 视频文件检查次数，可空
+    last_check_time: datetime = None  # 最新一次检查时间
 
 
 class user_submission(BaseModel):
@@ -151,3 +155,7 @@ class User_Opt(BaseModel):
     @field_serializer('registration_dt')
     def serialize_dt(self, dt: datetime, _info):
         return getMsTime(dt)
+
+
+class video_finish_progress(BaseModel):
+    content_id: int

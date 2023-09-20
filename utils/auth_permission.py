@@ -7,7 +7,7 @@ from fastapi import Request
 from model.user import User
 from model.permissions import UserRole, RolePrivilege, Role
 from model.db import dbSession
-from service.permissions import roleModel
+from service.permissions import permissionModel
 from utils.auth_login import auth_login
 from utils.privilege_dict import *
 
@@ -72,7 +72,7 @@ def auth_permission(request: Request):
         "user_id": user_id
     }
     # user_id = session['user_id']
-    db = roleModel()
+    db = permissionModel()
     url = request.url.path
     permission_key = remove_numbers(url)
     service_id = extract_id_from_string(url)
@@ -102,7 +102,7 @@ def auth_permission_default(request: Request):
     #     "user_id": user_id
     # }
     user_id = session['user_id']
-    db = roleModel()
+    db = permissionModel()
     url = request.url.path
     permission_key = remove_numbers(url)
     user_role_list = db.search_role_by_user(user_id)

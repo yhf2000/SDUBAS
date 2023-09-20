@@ -2,7 +2,7 @@ import json
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
-from sqlalchemy import distinct
+from sqlalchemy import distinct, join
 
 from model.permissions import Role, RolePrivilege, UserRole, Privilege, WorkRole
 from model.user import User
@@ -27,7 +27,7 @@ def delete_superiorId(data: dict, super_id: int):  # 在superiorListId中删除�
     return json_string
 
 
-class roleModel(dbSession):
+class permissionModel(dbSession):
 
     def get_role_info_by_id(self, id):  # 获取角色表信息
         with self.get_db() as session:
@@ -162,7 +162,8 @@ class roleModel(dbSession):
     def search_role_by_user(self, user_id: int):
         with self.get_db() as session:
             user_role = session.query(UserRole.role_id).filter(
-                UserRole.user_id == user_id
+                UserRole.user_id == user_id,
+                UserRole.has_delete == 0
             ).all()
             role_ids = [row[0] for row in user_role]
             role_set = self.get_son_role(role_ids)
@@ -172,7 +173,10 @@ class roleModel(dbSession):
     def search_user_by_role(self, role_list: list):
         with self.get_db() as session:
             user_set = set()
-            user = session.query(UserRole).filter(UserRole.role_id.in_(role_list)).all()
+            user = session.query(UserRole).filter(
+                UserRole.role_id.in_(role_list),
+                UserRole.has_delete == 0
+            ).all()
             for item in user:
                 user_set.add(item.user_id)
             user_list = list(user_set)
@@ -229,7 +233,7 @@ class roleModel(dbSession):
                     service_ids.append(item.service_id)
             return service_ids
 
-    def search_user_id_by_service(self, service_type: int, service_id: int):
+    def search_user_id_by_service(self, service_type: int, service_id: int): #userrolehasdelete
         with self.get_db() as session:
             user_list = []
             query = session.query(distinct(UserRole.user_id)).join(
@@ -264,7 +268,7 @@ class roleModel(dbSession):
         superiorId = self.search_user_default_role(user_id)
         role_id = self.create_role(role_name, superiorId)  # 添加角色
         WorkRole_id = self.attribute_role_for_work(service_type, service_id, role_id)  # 连接业务角色
-        return WorkRole_id
+        return role_id
 
     def search_role_by_service(self, service_id: int, service_type: int):
         with self.get_db() as session:
@@ -303,11 +307,11 @@ class roleModel(dbSession):
     def add_default_work_role(self, user_id: int, role_id: int):
         with self.get_db() as session:
             work_role = WorkRole(role_id=role_id, service_type=0, service_id=user_id, has_delete=0)
-            session.add(WorkRole)
+            session.add(work_role)
             session.commit()
             return 'OK'
 
-    def search_created_user_id(self, user_id: int, pg: page):
+    def search_created_user_id(self, user_id: int, pg: page): #改userrole的hasdelete
         with self.get_db() as session:
             user = session.query(distinct(UserRole.user_id)).join(
                 WorkRole,
@@ -320,14 +324,15 @@ class roleModel(dbSession):
             data = user.offset(pg.offset()).limit(pg.limit()).all()
             dicts = []
             for item in data:
-                 dicts.append(item[0])
+                dicts.append(item[0])
             return total_count, dicts
 
     def search_role_by_user_2(self, user_id: int, pg: page):
         with self.get_db() as session:
             res_list = []
             user_role = session.query(UserRole.role_id).filter(
-                UserRole.user_id == user_id
+                UserRole.user_id == user_id,
+                UserRole.has_delete == 0
             )
             role_ids = [row[0] for row in user_role.all()]
             role_set = self.get_son_role(role_ids)
@@ -344,15 +349,68 @@ class roleModel(dbSession):
             total_count = user_role.count()
             return total_count, res_list
 
-    # def get_user_info_by_role(self, role_id: int):
-    #     with self.get_db() as session:
-    #         query =
-
-
-    def test(self):
+    def get_user_info_by_role(self, role_id: int):
         with self.get_db() as session:
-            query = session.query(Privilege).all()
-            user_list = []
+            res_list = []
+            join_tables = join(UserRole, User, UserRole.user_id == User.id)
+            query = session.query(UserRole, User).select_from(join_tables).filter(
+                UserRole.role_id == role_id,
+                UserRole.has_delete == 0
+            )
+            query = query.all()
             for item in query:
-                user_list.append(item[1].user_id)
-            return user_list
+                temp = {
+                    "user_id": item[1].id,
+                    "user_name": item[1].username
+                }
+                res_list.append(temp)
+            total_count = len(res_list)
+            return total_count, res_list
+
+    def get_role_by_work(self, service_type: int, service_id: int):
+        with self.get_db() as session:
+            role_list = []
+            res_list = []
+            query = session.query(WorkRole).filter(
+                WorkRole.service_type == service_type,
+                WorkRole.service_id == service_id
+            ).all()
+            for item in query:
+                role_list.append(item.role_id)
+            role = session.query(Role).filter(
+                Role.id.in_(role_list)
+            ).all()
+            for item in role:
+                temp = {
+                    "role_id": item.id,
+                    "role_name": item.name
+                }
+                res_list.append(temp)
+            total_count = len(res_list)
+            return total_count, res_list
+
+    def delete_project_user(self, user_id: int, service_id: int):
+        with self.get_db() as session:
+            service_role_list = self.search_role_by_service(service_id, 7)
+            query = session.query(UserRole).filter(
+                UserRole.role_id.in_(service_role_list),
+                UserRole.user_id == user_id
+            ).all()
+            for item in query:
+                item.has_delete = 1
+                session.add(item)
+            session.commit()
+            return 'OK'
+
+    def add_project_user(self, user_id: int, service_id: int):
+        with self.get_db() as session:
+            service_role_list = self.search_role_by_service(service_id, 7)
+            query = session.query(UserRole).filter(
+                UserRole.role_id.in_(service_role_list),
+                UserRole.user_id == user_id
+            ).all()
+            for item in query:
+                item.has_delete = 1
+                session.add(item)
+            session.commit()
+            return 'OK'

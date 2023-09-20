@@ -30,6 +30,7 @@ class ProjectCredit(Base):
     project_id = Column(Integer, ForeignKey('project.id'), nullable=False)  # 项目id，外键，不能为空
     role_id = Column(Integer, ForeignKey('role.id'), nullable=False)  # 角色id，外键，不能为空
     credit = Column(Float, nullable=True)  # 角色学分设定，可以为空
+    type = Column(String(64), nullable=False)  # 标签，不能为空
 
 
 class ProjectContent(Base):
@@ -49,6 +50,7 @@ class ProjectContent(Base):
     weight = Column(Float, nullable=False)  # 项目权重，不能为空
     feature = Column(Text, nullable=True)  # 额外信息，可以为空，最大4Kb
     has_delete = Column(Integer, nullable=False)  # 是否已删除，不能为空
+    file_time = Column(Integer, nullable=True)  # 视频文件秒数可空
 
 
 class ProjectContentSubmission(Base):
@@ -100,3 +102,5 @@ class ProjectContentUserScore(Base):
     score = Column(Float, nullable=True)  # 百分制分数，可以为空
     comment = Column(Text, nullable=False)  # 评测评论，不能为空，最大4Kb
     judge_dt = Column(DateTime, default=func.now(), nullable=False)  # 打分时间，不能为空
+    viewed_time = Column(Integer, nullable=True)  # 视频文件检查次数，可空
+    last_check_time = Column(DateTime, nullable=True)  # 最新一次检查时间
