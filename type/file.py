@@ -23,3 +23,8 @@ class user_file_interface(BaseModel):
     user_id: int = None
     has_delete: int = 0
     video_time: int = None
+
+class RSA_interface(BaseModel):
+    user_id: int
+    private_key_pem :bytes
+    public_key_pem : bytes

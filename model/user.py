@@ -3,7 +3,7 @@ from sqlalchemy import (
     Integer,
     DateTime,
     VARCHAR,
-    ForeignKey, Date, Index,
+    ForeignKey, Date, Index, func,
 )
 from sqlalchemy.orm import relationship
 
@@ -21,13 +21,11 @@ class User(Base):  # 用户表
     password = Column(VARCHAR(128), nullable=False, comment='密码')  # 密码，非空
     email = Column(VARCHAR(64), nullable=False, unique=True, comment='邮箱地址')  # 邮箱，非空，唯一
     card_id = Column(VARCHAR(32), nullable=True, unique=True, comment='学号或工号，SDU+学号')  # 学号，可空，唯一
-    registration_dt = Column(DateTime, nullable=False, comment='注册时间，新建时自动填写')  # 注册时间，非空
+    registration_dt = Column(DateTime, nullable=False, comment='注册时间，新建时自动填写',default=func.now())  # 注册时间，非空
     storage_quota = Column(Integer, nullable=False, comment='存储空间限制（MB）', default=32)  # 存储空间限制（MB），非空
-    status = Column(Integer, nullable=False, index=True, comment='是否已经禁用:0 正常使用,1 账号未激活,2 账号已注销,3 账号被封禁,')  # 账号状态，非空
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
-    session = relationship("User_info")  # 一对多关系
-    session1 = relationship("Session")
-    session2 = relationship("Operation")
+    status = Column(Integer, nullable=False, index=True, comment='是否已经禁用:0 正常使用,1 账号未激活,2 账号已注销,3 账号被封禁,',default=1)  # 账号状态，非空
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除',default=0)  # 是否被删除，非空
+
 
 
 class User_info(Base):  # 用户信息表
@@ -57,7 +55,6 @@ class School(Base):  # 学校表
     school_abbreviation = Column(VARCHAR(10), nullable=False, comment='学校简称，如SDU')  # 学校简称，非空
     school_logo = Column(VARCHAR(64), nullable=False, unique=True, comment='学校logo')  # 学校logo，非空唯一
     has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
-    session = relationship("College")
 
 
 class College(Base):  # 学院表
@@ -72,8 +69,6 @@ class College(Base):  # 学院表
     name = Column(VARCHAR(64), nullable=False, comment='学院名称')  # 学院名称，非空
     college_logo = Column(VARCHAR(64), nullable=False, unique=True, comment='学院logo')  # 学院logo，非空唯一
     has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
-    session = relationship("Major")
-    session1 = relationship("Class")
 
 
 class Major(Base):  # 专业表

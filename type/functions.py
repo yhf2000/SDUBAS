@@ -1,12 +1,16 @@
 import copy
 import datetime
+import io
 import json
 import random
 import time
 import uuid
-
-from Crypto.Cipher import PKCS1_OAEP
-from Crypto.PublicKey import RSA
+from docx import Document
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 from fastapi import Request
 
 from model.db import session_db, url_db
@@ -163,37 +167,71 @@ def get_email_token():  # 生成email的验证码
 
 def get_video_time(user_file_id):  # 获取视频时间
     return user_file_model.get_video_time_by_id(user_file_id)[0]
+def generate_rsa_key_pair():   # 获得一对公钥和私钥
+    # 生成RSA私钥
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+    # 生成RSA公钥
+    public_key = private_key.public_key()
+    # 导出私钥和公钥到PEM格式
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    # 返回私钥和公钥的PEM格式字符串
+    return private_pem, public_pem
 
-'''
-def encrypt_file(file_path, public_key_path, encrypted_file_path):  # 加密文件
-    with open(public_key_path, 'rb') as public_key_file:
-        public_key = RSA.import_key(public_key_file.read())
 
-    cipher = PKCS1_OAEP.new(public_key)
+def decrypt_file(file, private_key_pem):  # 使用私钥解密文件内容
+    # 加载私钥
+    with open(file, 'rb') as file:
+        encrypted_content = file.read()
+    private_key = serialization.load_pem_private_key(private_key_pem, password=None, backend=default_backend())
+    # 使用私钥解密文件内容
+    decrypted_content = private_key.decrypt(
+        encrypted_content,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    return decrypted_content
 
-    with open(file_path, 'rb') as file_to_encrypt:
-        file_contents = file_to_encrypt.read()
-        encrypted_data = cipher.encrypt(file_contents)
 
-    with open(encrypted_file_path, 'wb') as encrypted_file:
-        encrypted_file.write(encrypted_data)
+def encrypt_file(file_content, public_key_pem):    #  加密文件（只能加密txt,其他类型需特殊处理）
+    # 读取文件内容
+    # 加载公钥
+    public_key = serialization.load_pem_public_key(public_key_pem, backend=default_backend())
 
-def decrypt_file(encrypted_file_path, private_key_path, decrypted_file_path):  # 解密文件
-    with open(private_key_path, 'rb') as private_key_file:
-        private_key = RSA.import_key(private_key_file.read())
+    # 使用公钥加密文件内容
+    encrypted_content = public_key.encrypt(
+        file_content,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
 
-    cipher = PKCS1_OAEP.new(private_key)
+    return encrypted_content
 
-    with open(encrypted_file_path, 'rb') as encrypted_file:
-        encrypted_data = encrypted_file.read()
-        decrypted_data = cipher.decrypt(encrypted_data)
 
-    with open(decrypted_file_path, 'wb') as decrypted_file:
-        decrypted_file.write(decrypted_data)
-
-key = RSA.generate(2048)  # 使用2048位密钥长度
-private_key = key.export_key()  # 获取私钥
-public_key = key.publickey().export_key()  # 获取公钥
-encrypt_file('plain_text.txt', 'public_key.pem', 'encrypted_file.bin')
-decrypt_file('encrypted_file.bin', 'private_key.pem', 'decrypted_text.txt')
-'''
+def convert_word_to_bytes(file_path):
+    doc = Document(file_path)
+    # 将 Word 文档保存到内存中的字节流
+    in_memory_file = io.BytesIO()
+    doc.save(in_memory_file)
+    in_memory_file.seek(0)
+    # 读取字节流数据
+    binary_data = in_memory_file.read()
+    in_memory_file.close()
+    return binary_data
