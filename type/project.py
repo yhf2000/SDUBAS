@@ -66,6 +66,14 @@ class CreditCreate(BaseModel):
     type: str = Field(..., description="Type of the projectContent", min_length=1, strip_whitespace=True)
 
 
+class Credit_Opt(CreditCreate):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        from_attributes=True,
+    )
+    id: int
+
+
 class SubmissionCreate(BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
