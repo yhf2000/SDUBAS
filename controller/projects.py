@@ -51,7 +51,7 @@ async def list_projects(request: Request,
                         pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     user_id = user['user_id']
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = project_service.list_projects(pg=Page, user_id=user_id)  # 返回总额，分页数据
+    tn, res = project_service.list_projects(request=request, pg=Page, user_id=user_id)  # 返回总额，分页数据
     parameters = await make_parameters(request)
     add_operation.delay(7, 0, "查看项目列表", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
@@ -62,7 +62,7 @@ async def list_projects(request: Request,
 @standard_response
 async def get_project(request: Request, project_id: int, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
-    results = project_service.get_project(project_id=project_id, user_id=user['user_id'])
+    results = project_service.get_project(project_id=project_id, user_id=user['user_id'], request=request)
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "查看某一项目", parameters, user['user_id'])
     return results
@@ -73,7 +73,7 @@ async def get_project(request: Request, project_id: int, user=Depends(auth_permi
 @standard_response
 async def get_project_content(request: Request, project_id: int, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
-    results = project_service.list_projects_content(project_id=project_id, user_id=user['user_id'])
+    results = project_service.list_projects_content(project_id=project_id, user_id=user['user_id'], request=request)
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "查看项目内容列表", parameters, user['user_id'])
     return results
@@ -87,7 +87,7 @@ async def get_specific_project_content(request: Request, project_id: int, conten
     project_service.check_project_exist(project_id=project_id)
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     results = project_service.get_projects_content(content_id=content_id, project_id=project_id,
-                                                   user_id=user['user_id'])
+                                                   user_id=user['user_id'], request=request)
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "查看某一项目内容", parameters, user['user_id'])
     return results
@@ -140,7 +140,7 @@ async def view_user_submission(request: Request, project_id: int, content_id: in
     project_service.check_project_exist(project_id=project_id)
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     results = project_service.get_user_submission_list(project_id=project_id, content_id=content_id,
-                                                       user_id=user['user_id'])
+                                                       user_id=user['user_id'], request=request)
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "查看用户提交", parameters, user['user_id'])
     return results
@@ -208,7 +208,7 @@ async def list_projects(request: Request, projectType: str = Query(),
                         pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, res = project_service.get_projects_by_type(project_type=projectType, pg=Page, tags=tag,
-                                                   user_id=user['user_id'])  # 返回总额，分页数据
+                                                   user_id=user['user_id'],request=request)  # 返回总额，分页数据
     parameters = await make_parameters(request)
     add_operation.delay(7, 0, "查看某类项目", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
@@ -321,7 +321,7 @@ async def delete_user_in_project(request: Request, project_id: int, delete_user:
 @projects_router.post("/add_user_in_project/{project_id}")  # 添加项目用户
 @standard_response
 async def add_user_in_project(request: Request, project_id: int, delete_user: int = Query(),
-                                 user=Depends(auth_permission)):
+                              user=Depends(auth_permission)):
     db = permissionModel()
     db.delete_project_user(delete_user, project_id)
     return 'OK'
