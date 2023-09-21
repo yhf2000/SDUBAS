@@ -87,7 +87,7 @@ class ProjectService(dbSession):
             date = project.model_dump(exclude={'has_delete'})
             file_url = get_url_by_user_file_id(request, date['img_id'])
             date['url'] = file_url[date['img_id']]
-            date['contents'] = self.list_projects_content(project_id=project_id, user_id=user_id)
+            date['contents'] = self.list_projects_content(request=request, project_id=project_id, user_id=user_id,)
             return date
 
     def list_projects_content(self, request: Request, project_id: int, user_id: int):

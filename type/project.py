@@ -19,7 +19,7 @@ class ProjectContentBase(BaseModel):
     weight: float
     feature: Optional[str] = None
     has_delete: int = 0
-    file_time: int = None
+    file_time: Optional[int] = None
 
 
 class ProjectContentBaseOpt(ProjectContentBase):
