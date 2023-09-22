@@ -19,7 +19,7 @@ class ProjectContentBase(BaseModel):
     weight: float
     feature: Optional[str] = None
     has_delete: int = 0
-    file_time: int = None
+    file_time: Optional[int] = None
 
 
 class ProjectContentBaseOpt(ProjectContentBase):
@@ -64,6 +64,14 @@ class CreditCreate(BaseModel):
     role_id: int = Field(..., gt=0)
     credit: Optional[float] = None
     type: str = Field(..., description="Type of the projectContent", min_length=1, strip_whitespace=True)
+
+
+class Credit_Opt(CreditCreate):
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True,
+        from_attributes=True,
+    )
+    id: int
 
 
 class SubmissionCreate(BaseModel):
