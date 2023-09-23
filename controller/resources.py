@@ -1,4 +1,4 @@
-from utils.auth_permission import auth_permission
+from utils.auth_permission import auth_permission, auth_permission_default
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from utils.response import standard_response, makePageResult
 from service.Resource import ResourceModel, FinancialModel, BillModel
@@ -12,7 +12,7 @@ resources_router = APIRouter()
 
 @resources_router.post("/resource")  # 添加资源项目
 @standard_response
-async def save_api(request: Request, apiSchema: financial_Basemodel.ResourceAdd, user=Depends(auth_permission)):
+async def save_api(request: Request, apiSchema: financial_Basemodel.ResourceAdd, user=Depends(auth_permission_default)):
     db = ResourceModel()  # 判断后直接添加
     results = db.save_resource(obj_in=apiSchema, user_id=user['user_id'])
     parameters = await make_parameters(request)
@@ -20,13 +20,13 @@ async def save_api(request: Request, apiSchema: financial_Basemodel.ResourceAdd,
     return results
 
 
-@resources_router.get("/resource/view")  # 查看所有资源项目,可能需要分页数据，，不可用
+@resources_router.get("/resource/view")  # 查看所有资源项目,可能需要分页数据
 @standard_response
 async def get_resource_by_user(request: Request, pageNow: int = Query(description="页码", gt=0),
-                               pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission)):
+                               pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission_default)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    db = ResourceModel()  # 目前不可用，需要权限接口返回。
-    tn, res = db.get_resource_by_user(user=user['user_id'], pg=Page, user_id=user['user_id'])
+    db = ResourceModel()
+    tn, res = db.get_view_resource_by_user(user=user['user_id'], pg=Page, user_id=user['user_id'])
     parameters = await make_parameters(request)
     add_operation.delay(5, 0, "查看所有资源", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)
@@ -48,7 +48,7 @@ async def Update_resource_by_count(request: Request, resource_id: int,
         raise HTTPException(status_code=404, detail="Item not found")
 
 
-@resources_router.get("/resource/{resource_id}/get")  # 查看一个具体的资源
+@resources_router.get("/resource/get/{resource_id}")  # 查看一个具体的资源
 @standard_response
 async def Update_resource_by_count(request: Request, resource_id: int,
                                    user=Depends(auth_permission)):
@@ -59,28 +59,39 @@ async def Update_resource_by_count(request: Request, resource_id: int,
     return results
 
 
-@resources_router.post("/resource/{resource_id}/apply")  # 申请一个具体的资源，不可用
+@resources_router.post("/resource/apply/{resource_id}")  # 申请一个具体的资源
 @standard_response
 async def apply_Resource(resource_id: int, apiSchema: financial_Basemodel.ApplyBody,
                          user=Depends(auth_permission)):
     db = ResourceModel()
-    return db.apply_resource(user=user['user_id'], Id=resource_id, date=apiSchema)
+    return db.apply_resource(user_id=user['user_id'], resource_id=resource_id, data=apiSchema)
 
 
-@resources_router.get("/resource/{resource_id}/apply/get")  # 获取一个资源的所有申请,不可用，可能需要分页
+@resources_router.get("/resource/apply/get")  # 获取所有可以审批的资源
 @standard_response
-async def get_Resource_apply_by_user(resource_id: int,
+async def get_applied_resource(request: Request, pageNow: int = Query(description="页码", gt=0),
+                               pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission_default)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
+    db = ResourceModel()
+    tn, res = db.get_applied_resource_by_user(user=user['user_id'], pg=Page, user_id=user['user_id'])
+    parameters = await make_parameters(request)
+    add_operation.delay(5, 0, "可审批所有资源", parameters, user['user_id'])
+    return makePageResult(pg=Page, tn=tn, data=res)
+
+@resources_router.get("/resource/ifapprove/{resource_id}")  # 查看某一个资源是否有申请
+@standard_response
+async def get_specific_applied_resource(resource_id: int,
+                         user=Depends(auth_permission)):
+    db = ResourceModel()
+    return db.get_specific_applied_resources(user['user_id'], resource_id)
+
+
+@resources_router.put("/resource/approve/{resource_id}")  # 通过一个资源的申请,不可用
+@standard_response
+async def get_Resource_apply_by_user(role_id: int, resource_id: int,
                                      user=Depends(auth_permission)):
     db = ResourceModel()
-    return db.get_resource_apply_by_id(Id=resource_id)
-
-
-@resources_router.put("/resource/{resource_id}/{role_id}/approve")  # 通过一个资源的申请,不可用
-@standard_response
-async def get_Resource_apply_by_user(role_id: int,
-                                     user=Depends(auth_permission)):
-    db = ResourceModel()
-    return db.approve_apply_by_roleid(Id=role_id)
+    return db.approve_apply(resource_id)
 
 
 @resources_router.put("/resource/{resource_id}/{role_id}/refuse")  # 拒绝一个资源的申请,不可用

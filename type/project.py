@@ -167,3 +167,6 @@ class User_Opt(BaseModel):
 
 class video_finish_progress(BaseModel):
     content_id: int
+
+class User_Name(BaseModel):
+    username: list

@@ -43,10 +43,16 @@ class ProjectService(dbSession):
                 session.add(db_content)
                 session.commit()
             role_model = permissionModel()
+            superiorId = role_model.search_user_default_role(user_id)
             for role in project.roles:
                 role_id = role_model.add_role_for_work(service_id=db_project.id,
                                                        service_type=7, user_id=user_id, role_name=role.role_name)
                 role_model.attribute_privilege_for_role(role.privilege_list, role_id)
+            self_role = role_model.add_role_for_work(service_id=db_project.id,
+                                         service_type=7, user_id=user_id, role_name=db_project.name)
+            all_privilege = role_model.search_privilege_id_list(7)
+            role_model.attribute_privilege_for_role(all_privilege, self_role)
+            role_model.attribute_user_role(user_id, self_role)
             return db_project.id
 
     def update_project(self, project_id: int, newproject: ProjectUpdate, user_id: int) -> int:
