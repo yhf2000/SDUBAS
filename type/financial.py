@@ -78,10 +78,10 @@ class resource_count_update(BaseModel):
 
 
 class ApplyBody(BaseModel):
-    id: int = Field(..., gt=0)
+    name: str
     count: int = Field(..., gt=0)
-    begintime: datetime
-    endtime: datetime
+    begintime: str
+    endtime: str
 
 
 class Bill_basemodel(BaseModel):

@@ -1,3 +1,5 @@
+import json
+from datetime import datetime
 from typing import Any, Optional
 from fastapi.encoders import jsonable_encoder
 from model.financial import Resource, Financial
@@ -5,6 +7,8 @@ from service.user import OperationModel
 from type.financial import ResourceAdd, ApplyBody, Bill_basemodel, Financial_Basemodel, AmountAdd, FinancialAdd
 from type.financial import Financial_ModelOpt, BillModelOpt, Resource_Basemodel
 from model.financial import Bill
+from model.permissions import *
+from model.user import *
 from model.db import dbSession
 from type.page import dealDataList
 from type.user import operation_interface
@@ -25,9 +29,16 @@ class ResourceModel(dbSession):
             session.flush()
             session.commit()
             role_model = permissionModel()
+            superiorId = role_model.search_user_default_role(user_id)
             for role in obj_in.roles:
-                role_model.add_role_for_work(service_type=5, service_id=obj_add.Id, user_id=user_id,
-                                             role_name=role.role_name)
+                role_id = role_model.add_role_for_work(service_id=obj_add.Id,
+                                                       service_type=5, user_id=user_id, role_name=role.role_name)
+                role_model.attribute_privilege_for_role(role.privilege_list, role_id)
+            self_role = role_model.add_role_for_work(service_id=obj_add.Id,
+                                                     service_type=5, user_id=user_id, role_name=obj_add.name)
+            all_privilege = role_model.search_privilege_id_list(5)
+            role_model.attribute_privilege_for_role(all_privilege, self_role)
+            role_model.attribute_user_role(user_id, self_role)
             return obj_add.Id
 
     def delete(self, Id: int, user_id: int):  # 删除
@@ -43,13 +54,14 @@ class ResourceModel(dbSession):
             Resource_dict = Resource_Basemodel.model_validate(Resource_template)
             return Resource_dict.model_dump(exclude={'has_delete'})
         else:
-            raise HTTPException(status_code=404, detail="Item not found")
+            raise HTTPException(status_code=408, detail="Item not found")
 
-    def get_resource_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可用资源
+    def get_view_resource_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可用资源
         with self.get_db() as session:
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user)
-            service_id = role_model.search_service_id(role_list, service_type=5, name="查看资源")
+            new_role_list = role_model.search_specific_role(role_list, '资源查看')
+            service_id = role_model.search_service_id(new_role_list, service_type=5, name="查看资源")
             query = session.query(Resource).filter(Resource.has_delete == 0, Resource.Id.in_(service_id))
             total_count = query.count()  # 总共
             # 执行分页查询
@@ -57,11 +69,76 @@ class ResourceModel(dbSession):
             # 序列化结
             return total_count, dealDataList(data, Resource_Basemodel, {'has_delete'})
 
-    def apply_resource(self, user: Any, Id: int, date: ApplyBody):
+    def get_applied_resource_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可审批资源
+        with self.get_db() as session:
+            role_model = permissionModel()
+            role_list = role_model.search_role_by_user(user)
+            new_role_list = role_model.search_specific_role(role_list, '资源审批')
+            service_ids = role_model.search_service_id(new_role_list, service_type=5, name="资源审批")
+            query = session.query(Resource).filter(Resource.has_delete == 0, Resource.Id.in_(service_ids))
+            total_count = query.count()  # 总共
+            # 执行分页查询
+            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+            # 序列化结
+            return total_count, dealDataList(data, Resource_Basemodel, {'has_delete'})
+
+    def apply_resource(self, user_id: int, resource_id: int, data: ApplyBody):
         # 权限查询相关的业务类型，业务Id,角色类型，查询模板角色id
         # 输入模板角色ID，与相关参数，添加接口
         # 返回成功或者失败
-        return
+        with self.get_db() as session:
+            role_model = permissionModel()
+            start_time = datetime.strptime(data.begintime, "%Y-%m-%d %H:%M:%S")
+            end_time = datetime.strptime(data.endtime, "%Y-%m-%d %H:%M:%S")
+            time_range = {
+                "start_time": data.begintime,
+                "end_time": data.endtime,
+            }
+            time_range_json = json.dumps(time_range)
+            superiorId = role_model.search_user_default_role(user_id)
+            role_id = role_model.create_template_role('申请资源', superiorId, time_range_json)
+            role_model.attribute_user_role(user_id, role_id)
+            role_model.attribute_role_for_work(5, resource_id, role_id)
+            return 'OK'
+
+    def get_specific_applied_resources(self, user_id: int, resource_id: int):
+        with self.get_db() as session:
+            result = []
+            role_model = permissionModel()
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).join(
+                Resource,
+                Resource.Id == WorkRole.service_id
+            ).filter(
+                Resource.Id == resource_id
+            ).all()
+            if query is None:
+                return
+            else:
+                for item in query:
+                    if item.template == 1 and item.status == 1 and item.has_delete == 0:
+                        time_range = json.loads(item.template_val)
+                        role_id = item.id
+                        user = session.query(User).join(
+                            UserRole,
+                            UserRole.user_id == User.id
+                        ).filter(
+                            UserRole.role_id == role_id
+                        ).first()
+                        temp_res = {
+                            "user_id": user.id,
+                            "user_name": user.username,
+                            "start_time": time_range['start_time'],
+                            "end_time": time_range['end_time'],
+                        }
+                        result.append(temp_res)
+                return result
+
+
+
+
 
     def count_Update(self, Id: int, count: int, user_id: int):  # 修改Note
         with self.get_db() as session:
@@ -75,8 +152,11 @@ class ResourceModel(dbSession):
         # 返回成功或者失败
         return
 
-    def approve_apply_by_roleid(self, Id: int):
-        # 直接修改角色id，修改为可用
+    def approve_apply(self, resource_id: int, user_id: int):
+        role_model = permissionModel()
+        role_list = role_model.search_role_by_user(user_id)
+        new_role_list = role_model.search_specific_role(role_list, '资源审批')
+        service_ids = role_model.search_service_id(new_role_list, service_type=5, name="资源审批")
         return
 
     def refuse_apply_by_roleid(self, Id: int):

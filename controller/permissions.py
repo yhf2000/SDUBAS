@@ -39,7 +39,7 @@ async def delete_role(data: type.permissions.delete_role_base):
 @permissions_router.post("/attribute_role_for_user")  # 分配用户角色
 async def attribute_role(data: type.permissions.attribute_role_base):
     db = permissionModel()
-    return db.attribute_user_role(data)
+    return db.attribute_user_role(data.user_id, data.role_id)
 
 @permissions_router.post("/attribute_privilege")  # 为角色添加权限
 @standard_response
@@ -66,7 +66,7 @@ async def add_role_for_work(request: Request, data: type.permissions.Add_Role_Fo
 @standard_response
 async def test(request: Request):
     db = permissionModel()
-    role_id = db.search_college_default_role_id()
+    role_id = db.test(1)
     return {"role": role_id}
 
 
@@ -197,4 +197,15 @@ async def get_work_role(request: Request, service_id: int = Query(), service_typ
     user_id = int(request.headers.get("user_id"))
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, res = db.get_role_by_work(service_type, service_id)
+    return makePageResult(pg=Page, tn=tn, data=res)
+
+
+@permissions_router.get("/search_created_user")  # 查找创建的用户
+@standard_response
+async def search_created_user(request: Request, pageNow: int = Query(description="页码", gt=0),
+                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+    db = permissionModel()
+    user_id = user['user_id']
+    Page = page(pageNow=pageNow, pageSize=pageSize)
+    tn, res = db.search_created_user_info(user_id=user_id)
     return makePageResult(pg=Page, tn=tn, data=res)
