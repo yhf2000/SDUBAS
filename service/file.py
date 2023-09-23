@@ -1,8 +1,8 @@
 from fastapi.encoders import jsonable_encoder
 
 from model.db import dbSession
-from model.file import File, User_File,RSAKeys
-from type.file import file_interface, user_file_interface,RSA_interface
+from model.file import File, User_File, RSAKeys
+from type.file import file_interface, user_file_interface, RSA_interface, user_file_all_interface
 
 
 class FileModel(dbSession):
@@ -64,7 +64,7 @@ class FileModel(dbSession):
 
 
 class UserFileModel(dbSession):
-    def add_user_file(self, obj: user_file_interface):  # 用户上传文件(在user_file表中添加一个记录)
+    def add_user_file(self, obj: user_file_interface):  # 用户上传文件(在user_file表中添加一个记录)（不完全版）
         obj_dict = jsonable_encoder(obj)
         obj_add = User_File(**obj_dict)
         with self.get_db() as session:
@@ -73,7 +73,7 @@ class UserFileModel(dbSession):
             session.commit()
             return obj_add.id
 
-    def add_user_file_id(self, obj: user_file_interface):  # 用户上传文件(在user_file表中添加一个记录)（不完全版）
+    def add_user_file_all(self, obj: user_file_all_interface):  # 用户上传文件(在user_file表中添加一个记录)(完全版)
         obj_dict = jsonable_encoder(obj)
         obj_add = User_File(**obj_dict)
         with self.get_db() as session:
@@ -115,12 +115,14 @@ class UserFileModel(dbSession):
     def get_user_file_id_by_id_list(self, id_list):  # 根据id_list查询user_file的file_id
         with self.get_db() as session:
             if type(id_list) is list:
-                user_file = session.query(User_File.id, User_File.user_id).filter(User_File.id.in_(id_list),
-                                                                                  User_File.has_delete == 0).all()
+                user_file = session.query(User_File.id, User_File.user_id, User_File.type).filter(
+                    User_File.id.in_(id_list),
+                    User_File.has_delete == 0).all()
                 session.commit()
             else:
-                user_file = session.query(User_File.id, User_File.user_id).filter(User_File.id == id_list,
-                                                                                  User_File.has_delete == 0).first()
+                user_file = session.query(User_File.id, User_File.user_id, User_File.type).filter(
+                    User_File.id == id_list,
+                    User_File.has_delete == 0).first()
                 session.commit()
             return user_file
 
@@ -161,6 +163,8 @@ class UserFileModel(dbSession):
                 page.offset()).limit(page.limit()).all()
             session.commit()
             return files
+
+
 class RSAModel(dbSession):
     def add_user_RSA(self, obj: RSA_interface):  # 给用户生成RSA公钥和密钥
         obj_dict = jsonable_encoder(obj)
@@ -170,18 +174,23 @@ class RSAModel(dbSession):
             session.flush()
             session.commit()
             return obj_add.public_key_pem
+
     def delete_user_RSA(self, user_id: int):  # 删除一对公钥密钥
         with self.get_db() as session:
             session.query(RSAKeys).filter(RSAKeys.user_id == user_id).update({"has_delete": 1})
             session.commit()
             return id
+
     def get_public_key_by_user_id(self, user_id: int):  # 根据user_id查询公钥
         with self.get_db() as session:
-            public_key = session.query(RSAKeys.public_key_pem,RSAKeys.expires_at).filter(RSAKeys.has_delete == 0, RSAKeys.user_id == user_id).first()
+            public_key = session.query(RSAKeys.public_key_pem, RSAKeys.expires_at).filter(RSAKeys.has_delete == 0,
+                                                                                          RSAKeys.user_id == user_id).first()
             session.commit()
             return public_key
+
     def get_private_key_by_user_id(self, user_id: int):  # 根据user_id查询私钥
         with self.get_db() as session:
-            private_key = session.query(RSAKeys.private_key_pem).filter(RSAKeys.has_delete == 0, RSAKeys.user_id == user_id).first()
+            private_key = session.query(RSAKeys.private_key_pem).filter(RSAKeys.has_delete == 0,
+                                                                        RSAKeys.user_id == user_id).first()
             session.commit()
             return private_key

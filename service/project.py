@@ -76,7 +76,9 @@ class ProjectService(dbSession):
             # 序列化结
             results = dealDataList(data, ProjectBase_Opt, {'has_delete'})
             for result in results:
-                result['url'] = get_url_by_user_file_id(request, result['img_id'])
+                urls = get_url_by_user_file_id(request, result['img_id'])
+                result['url'] = urls[result['img_id']]['url']
+                result['file_type'] = urls[result['img_id']]['file_type']
             return total_count, results
 
     def get_project(self, request: Request, project_id: int, user_id: int):
@@ -84,8 +86,9 @@ class ProjectService(dbSession):
             project = session.query(Project).filter(Project.id == project_id).first()
             project = ProjectBase_Opt.model_validate(project)
             date = project.model_dump(exclude={'has_delete'})
-            file_url = get_url_by_user_file_id(request, date['img_id'])
-            date['url'] = file_url[date['img_id']]
+            file_urls = get_url_by_user_file_id(request, date['img_id'])
+            date['url'] = file_urls[date['img_id']]['url']
+            date['file_type'] = file_urls[date['img_id']]['file_type']
             date['contents'] = self.list_projects_content(project_id=project_id, user_id=user_id)
             return date
 
@@ -110,10 +113,11 @@ class ProjectService(dbSession):
             file_id_list = []
             for result in results:
                 file_id_list.append(result['file_id'])
-            file_url_list = get_url_by_user_file_id(request, file_id_list)
+            file_url_lists = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 if result['file_id'] is not None:
-                    result['url'] = file_url_list[result['file_id']]
+                    result['url'] = file_url_lists[result['file_id']]['url']
+                    result['file_type'] = file_url_lists[result['file_id']]['file_type']
             return results
 
     def get_projects_content(self, request: Request, content_id: int, project_id: int, user_id: int):
@@ -123,8 +127,9 @@ class ProjectService(dbSession):
             project_content = ProjectContentBaseOpt.model_validate(project_content)
             result = project_content.model_dump()
             if result['file_id'] is not None:
-                file_url_list = get_url_by_user_file_id(request, result['file_id'])
-                result['url'] = file_url_list[result['file_id']]
+                file_url_lists = get_url_by_user_file_id(request, result['file_id'])
+                result['url'] = file_url_lists[result['file_id']]['url']
+                result['file_type'] = file_url_lists[result['file_id']]['file_type']
             return result
 
     def create_credit(self, credit: CreditCreate, user_id: int) -> int:
@@ -191,10 +196,11 @@ class ProjectService(dbSession):
             file_id_list = []
             for result in results:
                 file_id_list.append(result['file_id'])
-            file_url_list = get_url_by_user_file_id(request, file_id_list)
+            file_url_lists = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 if result['file_id'] is not None:
-                    result['url'] = file_url_list[result['file_id']]
+                    result['url'] = file_url_lists[result['file_id']]['url']
+                    result['file_type'] = file_url_lists[result['file_id']]['file_type']
             return results
 
     def get_project_progress(self, project_id: int, user_id: int):
@@ -251,9 +257,10 @@ class ProjectService(dbSession):
             file_id_list = []
             for result in results:
                 file_id_list.append(result['img_id'])
-            file_url_list = get_url_by_user_file_id(request, file_id_list)
+            file_url_lists = get_url_by_user_file_id(request, file_id_list)
             for result in results:
-                result['url'] = file_url_list[result['img_id']]
+                result['url'] = file_url_lists[result['img_id']]['url']
+                result['file_type'] = file_url_lists[result['img_id']]['file_type']
             return total_count, results
 
     def get_content_by_projectcontentid_userid(self, user_id: int, content_id: int, pg: page, project_id: int):

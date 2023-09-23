@@ -19,12 +19,18 @@ class user_file_interface(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    file_id: int = None
-    user_id: int = None
+    file_id: int
+    user_id: int
     has_delete: int = 0
     video_time: int = None
 
+
+class user_file_all_interface(user_file_interface):
+    name: str
+    type: str
+
+
 class RSA_interface(BaseModel):
     user_id: int
-    private_key_pem :bytes
-    public_key_pem : bytes
+    private_key_pem: bytes
+    public_key_pem: bytes

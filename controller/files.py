@@ -3,6 +3,10 @@ import json
 import os
 import time
 import uuid
+from urllib.parse import quote
+
+from docx2pdf import convert
+import docx
 from docx import Document
 from fastapi import APIRouter
 from fastapi import File, UploadFile
@@ -10,12 +14,13 @@ from fastapi import Request, Header, Depends
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from Celery.add_operation import add_operation
 from model.db import session_db
-from service.file import FileModel, UserFileModel,RSAModel
+from service.file import FileModel, UserFileModel, RSAModel
 from service.user import UserModel, SessionModel
-from type.file import file_interface, user_file_interface,RSA_interface
+from type.file import file_interface, user_file_interface, RSA_interface, user_file_all_interface
 from type.page import page
 from type.user import session_interface
-from type.functions import make_parameters,generate_rsa_key_pair,decrypt_file,encrypt_file,convert_word_to_bytes
+from type.functions import make_parameters, generate_rsa_key_pair, decrypt_file, encrypt_file, remove_extension, \
+    find_files_with_name_and_extension, ppt_to_pdf
 from utils.auth_login import auth_login
 from utils.response import user_standard_response, page_response, makePageResult
 
@@ -34,6 +39,7 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
                             session=Depends(auth_login)):
     global user_file_id
     id = file_model.get_file_by_hash(file)  # 查询文件是否存在
+    '''
     public_key = RSA_model.get_public_key_by_user_id(session['user_id'])
     if public_key is None:
         private_pem, public_pem = generate_rsa_key_pair()
@@ -42,14 +48,14 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
     else:
         if public_key[1] < datetime.datetime.now():
             RSA_model.delete_user_RSA(session['user_id'])
-        public_key = public_key[0]
+        public_key = public_key[0]'''
     if id is None or id[1] is False:  # 没有该file或者有但是还未上传
         user_id = session['user_id']  # 得到user_id
         if id is None:
             file_id = file_model.add_file(file)  # 新建一个file
             if file.time is None:
                 user_file_id = user_file_model.add_user_file(
-                user_file_interface(file_id=file_id, user_id=session['user_id']))
+                    user_file_interface(file_id=file_id, user_id=session['user_id']))
             else:
                 user_file_id = user_file_model.add_user_file(
                     user_file_interface(file_id=file_id, user_id=session['user_id'], video_time=file.time))
@@ -66,16 +72,17 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
             "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
         user_session = json.dumps(new_session.model_dump())
         session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
-        return {'message': '文件不存在', 'data': {'file_id': None,'public_key':public_key}, 'token_header': new_token, 'code': 0}
+        return {'message': '文件不存在', 'data': {'file_id': None, 'public_key': None}, 'token_header': new_token,
+                'code': 0}
     else:  # 有该file
         user_file_id = user_file_model.get_user_file_id_by_file_id(id[0])[0]
-        return {'message': '文件存在', 'data': {'file_id': user_file_id,'public_key':None}, 'code': 0}
+        return {'message': '文件存在', 'data': {'file_id': user_file_id, 'public_key': None}, 'code': 0}
 
 
 # 上传文件。文件存储位置：files/hash_md5前八位/hash_sha256的后八位/文件名
 @files_router.post("/upload")
 @user_standard_response
-async def file_upload(request: Request, file: UploadFile = File(...),session=Depends(auth_login)):
+async def file_upload(request: Request, file: UploadFile = File(...), session=Depends(auth_login)):
     token = request.cookies.get("TOKEN")
     old_session = session_db.get(token)  # 有效session中没有，即session过期了
     if old_session is None:
@@ -112,7 +119,7 @@ async def file_upload(request: Request, file: UploadFile = File(...),session=Dep
 # 下载文件，即返回一个下载链接
 @files_router.get("/download")
 @user_standard_response
-async def file_download(id: int, request: Request, user_agent: str = Header(None),session=Depends(auth_login)):
+async def file_download(id: int, request: Request, user_agent: str = Header(None), session=Depends(auth_login)):
     user_file = user_file_model.get_user_file_by_id(id)
     new_token = str(uuid.uuid4().hex)  # 生成token
     #  通过权限认证，判断是永久下载地址还是临时下载地址
@@ -135,7 +142,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
 
 # 根据下载链接下载文件
 @files_router.get("/download/{token}")
-async def file_download_files(request: Request, token: str,session=Depends(auth_login)):
+async def file_download_files(request: Request, token: str, session=Depends(auth_login)):
     old_session = session_db.get(token)  # 有效session中没有
     if old_session is None:
         return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
@@ -145,30 +152,72 @@ async def file_download_files(request: Request, token: str,session=Depends(auth_
     if old_session['use'] != old_session['use_limit']:  # 查看下载链接是否还有下载次数
         if old_session['use'] + 1 == old_session['use_limit']:  # 在下一次就失效
             session_model.delete_session_by_token(token)
-            #session_db.delete(token)
+            session_db.delete(token)
         else:
             session_model.update_session_use_by_token(token, 1)  # 将该session使用次数加1
         user_file = user_file_model.get_user_file_by_id(old_session['file_id'])
         file = file_model.get_file_by_id(user_file.file_id)
-        folder = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:] + '/' + user_file.name  # 先找到路径
-        private_key = RSA_model.get_private_key_by_user_id(session['user_id'])
-        decrypted_content = decrypt_file(folder,private_key[0].encode('utf-8'))
-        if old_session['use_limit'] == 408:
-            # if file.type ==
+        pre_folder = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:]
+        folder = pre_folder + '/' + user_file.name  # 先找到路径
+        # private_key = RSA_model.get_private_key_by_user_id(session['user_id'])
+        # decrypted_content = decrypt_file(folder,private_key[0].encode('utf-8'))
+        filename = user_file.name
+        if old_session['use_limit'] == -1:
+            if user_file.type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or user_file.type == 'application/msword':  # word转pdf
+                file_name_without_extension = remove_extension(user_file.name)  # 除去后缀的文件名
+                matching_files = find_files_with_name_and_extension(pre_folder, file_name_without_extension, 'pdf')
+                filename = file_name_without_extension + '.pdf'
+                if matching_files:  # 找到了匹配的文件
+                    folder = matching_files[0]
+                else:
+                    word_file = folder
+                    pdf_file = pre_folder + '/' + file_name_without_extension + '.pdf'
+                    # 调用 convert 函数进行转换
+                    convert(word_file, pdf_file)
+                    new_file = user_file_all_interface(user_id=session['user_id'], file_id=user_file.file_id,
+                                                       name=file_name_without_extension + '.pdf',
+                                                       type='application/pdf')
+                    user_file_model.add_user_file_all(new_file)
+                    folder = pdf_file
+                user_file.type = 'application/pdf'
+            elif user_file.type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation' or user_file.type == 'application/vnd.ms-powerpoint':  # ppt转pdf
+                file_name_without_extension = remove_extension(user_file.name)  # 除去后缀的文件名
+                matching_files = find_files_with_name_and_extension(pre_folder, file_name_without_extension, 'pdf')
+                filename = file_name_without_extension + '.pdf'
+                if matching_files:  # 找到了匹配的文件
+                    folder = matching_files[0]
+                else:
+                    current_path = __file__.replace("\\",
+                                                    "/") + '/' + '..' + '/' + '..' + '/' + pre_folder  # 要获取全局路径！！！
+                    ppt_file = current_path + '/' + user_file.name
+                    pdf_file = current_path + '/' + filename
+                    ppt_to_pdf(ppt_file, pdf_file)
+                    new_file = user_file_all_interface(user_id=session['user_id'], file_id=user_file.file_id,
+                                                       name=file_name_without_extension + '.pdf',
+                                                       type='application/pdf')
+                    user_file_model.add_user_file_all(new_file)
+                    folder = pdf_file
+                user_file.type = 'application/pdf'
+            encoded_filename = quote(filename)
             headers = {
-                "Content-Disposition": "inline; filename=your_word_document.docx",
-                "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "Content-Type": user_file.type,
+                "Content-Disposition": f"inline; filename={encoded_filename}"
             }
-            return FileResponse(decrypted_content,headers=headers)
+            parameters = await make_parameters(request)
+            add_operation.delay(8, old_session['file_id'], '用户预览了一个文件', parameters, old_session['user_id'])
+            return FileResponse(folder, filename=filename, headers=headers)
+            # return FileResponse(decrypted_content,headers=headers)
         else:
             parameters = await make_parameters(request)
             add_operation.delay(8, old_session['file_id'], '用户下载了一个文件', parameters, old_session['user_id'])
+            '''
             headers = {
                 "Content-Disposition": "attachment; filename="+user_file.name
             }
             def file_generator():
                 yield decrypted_content
-            return StreamingResponse(file_generator(), media_type="application/octet-stream",headers=headers)
+            return StreamingResponse(file_generator(), media_type="application/octet-stream",headers=headers)'''
+            return FileResponse(folder, filename=user_file.name)
     return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
 
 
@@ -193,18 +242,16 @@ async def file_preview(request: Request, pageNow: int, pageSize: int, session=De
     return {'message': '可下载文件如下', "data": result, 'code': 0}
 
 
-
+'''
 current_directory = os.path.dirname(os.path.abspath(__file__))
 # 构建目标文件的绝对路径
 target_directory = os.path.join(current_directory, '..', 'files/2/2/')
 target_file_path = os.path.join(target_directory, '2023年奖学金、奖教金评选标准（华为建议）.docx')
-doc = Document(target_file_path)
-text_content = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-file_content = text_content.encode("utf-8")  # 将文本内容编码为字节数据
-with open(target_file_path, 'wb') as decrypted_file:
-    decrypted_file.write(file_content)
-print(file_content)
+doc = docx.Document(target_file_path)
+file_content = b""
+for paragraph in doc.paragraphs:
+        file_content += paragraph.text.encode("utf-8")
 pub = RSA_model.get_public_key_by_user_id(1)
 e_cotents = encrypt_file(file_content, pub[0].encode('utf-8'))
 with open(target_file_path, 'wb') as decrypted_file:
-    decrypted_file.write(e_cotents)
+    decrypted_file.write(e_cotents)'''

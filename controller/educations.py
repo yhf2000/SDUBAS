@@ -1,4 +1,3 @@
-import base64
 import json
 
 from fastapi import APIRouter
@@ -6,10 +5,10 @@ from fastapi import Request, Depends
 
 from Celery.add_operation import add_operation
 from service.education import SchoolModel, CollegeModel, MajorModel, ClassModel
-from service.user import SessionModel, OperationModel, UserinfoModel
-from type.functions import make_parameters, get_locate_url_by_user_file_id
+from service.user import SessionModel, OperationModel, UserinfoModel, EducationProgramModel
+from type.functions import make_parameters, get_locate_url_by_user_file_id, programs_translation
 from type.page import page
-from type.user import school_interface, class_interface, college_interface, major_interface
+from type.user import school_interface, class_interface, college_interface, major_interface, education_program_interface
 from utils.auth_login import auth_login
 from utils.response import user_standard_response, page_response, makePageResult
 
@@ -21,7 +20,7 @@ major_model = MajorModel()
 class_model = ClassModel()
 operation_model = OperationModel()
 user_info_model = UserinfoModel()
-
+education_program_model = EducationProgramModel()
 
 # 验证学校，学院，专业，班级是否存在的接口。有选择性地传入各个id进行判断
 def verify_education_by_id(school_id: int = None, college_id: int = None, major_id: int = None, class_id: int = None):
@@ -43,37 +42,6 @@ def verify_education_by_id(school_id: int = None, college_id: int = None, major_
             return 1
     return 0
 
-
-# 获取当前用户所属的学校的logo:先看该用户的角色有无学校，若有则找到所属学校的logo并返回;没有就使用默认学校logo
-@users_router.get("/school_logo_get")
-@user_standard_response
-async def user_school_logo_get(session=Depends(auth_login)):
-    major_id = user_info_model.get_major_id_by_user_id(session['user_id'])  # 先看该用户的角色有无学校
-    if major_id is None:
-        return {'message': '使用默认学校logo，over,over!', 'code': 1, 'data': False}  # 没有就使用默认学校logo
-    school_id = school_model.get_school_id_by_major_id(major_id[0])  # 查出user_id
-    url = school_model.get_school_logo_by_id(school_id[0])[0]  # 查出存储学校logo的url
-    with open(url, "rb") as f:  # 使用二进制模式打开文件
-        img_binary_data = f.read()
-    img_base64 = base64.b64encode(img_binary_data).decode('utf-8')  # 将二进制数据编码为base64
-    src = f"data: image/jpeg;base64,{img_base64}"
-    return {'data': {'school_logo': src}, 'message': '获取成功', 'code': 0}
-
-
-# 获取当前用户所属的学院的logo:先看该用户的角色有无学院，若有则找到所属学院的logo并返回;没有就使用默认学院logo
-@users_router.get("/college_logo_get")
-@user_standard_response
-async def user_college_logo_get(session=Depends(auth_login)):
-    major_id = user_info_model.get_major_id_by_user_id(session['user_id'])  # 先看该用户的角色有无学院
-    if major_id is None:
-        return {'message': '使用默认学院logo，over,over!', 'code': 1, 'data': False}  # 没有就使用默认学院logo
-    college_id = major_model.get_college_id_by_id(major_id[0])  # 查出user_id
-    url = college_model.get_college_logo_by_id(college_id[0])[0]  # 查出存储学院logo的url
-    with open(url, "rb") as f:  # 使用二进制模式打开文件
-        img_binary_data = f.read()
-    img_base64 = base64.b64encode(img_binary_data).decode('utf-8')  # 将二进制数据编码为base64
-    src = f"data: image/jpeg;base64,{img_base64}"
-    return {'data': {'college_logo': src}, 'message': '获取成功', 'code': 0}
 
 
 # 管理员添加学校:通过输入学校名字，学校简称，上传的学校logo的id新建一个学校。
@@ -255,7 +223,19 @@ async def user_major_add(request: Request, major_data: major_interface, session=
             str = '管理员恢复一个曾删除的专业'
     else:  # 新建一个专业
         id = major_model.add_major(major_data)
-        str = '管理员通过选择学校，学院和输入专业名称添加一个专业'
+        programs = major_data.education_program
+        new_programs = {}
+        # 遍历原始的 programs 字典
+        for old_key, value in programs.items():
+            # 使用 programs_translation 字典来映射中英文课程名称
+            new_key = programs_translation.get(old_key, old_key)
+            new_programs[new_key] = value
+        # 现在，new_programs 字典包含了映射后的数据
+        programs = new_programs
+        programs['major_id'] = 1
+        new_program = education_program_interface(**programs)
+        education_program_model.add_education_program(new_program)
+        str = '管理员通过选择学校，学院，输入专业名称，上传专业的培养方案添加一个专业'
     parameters = await make_parameters(request)
     add_operation.delay(3, id, str, parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}

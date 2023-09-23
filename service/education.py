@@ -187,6 +187,7 @@ class MajorModel(dbSession):
     def add_major(self, obj: major_interface):  # 添加一个major
         obj_dict = jsonable_encoder(obj)
         obj_dict.pop('school_id')
+        obj_dict.pop('education_program')
         obj_add = Major(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)

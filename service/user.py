@@ -5,9 +5,9 @@ from fastapi.encoders import jsonable_encoder
 
 import model.user
 from model.db import dbSession
-from model.user import User, User_info, Session, Operation, Captcha
+from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College,Education_Program
 from type.user import register_interface, user_info_interface, session_interface, \
-    operation_interface, user_add_interface
+    operation_interface, user_add_interface,education_program_interface
 
 
 def encrypted_password(password, salt):  # 对密码进行加密
@@ -139,6 +139,21 @@ class UserModel(dbSession):
             user = session.query(User).filter(User.id == user_id, User.has_delete == 0).first()
             session.commit()
             return user
+
+    def get_user_all_information_by_user_id(self, user_id):  # 根据user_id查询user的所有信息
+        with (self.get_db() as session):
+            informations = session.query(User.username, User.email, User.card_id, User.registration_dt,
+                                         User_info.realname, User_info.gender, School.name, College.name, Major.name,
+                                         Class.name, User_info.enrollment_dt, User_info.graduation_dt). \
+                outerjoin(User_info, User_info.user_id == User.id). \
+                outerjoin(Major, Major.id == User_info.major_id). \
+                outerjoin(Class, Class.id == User_info.class_id). \
+                outerjoin(College, College.id == Major.college_id). \
+                outerjoin(School, School.id == College.school_id). \
+                filter(User.id == user_id, User.has_delete == 0). \
+                first()
+            session.commit()
+            return informations
 
     def get_user_information_by_id(self, user_id):  # 根据user_id查询user的所有信息
         with self.get_db() as session:
@@ -357,7 +372,7 @@ class OperationModel(dbSession):
 
 class CaptchaModel(dbSession):
     def add_captcha(self, value):  # 添加一个验证码
-        obj_add = Captcha(value=value,has_delete = 0)
+        obj_add = Captcha(value=value, has_delete=0)
         with self.get_db() as session:
             session.add(obj_add)
             session.flush()
@@ -375,3 +390,32 @@ class CaptchaModel(dbSession):
             value = session.query(Captcha.value).filter(Captcha.id == id, Captcha.has_delete == 0).first()
             session.commit()
             return value
+
+
+class EducationProgramModel(dbSession):
+    def add_education_program(self, obj: education_program_interface):  # 添加一个培养方案
+        obj_dict = jsonable_encoder(obj)
+        obj_add = Education_Program(**obj_dict)
+        with self.get_db() as session:
+            session.add(obj_add)
+            session.flush()
+            session.commit()
+            return obj_add.id
+
+    def delete_education_program(self, id: int):  # 删除一个education_program
+        with self.get_db() as session:
+            session.query(Education_Program).filter(Education_Program.id == id).update({"has_delete": 1})
+            session.commit()
+            return id
+
+    def get_education_program_by_major_id(self, major_id):  # 根据major_id查询education_program
+        with self.get_db() as session:
+            value = session.query(Education_Program).filter(Education_Program.has_delete == 0,Education_Program.major_id == major_id).first()
+            session.commit()
+            if value:
+                # 使用字典推导式创建带有属性名的字典
+                result_dict = {key: getattr(value, key) for key in value.__dict__ if not key.startswith('_')}
+                session.commit()
+                return result_dict
+            else:
+                return None

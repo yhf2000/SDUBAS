@@ -24,3 +24,4 @@ redis==4.6.0
 captcha==0.5.0
 pandas~=1.5.2
 pycryptodome==3.19.0
+docx2pdf==0.1.8
