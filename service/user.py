@@ -1,41 +1,19 @@
 import datetime
-import hashlib
 
 from fastapi.encoders import jsonable_encoder
 
 import model.user
 from model.db import dbSession
-from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College,Education_Program
-from type.user import register_interface, user_info_interface, session_interface, \
-    operation_interface, user_add_interface,education_program_interface
-
-
-def encrypted_password(password, salt):  # 对密码进行加密
-    res = hashlib.sha256()
-    password += salt
-    res.update(password.encode())
-    return res.hexdigest()
+from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College, Education_Program
+from type.user import user_info_interface, session_interface, \
+    operation_interface, user_add_interface, education_program_interface
 
 
 class UserModel(dbSession):
-    def register_user(self, obj: register_interface):  # 用户自己注册(在user表中添加一个用户)
-        obj.registration_dt = obj.registration_dt.strftime(
-            "%Y-%m-%d %H:%M:%S")
-        obj_dict = jsonable_encoder(obj)
-        obj_add = User(**obj_dict)
-        obj_add.password = encrypted_password(obj_add.password, obj_add.registration_dt)
-        with self.get_db() as session:
-            session.add(obj_add)
-            session.flush()
-            session.commit()
-            return obj_add.id
 
     def add_user(self, obj: user_add_interface):  # 管理员添加一个用户(在user表中添加一个用户)
-        obj.registration_dt = obj.registration_dt.strftime(
-            "%Y-%m-%d %H:%M:%S")
         obj_dict = jsonable_encoder(obj)
         obj_add = User(**obj_dict)
-        obj_add.password = encrypted_password(obj_add.password, obj_add.registration_dt)
         with self.get_db() as session:
             session.add(obj_add)
             session.flush()
@@ -410,7 +388,8 @@ class EducationProgramModel(dbSession):
 
     def get_education_program_by_major_id(self, major_id):  # 根据major_id查询education_program
         with self.get_db() as session:
-            value = session.query(Education_Program).filter(Education_Program.has_delete == 0,Education_Program.major_id == major_id).first()
+            value = session.query(Education_Program).filter(Education_Program.has_delete == 0,
+                                                            Education_Program.major_id == major_id).first()
             session.commit()
             if value:
                 # 使用字典推导式创建带有属性名的字典
@@ -419,3 +398,15 @@ class EducationProgramModel(dbSession):
                 return result_dict
             else:
                 return None
+
+    def get_exist_education_program_by_major_id(self, major_id):  # 根据major_id查询education_program是否存在
+        with self.get_db() as session:
+            value = session.query(Education_Program.has_delete).filter(Education_Program.major_id == major_id).first()
+            session.commit()
+            return value
+
+    def update_education_program_exist(self, major_id: int):  # 更改education_program存在状态
+        with self.get_db() as session:
+            session.query(Education_Program).filter(Education_Program.major_id == major_id).update({"has_delete": 0})
+            session.commit()
+            return 'ok'

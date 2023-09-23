@@ -1,9 +1,9 @@
 import json
-
 from fastapi import Request, HTTPException
-
 from model.db import session_db
-from service.user import UserModel
+from service.user import SessionModel
+
+session_model = SessionModel()
 
 
 def auth_login(request: Request):  # 用来判断用户是否登录
@@ -11,6 +11,7 @@ def auth_login(request: Request):  # 用来判断用户是否登录
     if token is not None:
         session = session_db.get(token)  # 有效session中没有
         if session is None:
+            session_model.delete_session_by_token(token)
             raise HTTPException(
                 status_code=401,
                 detail="用户未登录",
@@ -23,7 +24,7 @@ def auth_login(request: Request):  # 用来判断用户是否登录
         )
 
 
-def auth_not_login(request: Request):  # 用来判断用户是否登录
+def auth_not_login(request: Request):  # 用来判断用户是否没登录
     token = request.cookies.get("SESSION")
     if token is None:
         return token
@@ -33,4 +34,5 @@ def auth_not_login(request: Request):  # 用来判断用户是否登录
             status_code=401,
             detail="用户已登录"
         )
+    session_model.delete_session_by_token(token)
     return token  # 没登陆且账号状态无异常就返回用户的token

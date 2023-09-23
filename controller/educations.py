@@ -22,6 +22,7 @@ operation_model = OperationModel()
 user_info_model = UserinfoModel()
 education_program_model = EducationProgramModel()
 
+
 # 验证学校，学院，专业，班级是否存在的接口。有选择性地传入各个id进行判断
 def verify_education_by_id(school_id: int = None, college_id: int = None, major_id: int = None, class_id: int = None):
     if school_id is not None:
@@ -43,13 +44,15 @@ def verify_education_by_id(school_id: int = None, college_id: int = None, major_
     return 0
 
 
-
 # 管理员添加学校:通过输入学校名字，学校简称，上传的学校logo的id新建一个学校。
 @users_router.post("/school_add")
 @user_standard_response
 async def user_school_add(request: Request, school_data: school_interface, session=Depends(auth_login)):
     exist_school_name = school_model.get_school_information_by_name(school_data.name)
     str = ''
+    exist_school_logo = school_model.get_school_exist_by_school_logo(school_data.file_id)
+    if exist_school_logo is not None:
+        return {'message': '学校logo已被使用', 'code': 2, 'data': False}
     if exist_school_name is not None:  # 首先查看学校是否存在即学校名存在且未被删除
         if exist_school_name.has_delete == 0:
             return {'message': '学校名已存在', 'code': 1, 'data': False}
@@ -58,18 +61,16 @@ async def user_school_add(request: Request, school_data: school_interface, sessi
             if school_data.school_abbreviation != exist_school_name.school_abbreviation:  # 学校简称如果变化则进行更新
                 school_model.update_school_information(exist_school_name.id, school_data.name,
                                                        school_data.school_abbreviation)
-            url = get_locate_url_by_user_file_id(school_data.file_id)[school_data.file_id]
-            if url != exist_school_name.school_logo:  # 学校logo如果变化则进行更新
-                school_model.update_school_logo(exist_school_name.id, url)
+            if school_data.file_id != exist_school_name.school_logo_id:  # 学校logo_id如果变化则进行更新
+                school_model.update_school_logo(exist_school_name.id, school_data.file_id)
             str = '管理员恢复一个曾删除的学校'
             id = exist_school_name.id
     else:
-        url = get_locate_url_by_user_file_id(school_data.file_id)[school_data.file_id]  # 获取学校logo保存的路径
-        school_data.school_logo = url
+        school_data.school_logo_id = school_data.file_id
         id = school_model.add_school(school_data)
         str = '管理员通过输入学校名称和学校简称添加一个学校'
     parameters = await make_parameters(request)
-    add_operation.delay(1, None, str, parameters, session['user_id'])
+    add_operation.delay(1, id, str, parameters, session['user_id'])
     return {'message': '添加成功', 'code': 0, 'data': True}
 
 
@@ -129,6 +130,9 @@ async def user_college_add(request: Request, college_data: college_interface, se
     code = verify_education_by_id(school_id=college_data.school_id)  # 查看学校是否存在
     if code == 1:
         return {'message': '学校不存在', 'data': False, 'code': 1}
+    exist_college_logo = college_model.get_college_exist_by_college_logo(college_data.file_id)
+    if exist_college_logo is not None:
+        return {'message': '学院logo已被使用', 'code': 3, 'data': False}
     college = college_model.get_college_status_by_name(college_data)  # 查看学院的状态
     str = ''
     if college is not None:  # 该校已有该学院
@@ -139,8 +143,7 @@ async def user_college_add(request: Request, college_data: college_interface, se
             str = '管理员恢复一个曾删除的学院'
             id = college[1]
     else:  # 新建一个学院
-        url = get_locate_url_by_user_file_id(college_data.file_id)[college_data.file_id]  # 获取学院logo
-        college_data.college_logo = url
+        college_data.college_logo_id = college_data.file_id
         id = college_model.add_college(college_data)
         str = '管理员通过选择学校和输入学院名称添加一个学院'
     parameters = await make_parameters(request)
@@ -221,6 +224,7 @@ async def user_major_add(request: Request, major_data: major_interface, session=
             major_model.update_major_status_by_id(major[1])
             id = major[1]
             str = '管理员恢复一个曾删除的专业'
+            education_program_model.update_education_program_exist(id)
     else:  # 新建一个专业
         id = major_model.add_major(major_data)
         programs = major_data.education_program
@@ -232,7 +236,7 @@ async def user_major_add(request: Request, major_data: major_interface, session=
             new_programs[new_key] = value
         # 现在，new_programs 字典包含了映射后的数据
         programs = new_programs
-        programs['major_id'] = 1
+        programs['major_id'] = id
         new_program = education_program_interface(**programs)
         education_program_model.add_education_program(new_program)
         str = '管理员通过选择学校，学院，输入专业名称，上传专业的培养方案添加一个专业'
@@ -249,6 +253,7 @@ async def user_major_delete(request: Request, major_id: int, session=Depends(aut
     if code == 1:
         return {'message': '专业不存在', 'data': False, 'code': code}
     id = major_model.delete_major(major_id)
+    education_program_model.delete_education_program(id)
     parameters = await make_parameters(request)
     add_operation.delay(3, id, '管理员通过选择专业删除一个专业', parameters, session['user_id'])
     return {'message': '删除成功', 'data': {'major_id': id}, 'code': 0}
@@ -388,7 +393,6 @@ async def user_class_view(college_id: int, pageNow: int, pageSize: int):
     return {'message': '班级如下', 'data': result, 'code': 0}
 
 
-# 管理员添加用户时选择用户的学校信息
 @users_router.get("/user_add_education")
 @page_response
 async def user_add_education(school_id: int = None, college_id: int = None, type: int = None,

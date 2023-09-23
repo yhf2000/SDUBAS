@@ -1,8 +1,6 @@
 import hashlib
 from datetime import datetime, date
 from typing import Any
-
-from fastapi import File, UploadFile
 from pydantic import BaseModel, ConfigDict
 
 
@@ -13,7 +11,6 @@ class login_interface(BaseModel):
 
 class register_interface(login_interface):
     email: str = None
-    registration_dt: datetime = datetime.now()
 
 
 class captcha_interface(register_interface):
@@ -39,6 +36,7 @@ class session_interface(BaseModel):
     user_id: int
     file_id: int = None
     token: str
+    use: int = 0
     token_s6: str = None
     use_limit: int = None
     exp_dt: datetime
@@ -74,10 +72,10 @@ class major_interface(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    name:str
+    name: str
     school_id: int
     college_id: int
-    education_program : dict
+    education_program: dict
 
 
 class class_interface(college_interface):
@@ -148,22 +146,21 @@ class reason_interface(BaseModel):
     reason: str
 
 
-
 class education_program_interface(BaseModel):
-    major_id :int
-    thought_political_theory: float | None = None
-    college_sports: float | None = None
-    college_english: float | None = None
-    chinese_culture: float | None = None
-    art_aesthetics: float | None = None
-    innovation_entrepreneurship: float | None = None
-    humanities: float | None = None
-    social_sciences: float | None = None
-    scientific_literacy: float | None = None
-    information_technology: float | None = None
-    general_education_elective: float | None = None
-    major_compulsory_courses: float | None = None
-    major_elective_courses: float | None = None
-    key_improvement_courses: float | None = None
-    qilu_entrepreneurship: float | None = None
-    jixia_innovation: float | None = None
+    major_id: int
+    thought_political_theory: float = None
+    college_sports: float = None
+    college_english: float = None
+    chinese_culture: float = None
+    art_aesthetics: float = None
+    innovation_entrepreneurship: float = None
+    humanities: float = None
+    social_sciences: float = None
+    scientific_literacy: float = None
+    information_technology: float = None
+    general_education_elective: float = None
+    major_compulsory_courses: float = None
+    major_elective_courses: float = None
+    key_improvement_courses: float = None
+    qilu_entrepreneurship: float = None
+    jixia_innovation: float = None

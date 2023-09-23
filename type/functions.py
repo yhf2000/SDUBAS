@@ -2,6 +2,7 @@ import base64
 import copy
 import datetime
 import glob
+import hashlib
 import io
 import comtypes.client
 import json
@@ -17,8 +18,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from fastapi import Request
-
-from model.db import session_db, url_db
+from model.db import session_db, url_db, user_information_db
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
 from service.user import SessionModel, UserModel, UserinfoModel, EducationProgramModel
@@ -70,6 +70,7 @@ def get_user_id(request: Request):  # 获取user_id
     if session is not None:
         return json.loads(session)['user_id']  # 登陆了就返回用户登录的session
     else:
+        session_model.delete_session_by_token(token)
         return session_model.get_user_id_by_token(token)[0]
 
 
@@ -255,24 +256,28 @@ def find_files_with_name_and_extension(folder, filename, extension):  # 查找�
     return matching_files
 
 
-import win32com.client
-
-
-def ppt_to_pdf(input_ppt, output_pdf):
-    powerpoint = win32com.client.Dispatch("PowerPoint.Application")
-    powerpoint.Visible = 0  # 将 Visible 属性设置为 0，表示隐藏窗口
-    ppt = powerpoint.Presentations.Open(input_ppt)
-    ppt.ExportAsFixedFormat(output_pdf, 2)  # 2 表示导出为 PDF
-    ppt.Close()
+def ppt_to_pdf(ppt_file, pdf_file):
+    powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
+    presentation = powerpoint.Presentations.Open(ppt_file, WithWindow=False)
+    presentation.ExportAsFixedFormat(pdf_file, 2)  # 2 表示导出为PDF格式
+    presentation.Close()
     powerpoint.Quit()
 
 
 def get_user_information(user_id):  # 根据user_id查询用户基本信息
-    information = user_model.get_user_all_information_by_user_id(user_id)
-    res = dict({'username': information[0], 'email': information[1], 'card_id': information[2],
-                'registration_dt': information[3], 'realname': information[4], 'gender': information[5],
-                'school_name': information[6], 'college_name': information[7], 'major_name': information[8],
-                'class_name': information[9], 'enrollment_dt': information[10], 'graduation_dt': information[11]})
+    user_information = user_information_db.get(user_id)  # 缓存中中没有
+    if user_information is None:
+        information = user_model.get_user_all_information_by_user_id(user_id)
+        res = dict({'username': information[0], 'email': information[1], 'card_id': information[2],
+                    'registration_dt': information[3], 'realname': information[4], 'gender': information[5],
+                    'school_name': information[6], 'college_name': information[7], 'major_name': information[8],
+                    'class_name': information[9], 'enrollment_dt': information[10], 'graduation_dt': information[11]})
+        res['registration_dt'] = res['registration_dt'].strftime("%Y-%m-%d %H:%M:%S")
+        res['enrollment_dt'] = res['enrollment_dt'].strftime("%Y-%m-%d")
+        res['graduation_dt'] = res['graduation_dt'].strftime("%Y-%m-%d")
+        user_information_db.set(user_id, json.dumps(res), ex=1209600)
+    else:
+        res = json.loads(user_information)
     return res
 
 

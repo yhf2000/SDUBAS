@@ -66,11 +66,9 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
                                         func_type=3, user_agent=user_agent, use_limit=1, exp_dt=(
                     datetime.datetime.now() + datetime.timedelta(hours=6)))  # 生成新session
         session_model.add_session(new_session)
-        new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
-            "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-        new_session.create_dt = time.strptime(new_session.create_dt.strftime(
-            "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-        user_session = json.dumps(new_session.model_dump())
+        new_session = new_session.model_dump()
+        new_session['exp_dt'] = new_session['exp_dt'].strftime("%Y-%m-%d %H:%M:%S")
+        user_session = json.dumps(new_session)
         session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
         return {'message': '文件不存在', 'data': {'file_id': None, 'public_key': None}, 'token_header': new_token,
                 'code': 0}
@@ -86,6 +84,7 @@ async def file_upload(request: Request, file: UploadFile = File(...), session=De
     token = request.cookies.get("TOKEN")
     old_session = session_db.get(token)  # 有效session中没有，即session过期了
     if old_session is None:
+        session_model.delete_session_by_token(token)
         return {'message': 'token已失效，请重新上传', 'data': None, 'code': 1}
     old_session = json.loads(old_session)
     id = user_file_model.get_user_file_by_file_name(file.filename)  # 查看文件名是否存在
@@ -131,11 +130,9 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
                                     func_type=2, user_agent=user_agent, use_limit=use_limit,
                                     exp_dt=exp_dt)  # 生成新session
     session_model.add_session(new_session)
-    new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
-        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-    new_session.create_dt = time.strptime(new_session.create_dt.strftime(
-        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-    user_session = json.dumps(new_session.model_dump())
+    new_session = new_session.model_dump()
+    new_session['exp_dt'] = new_session['exp_dt'].strftime("%Y-%m-%d %H:%M:%S")
+    user_session = json.dumps(new_session)
     session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
     return {'message': '请前往下载', 'data': {'url': 'http://127.0.0.1:8000/files/download/' + new_token}, 'code': 0}
 
@@ -145,6 +142,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
 async def file_download_files(request: Request, token: str, session=Depends(auth_login)):
     old_session = session_db.get(token)  # 有效session中没有
     if old_session is None:
+        session_model.delete_session_by_token(token)
         return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
     old_session = json.loads(old_session)
     if session['user_id'] != old_session['user_id']:
@@ -173,12 +171,12 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
                     word_file = folder
                     pdf_file = pre_folder + '/' + file_name_without_extension + '.pdf'
                     # 调用 convert 函数进行转换
-                    convert(word_file, pdf_file)
                     new_file = user_file_all_interface(user_id=session['user_id'], file_id=user_file.file_id,
                                                        name=file_name_without_extension + '.pdf',
                                                        type='application/pdf')
                     user_file_model.add_user_file_all(new_file)
                     folder = pdf_file
+                    convert(word_file, pdf_file)
                 user_file.type = 'application/pdf'
             elif user_file.type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation' or user_file.type == 'application/vnd.ms-powerpoint':  # ppt转pdf
                 file_name_without_extension = remove_extension(user_file.name)  # 除去后缀的文件名
@@ -191,12 +189,12 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
                                                     "/") + '/' + '..' + '/' + '..' + '/' + pre_folder  # 要获取全局路径！！！
                     ppt_file = current_path + '/' + user_file.name
                     pdf_file = current_path + '/' + filename
-                    ppt_to_pdf(ppt_file, pdf_file)
                     new_file = user_file_all_interface(user_id=session['user_id'], file_id=user_file.file_id,
                                                        name=file_name_without_extension + '.pdf',
                                                        type='application/pdf')
                     user_file_model.add_user_file_all(new_file)
                     folder = pdf_file
+                    ppt_to_pdf(ppt_file, pdf_file)
                 user_file.type = 'application/pdf'
             encoded_filename = quote(filename)
             headers = {
@@ -224,8 +222,7 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
 # 文件预览,用户查看所有他可以进行下载的文件(目前是所有他上传的文件)
 @files_router.get("/preview")
 @page_response
-async def file_preview(request: Request, pageNow: int, pageSize: int, session=Depends(auth_login),
-                       permission=Depends(auth_login)):
+async def file_preview(request: Request, pageNow: int, pageSize: int, session=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_file = user_file_model.get_user_file_by_admin(Page, session['user_id'])  # 以分页形式返回
     result = {"rows": None}
@@ -234,8 +231,11 @@ async def file_preview(request: Request, pageNow: int, pageSize: int, session=De
     if all_file != []:
         file_data = []
         for file in all_file:  # 遍历查询结果
-            temp = user_file_interface()
-            temp_dict = temp.model_validate(file).model_dump()  # 查询出来的结果转字典
+            if file.video_time is not None:
+                temp = user_file_interface(file_id=file.file_id, video_time=file.video_time, user_id=file.user_id)
+            else:
+                temp = user_file_interface(file_id=file.file_id, user_id=file.user_id)
+            temp_dict = temp.model_dump()  # 查询出来的结果转字典
             temp_dict['user_name'] = user_model.get_user_by_user_id(session['user_id']).username  # 查出name
             file_data.append(temp_dict)
         result = makePageResult(Page, len(all_file), file_data)
