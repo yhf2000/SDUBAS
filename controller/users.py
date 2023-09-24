@@ -141,7 +141,9 @@ async def user_delete(request: Request, user_id: int, session=Depends(auth_permi
 @users_router.put("/user_ban/{user_id}")
 @user_standard_response
 async def user_ban(request: Request, user_id: int, reason: reason_interface,
-                   session=Depends(auth_permission_default)):
+                   session=Depends(auth_login)):
+    if user_id == session['user_id']:
+        return {'message': '不能封禁自己', 'data': False, 'code': 4}
     exist_user = user_model.get_user_status_by_user_id(user_id)  # 查询用户的帐号状态
     if exist_user is None:  # 没有该用户
         return {'message': '没有该用户', 'data': False, 'code': 1}
@@ -442,36 +444,21 @@ async def user_get_Profile(session=Depends(auth_login)):
     return {'data': data, 'message': '结果如下', 'code': 0}
 
 
-'''
-# 检查用户登录状态
-@users_router.get("/status")
-@status_response
-async def user_get_status(request: Request):
-    token = request.cookies.get("SESSION")
-    login_status = 1
-    session = session_db.get(token)
-    if session is not None:  # 有效session中有，说明登录了
-        login_status = 0
-        user_id = json.loads(session)['user_id']  # 从缓存中获取user_id
-    else:
-        session_model.delete_session_by_token(token)
-        user_id = session_model.get_session_by_token(token).user_id  # 根据session获取user_id
-    user_information = user_model.get_user_by_user_id(user_id)  # 查找出用户的信息
-    account_status = user_information.status  # 帐号状态
-    data = dict()
-    realname = user_info_model.get_userinfo_by_user_id(user_id).realname
-    data['username'] = user_information.username  # 返回用户的基本信息
-    data['realname'] = realname
-    data['email'] = user_information.email
-    data['card_id'] = user_information.card_id
-    return {'message': '结果如下', 'data': data, 'login_status': login_status, 'account_status': account_status, 'code': 0}
 
 
 @users_router.get("/error")  # 检查用户异常状态原因
 @user_standard_response
-async def user_get_error(username: str):
-    user_id = user_model.get
-    reason = operation_model.get_operation_by_service_func(0, user_id, '用户封禁')  # 查看被封禁原因
-    username = user_model.get_user_by_user_id(reason.oper_user_id).username  # 看被谁封禁
+async def user_get_error(username: str,password:str,email:str):
+    exist_user = user_model.get_user_some_by_username(username)
+    if exist_user is None:
+        return {'message': '没有该用户', 'data': False, 'code': 1}
+    if exist_user[0] != email:
+        return {'message': '用户绑定邮箱不正确', 'data': False, 'code': 2}
+    if exist_user[1] != encrypted_password(password,exist_user[2].strftime(
+        "%Y-%m-%d %H:%M:%S")):
+        return {'message': '密码不正确', 'data': False, 'code': 3}
+    reasons = operation_model.get_operation_by_service_func(0, exist_user[3], '封禁用户')  # 查看被封禁原因
+    reason = reasons[0][8:]
+    oper_user_id = reasons[1]
+    username = user_model.get_user_name_by_user_id(oper_user_id)[0]  # 看被谁封禁
     return {'message': '用户异常状态原因', 'data': {'封禁原因': reason, '封禁人': username}, 'code': 0}
-'''

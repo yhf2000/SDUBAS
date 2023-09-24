@@ -76,6 +76,13 @@ class UserModel(dbSession):
             session.commit()
             return user
 
+    def get_user_some_by_username(self, username):  # 根据username查询user的部分信息
+        with self.get_db() as session:
+            user = session.query(User.email, User.password, User.registration_dt, User.id).filter(User.has_delete == 0,
+                                                                                                  User.username == username).first()
+            session.commit()
+            return user
+
     def get_user_email_by_username(self, username):  # 根据username查询id,email
         with self.get_db() as session:
             email = session.query(User.id, User.email).filter(User.username == username).first()
@@ -155,6 +162,13 @@ class UserModel(dbSession):
                 User.id == user_id, User.has_delete == 0).first()
             session.commit()
             return names
+
+    def get_user_name_by_user_id(self, user_id):  # 根据user_id查询username
+        with self.get_db() as session:
+            name = session.query(User.username).filter(
+                User.id == user_id, User.has_delete == 0).first()
+            session.commit()
+            return name
 
 
 class SessionModel(dbSession):
@@ -319,7 +333,6 @@ class OperationModel(dbSession):
     def add_operation(self, obj: operation_interface):  # 添加一个操作(在operation表中添加一个操作)
         obj.oper_hash = obj.get_oper_hash()
         obj_dict = jsonable_encoder(obj)
-        obj_dict['oper_dt'] = datetime.datetime.now()
         obj_add = Operation(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
@@ -327,17 +340,30 @@ class OperationModel(dbSession):
             session.commit()
             return obj_add.id
 
-    def get_operation_by_service_func(self, service_type, service_id, func):  # 根据service与func查询operation的基本信息
+    def get_operation_by_service(self, service_type, service_id):  # 根据service查询operation的基本信息
         with self.get_db() as session:
             operation = session.query(Operation).filter(Operation.service_type == service_type,
-                                                        Operation.service_id == service_id,
-                                                        Operation.func[0:4] == func).first()
+                                                        Operation.service_id == service_id).first()
             session.commit()
             return operation
+
+    def get_operation_by_service_func(self, service_type, service_id, func):  # 根据service与func查询operation的基本信息
+        with self.get_db() as session:
+            reason = session.query(Operation.func, Operation.oper_user_id).filter(
+                Operation.service_type == service_type,
+                Operation.service_id == service_id, Operation.func.startswith(func)).first()
+            session.commit()
+            return reason
 
     def get_operation_by_oper_user_id(self, oper_user_id):  # 根据user_id查询operation的基本信息
         with self.get_db() as session:
             operation = session.query(Operation).filter(Operation.oper_user_id == oper_user_id).first()
+            session.commit()
+            return operation
+
+    def get_operation_by_hash(self, oper_hash):  # 根据hash查询operation的parameters
+        with self.get_db() as session:
+            operation = session.query(Operation.parameters).filter(Operation.oper_hash == oper_hash).first()
             session.commit()
             return operation
 
