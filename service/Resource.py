@@ -205,7 +205,8 @@ class BillModel(dbSession):
             file_url_list = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 if result['log_file_id'] is not None:
-                    result['url'] = file_url_list[result['log_file_id']]
+                    result['url'] = file_url_list[result['log_file_id']]['url']
+                    result['file_type'] = file_url_list[result['log_file_id']]['file_type']
             return total_count, results
 
     def delete_by_id(self, Id: int, user_id: int, financial_id: int):

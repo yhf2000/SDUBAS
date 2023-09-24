@@ -34,6 +34,12 @@ class SchoolModel(dbSession):  # 学校model
             session.commit()
             return school
 
+    def get_school_exist_by_school_logo(self, school_logo):  # 根据school_logo查询school是否存在
+        with self.get_db() as session:
+            school = session.query(School.school_logo_id).filter(School.school_logo_id == school_logo).first()
+            session.commit()
+            return school
+
     def get_school_by_abbreviation(self, abbreviation):  # 根据学校简称查询school的基本信息
         with self.get_db() as session:
             school = session.query(School).filter(School.has_delete == 0, School.school_abbreviation == abbreviation
@@ -120,6 +126,12 @@ class CollegeModel(dbSession):
             session.commit()
             return college
 
+    def get_college_exist_by_college_logo(self, college_logo):  # 根据college_logo查询college是否存在
+        with self.get_db() as session:
+            college = session.query(College.college_logo_id).filter(College.college_logo_id == college_logo).first()
+            session.commit()
+            return college
+
     def get_college_logo_by_id(self, id):  # 根据id查询college的logo
         with self.get_db() as session:
             logo = session.query(College.college_logo).filter(College.id == id, College.has_delete == 0).first()
@@ -187,6 +199,7 @@ class MajorModel(dbSession):
     def add_major(self, obj: major_interface):  # 添加一个major
         obj_dict = jsonable_encoder(obj)
         obj_dict.pop('school_id')
+        obj_dict.pop('education_program')
         obj_add = Major(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)

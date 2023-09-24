@@ -1,32 +1,26 @@
 import hashlib
 from datetime import datetime, date
 from typing import Any
-
-from fastapi import File, UploadFile
 from pydantic import BaseModel, ConfigDict
 
 
 class login_interface(BaseModel):
     username: str = None
     password: str = None
-    has_delete: int = 0
 
 
 class register_interface(login_interface):
     email: str = None
-    registration_dt: datetime = datetime.now()
 
 
 class captcha_interface(register_interface):
     captchaId: str = None
     captcha: str = None
     type: int = None
-    has_delete: int = 0
 
 
 class user_add_interface(register_interface):
     card_id: str = None
-    status: int = 1
 
 
 class user_add_batch_interface(BaseModel):
@@ -42,15 +36,13 @@ class session_interface(BaseModel):
     user_id: int
     file_id: int = None
     token: str
-    token_s6: str = None
     use: int = 0
+    token_s6: str = None
     use_limit: int = None
     exp_dt: datetime
     ip: str
     user_agent: str
-    create_dt: datetime = datetime.now()
     func_type: int
-    has_delete: int = 0
 
 
 class school_interface(BaseModel):
@@ -61,8 +53,7 @@ class school_interface(BaseModel):
     name: str = None
     school_abbreviation: str = None
     file_id: int = None
-    school_logo: str = None
-    has_delete: int = 0
+    school_logo_id: int = None
 
 
 class college_interface(BaseModel):
@@ -70,20 +61,21 @@ class college_interface(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    name: str = None
-    school_id: int = None
+    name: str
+    school_id: int
     file_id: int = None
-    college_logo: str = None
-    has_delete: int = 0
+    college_logo_id: int = None
 
 
-class major_interface(college_interface):
+class major_interface(BaseModel):
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    college_id: int = None
-    has_delete: int = 0
+    name: str
+    school_id: int
+    college_id: int
+    education_program: dict
 
 
 class class_interface(college_interface):
@@ -92,7 +84,6 @@ class class_interface(college_interface):
         from_attributes=True,
     )
     college_id: int = None
-    has_delete: int = 0
 
 
 class password_interface(BaseModel):
@@ -130,7 +121,6 @@ class user_info_interface(BaseModel):
     class_id: str = None
     enrollment_dt: date = None
     graduation_dt: date = None
-    has_delete: int = 0
 
 
 class admin_user_add_interface(user_add_interface, user_info_interface):
@@ -145,7 +135,6 @@ class parameters_interface(BaseModel):
     url: str
     para: Any
     body: Any
-    has_delete: int = 0
 
 
 class user_interface(BaseModel):
@@ -155,9 +144,23 @@ class user_interface(BaseModel):
 
 class reason_interface(BaseModel):
     reason: str
-    has_delete: int = 0
 
 
-class file_interface(BaseModel):
-    file: UploadFile = File(...)
-    role_id: int
+class education_program_interface(BaseModel):
+    major_id: int
+    thought_political_theory: float = None
+    college_sports: float = None
+    college_english: float = None
+    chinese_culture: float = None
+    art_aesthetics: float = None
+    innovation_entrepreneurship: float = None
+    humanities: float = None
+    social_sciences: float = None
+    scientific_literacy: float = None
+    information_technology: float = None
+    general_education_elective: float = None
+    major_compulsory_courses: float = None
+    major_elective_courses: float = None
+    key_improvement_courses: float = None
+    qilu_entrepreneurship: float = None
+    jixia_innovation: float = None

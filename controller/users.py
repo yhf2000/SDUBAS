@@ -14,9 +14,10 @@ from fastapi import Request, Header, Depends
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
 from model.db import session_db, user_information_db
+from model.user import encrypted_password
 from service.permissions import permissionModel
-from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, encrypted_password, CaptchaModel
-from type.functions import make_parameters, search_son_user, get_email_token, get_user_id
+from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
+from type.functions import make_parameters, search_son_user, get_email_token, get_user_id, get_user_information
 from type.page import page
 from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
@@ -78,34 +79,23 @@ async def user_add_all(request: Request, information: user_add_batch_interface, 
         user_key = ['用户名', '密码', '邮箱', '学号']
         user_info_key = ['姓名', '性别', '入学时间', '毕业时间']
         temp = {key: information.information_list[i][key] for key in user_key if key in information.information_list[i]}
-        new_key1 = 'username'
-        new_key2 = 'password'
-        new_key3 = 'email'
-        new_key4 = 'card_id'
-        temp[new_key1] = temp.pop('用户名')
-        temp[new_key2] = temp.pop('密码')
-        temp[new_key3] = temp.pop('邮箱')
-        temp[new_key4] = temp.pop('学号')
+        temp['username'] = temp.pop('用户名')
+        temp['password'] = temp.pop('密码')
+        temp['email'] = temp.pop('邮箱')
+        temp['card_id'] = temp.pop('学号')
         user_data = user_add_interface(**temp)
         result = await user_unique_verify(user_data)  # 验证要添加的用户各项信息是否存在
         ans = json.loads(result.body)
         if ans['code'] != 0:
             ans['message'] = '第' + str(i + 1) + '位' + ans['message']  # 报出第几位有问题
             return ans
-        user_data.registration_dt = user_data.registration_dt.strftime(
-            "%Y-%m-%d %H:%M:%S")
-        user_data.password = encrypted_password(user_data.password, user_data.registration_dt)  # 加密密码
         user.append(user_data)
         temp = {key: information.information_list[i][key] for key in user_info_key if
                 key in information.information_list[i]}
-        new_key1 = 'realname'
-        new_key2 = 'gender'
-        new_key3 = 'enrollment_dt'
-        new_key4 = 'graduation_dt'
-        temp[new_key1] = temp.pop('姓名')
-        temp[new_key2] = temp.pop('性别')
-        temp[new_key3] = temp.pop('入学时间')
-        temp[new_key4] = temp.pop('毕业时间')
+        temp['realname'] = temp.pop('姓名')
+        temp['gender'] = temp.pop('性别')
+        temp['enrollment_dt'] = temp.pop('入学时间')
+        temp['graduation_dt'] = temp.pop('毕业时间')
         user_info_data = user_info_interface(**temp)
         user_info.append(user_info_data)
     user_id_list = user_model.add_all_user(user)  # 添加所有的user得到user_id_list
@@ -151,7 +141,9 @@ async def user_delete(request: Request, user_id: int, session=Depends(auth_permi
 @users_router.put("/user_ban/{user_id}")
 @user_standard_response
 async def user_ban(request: Request, user_id: int, reason: reason_interface,
-                   session=Depends(auth_permission_default)):
+                   session=Depends(auth_login)):
+    if user_id == session['user_id']:
+        return {'message': '不能封禁自己', 'data': False, 'code': 4}
     exist_user = user_model.get_user_status_by_user_id(user_id)  # 查询用户的帐号状态
     if exist_user is None:  # 没有该用户
         return {'message': '没有该用户', 'data': False, 'code': 1}
@@ -187,7 +179,6 @@ async def user_relieve(request: Request, user_id: int, reason: reason_interface,
 @users_router.post("/unique_verify")
 @user_standard_response
 async def user_unique_verify(reg_data: user_add_interface):
-    flag = 0
     if reg_data.username is not None:  # 验证用户名唯一性
         exist_username = user_model.get_user_status_by_username(reg_data.username)
         if exist_username is not None:
@@ -261,11 +252,10 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
                                 use_limit=1, exp_dt=(
                 datetime.datetime.now() + datetime.timedelta(minutes=5)))  # 新建一个session
     id = session_model.add_session(session)
-    session.exp_dt = time.strptime(session.exp_dt.strftime(
-        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-    session.create_dt = time.strptime(session.create_dt.strftime(
-        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-    user_session = json.dumps(session.model_dump())
+    session = session.model_dump()
+    session['exp_dt'] = session['exp_dt'].strftime(
+        "%Y-%m-%d %H:%M:%S")
+    user_session = json.dumps(session)
     session_db.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
     return {'data': True, 'token_header': token, 'message': '验证码已发送，请前往验证！', 'code': 0}
 
@@ -273,9 +263,12 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
 # 用户通过输入邮箱验证码激活
 @users_router.put("/activation")
 @user_standard_response
-async def user_activation(email_data: email_interface, request: Request, token=Depends(auth_not_login), type: int = 0):
+async def user_activation(email_data: email_interface, request: Request, type: int = 0):
     token = request.cookies.get("TOKEN")
     session = session_db.get(token)  # 从缓存中得到有效session
+    if session is None:
+        session_model.delete_session_by_token(token)
+        return {'message': '验证码已过期', 'code': 1, 'data': False}
     user_session = session_model.get_session_by_token(token)  # 根据token获取用户的session
     if user_session is None:
         return {'message': '验证码已过期', 'code': 1, 'data': False}
@@ -288,36 +281,19 @@ async def user_activation(email_data: email_interface, request: Request, token=D
             parameters = await make_parameters(request)
             if type == 0:  # 用户激活时进行验证
                 user_model.update_user_status(user_session.user_id, 0)
-                add_operation.delay(0, user_session.user_id, '用户激活时输入了正确的邮箱验证码通过验证', parameters, user_session.user_id)
+                add_operation.delay(0, user_session.user_id, '用户激活时输入了正确的邮箱验证码通过验证', parameters,
+                                    user_session.user_id)
                 return {'message': '验证成功', 'data': True, 'token_header': '-1', 'code': 0}
             if type == 1:  # 修改邮箱时进行验证
                 user_model.update_user_email(user_session.user_id, email_data.email)
-                add_operation.delay(0, user_session.user_id, '修改邮箱时输入了正确的邮箱验证码通过验证', parameters, user_session.user_id)
+                add_operation.delay(0, user_session.user_id, '修改邮箱时输入了正确的邮箱验证码通过验证', parameters,
+                                    user_session.user_id)
                 return {'message': '验证成功', 'data': True, 'token_header': '-1', 'code': 0}
         else:
             return {'message': '验证码输入错误', 'code': 2, 'data': False}
     else:  # 缓存中找不到，说明已无效
         session_model.delete_session(user_session.id)
         return {'message': '验证码已过期', 'code': 1, 'data': False}
-
-
-'''
-@users_router.post("/user_bind_information")  # 自己注册的用户绑定个人信息
-@user_standard_response
-async def user_bind_information(request: Request, user_data: user_info_interface, session=Depends(auth_login)):
-    card_data = user_add_interface(card_id=user_data.card_id, type=1)
-    await user_unique_verify(card_data)
-    user_model.update_user_card_id(session['user_id'], user_data.card_id)  # 更新用户的card_id
-    user_data.user_id = session['user_id']
-    id = user_info_model.add_userinfo(user_data)  # 在user_info表里添加
-    user_information = user_information_db.get(session["token"])
-    if user_information is not None:
-        user_information_db.delete(session["token"])
-    current_path = request.url.path
-    add_operation.delay(0, session['user_id'], '用户绑定个人信息', '用户通过输入学号，真实姓名，性别，专业，班级，入学时间与毕业时间进行绑定',
-                        session['user_id'], current_path)  # 添加一个绑定个人信息的操作
-    return {'message': '绑定成功', 'data': True,'code':0}
-'''
 
 
 # 输入账号密码进行登录
@@ -345,11 +321,10 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
                                         token=token, user_agent=user_agent, exp_dt=(
                         datetime.datetime.now() + datetime.timedelta(days=14)))
             id = session_model.add_session(session)
-            session.exp_dt = time.strptime(session.exp_dt.strftime(
-                "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-            session.create_dt = time.strptime(session.create_dt.strftime(
-                "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-            user_session = json.dumps(session.model_dump())
+            session = session.model_dump()
+            session['exp_dt'] = session['exp_dt'].strftime(
+                "%Y-%m-%d %H:%M:%S")
+            user_session = json.dumps(session)
             session_db.set(token, user_session, ex=1209600)  # 缓存有效session
             parameters = await make_parameters(request)
             add_operation.delay(0, int(user_information.id), '用户登录', parameters, int(user_information.id))
@@ -370,6 +345,7 @@ async def user_logout(request: Request, session=Depends(auth_login)):
     return {'message': '下线成功', 'data': {'result': mes}, 'token': '-1', 'code': 0}
 
 
+'''
 # 输入新的用户名进行修改用户名
 @users_router.put("/username_update")
 @user_standard_response
@@ -385,7 +361,10 @@ async def user_username_update(request: Request, log_data: login_interface, sess
         user_information = json.loads(user_information)
         user_information['username'] = log_data['username']
         user_information_db.set(session["token"], json.dumps(user_information), ex=1209600)  # 缓存有效session
+    else:
+        session_model.delete_session_by_token(session["token"])
     return {'message': '修改成功', 'data': {'user_id': user_id}, 'code': 0}
+'''
 
 
 # 输入原密码与新密码更改密码
@@ -418,6 +397,8 @@ async def user_email_update(email_data: email_interface, request: Request, sessi
         user_information = json.loads(user_information)
         user_information['email'] = email_data.email
         user_information_db.set(session["token"], json.dumps(user_information), ex=1209600)  # 缓存有效session
+    else:
+        session_model.delete_session_by_token(session["token"])
     return {'data': True, 'message': ans['message'], 'code': 0}
 
 
@@ -459,54 +440,25 @@ async def user_set_password(request: Request, new_password: str, token: str):
 @users_router.get("/getProfile")
 @user_standard_response
 async def user_get_Profile(session=Depends(auth_login)):
-    user_information = user_information_db.get(session['token'])  # 缓存中中没有
-    if user_information is None:
-        user_information = user_model.get_user_information_by_id(session['user_id'])
-        data = dict(user_information[0].__dict__)
-        data['is_bind'] = 0
-        if user_information[1] != None:
-            data.update(user_information[1].__dict__)
-            data['enrollment_dt'] = time.mktime(time.strptime(data['enrollment_dt'].strftime("%Y-%m-%d"), "%Y-%m-%d"))
-            data['graduation_dt'] = time.mktime(time.strptime(data['graduation_dt'].strftime("%Y-%m-%d"), "%Y-%m-%d"))
-            data['is_bind'] = 1
-        data.pop('_sa_instance_state')
-        data['registration_dt'] = time.mktime(
-            time.strptime(data['registration_dt'].strftime("%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S"))
-        Json = json.dumps(data)
-        user_information_db.set(session['token'], Json, ex=1209600)
-        return {'data': data, 'message': '结果如下', 'code': 0}
-    return {'data': json.loads(user_information), 'message': '结果如下', 'code': 0}
+    data = get_user_information(session['user_id'])
+    return {'data': data, 'message': '结果如下', 'code': 0}
 
 
-# 检查用户登录状态
-@users_router.get("/status")
-@status_response
-async def user_get_status(request: Request):
-    token = request.cookies.get("SESSION")
-    login_status = 1
-    session = session_db.get(token)
-    if session is not None:  # 有效session中有，说明登录了
-        login_status = 0
-        user_id = json.loads(session)['user_id']  # 从缓存中获取user_id
-    else:
-        user_id = session_model.get_session_by_token(token).user_id  # 根据session获取user_id
-    user_information = user_model.get_user_by_user_id(user_id)  # 查找出用户的信息
-    account_status = user_information.status  # 帐号状态
-    data = dict()
-    realname = user_info_model.get_userinfo_by_user_id(user_id).realname
-    data['username'] = user_information.username  # 返回用户的基本信息
-    data['realname'] = realname
-    data['email'] = user_information.email
-    data['card_id'] = user_information.card_id
-    return {'message': '结果如下', 'data': data, 'login_status': login_status, 'account_status': account_status, 'code': 0}
 
 
-'''
 @users_router.get("/error")  # 检查用户异常状态原因
 @user_standard_response
-async def user_get_error(username: str):
-    user_id = user_model.get
-    reason = operation_model.get_operation_by_service_func(0, user_id, '用户封禁')  # 查看被封禁原因
-    username = user_model.get_user_by_user_id(reason.oper_user_id).username  # 看被谁封禁
+async def user_get_error(username: str,password:str,email:str):
+    exist_user = user_model.get_user_some_by_username(username)
+    if exist_user is None:
+        return {'message': '没有该用户', 'data': False, 'code': 1}
+    if exist_user[0] != email:
+        return {'message': '用户绑定邮箱不正确', 'data': False, 'code': 2}
+    if exist_user[1] != encrypted_password(password,exist_user[2].strftime(
+        "%Y-%m-%d %H:%M:%S")):
+        return {'message': '密码不正确', 'data': False, 'code': 3}
+    reasons = operation_model.get_operation_by_service_func(0, exist_user[3], '封禁用户')  # 查看被封禁原因
+    reason = reasons[0][8:]
+    oper_user_id = reasons[1]
+    username = user_model.get_user_name_by_user_id(oper_user_id)[0]  # 看被谁封禁
     return {'message': '用户异常状态原因', 'data': {'封禁原因': reason, '封禁人': username}, 'code': 0}
-'''

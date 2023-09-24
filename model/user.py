@@ -1,13 +1,23 @@
+import datetime
+import hashlib
+
 from sqlalchemy import (
     Column,
     Integer,
     DateTime,
     VARCHAR,
-    ForeignKey, Date, Index,
+    ForeignKey, Date, Index, func, Float, event,
 )
 from sqlalchemy.orm import relationship
 
 from model.db import Base
+
+
+def encrypted_password(password, salt):  # 对密码进行加密
+    res = hashlib.sha256()
+    password += salt
+    res.update(password.encode())
+    return res.hexdigest()
 
 
 class User(Base):  # 用户表
@@ -21,13 +31,21 @@ class User(Base):  # 用户表
     password = Column(VARCHAR(128), nullable=False, comment='密码')  # 密码，非空
     email = Column(VARCHAR(64), nullable=False, unique=True, comment='邮箱地址')  # 邮箱，非空，唯一
     card_id = Column(VARCHAR(32), nullable=True, unique=True, comment='学号或工号，SDU+学号')  # 学号，可空，唯一
-    registration_dt = Column(DateTime, nullable=False, comment='注册时间，新建时自动填写')  # 注册时间，非空
+    registration_dt = Column(DateTime, nullable=False, comment='注册时间，新建时自动填写', default=func.now())  # 注册时间，非空
     storage_quota = Column(Integer, nullable=False, comment='存储空间限制（MB）', default=32)  # 存储空间限制（MB），非空
-    status = Column(Integer, nullable=False, index=True, comment='是否已经禁用:0 正常使用,1 账号未激活,2 账号已注销,3 账号被封禁,')  # 账号状态，非空
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
-    session = relationship("User_info")  # 一对多关系
-    session1 = relationship("Session")
-    session2 = relationship("Operation")
+    status = Column(Integer, nullable=False, index=True,
+                    comment='是否已经禁用:0 正常使用,1 账号未激活,2 账号已注销,3 账号被封禁,', default=1)  # 账号状态，非空
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
+
+
+@event.listens_for(User, 'before_insert')  # 再插入前自动加密
+def auto_encrypted_password(mapper, connection, target):
+    registration_dt = datetime.datetime.now()
+    target.registration_dt = registration_dt
+    registration_dt = registration_dt.strftime(
+        "%Y-%m-%d %H:%M:%S")
+    password = target.password
+    target.password = encrypted_password(password, registration_dt)
 
 
 class User_info(Base):  # 用户信息表
@@ -39,11 +57,11 @@ class User_info(Base):  # 用户信息表
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True, comment='外键，用户id')  # 用户id,外键，非空
     realname = Column(VARCHAR(32), nullable=False, comment='真实姓名')  # 真实姓名，非空
     gender = Column(Integer, nullable=False, comment='性别:0 男性 (Male),1 女性 (Female),2 其他 (Other)')  # 性别，非空
-    major_id = Column(Integer, ForeignKey('major.id'), comment='专业id，外键')  # 专业id，外键，非空
-    class_id = Column(Integer, ForeignKey('class.id'), comment='班级id，外键')  # 班级id，外键，非空
+    major_id = Column(Integer, ForeignKey('major.id'), nullable=True, comment='专业id，外键')  # 专业id，外键，可空
+    class_id = Column(Integer, ForeignKey('class.id'), nullable=True, comment='班级id，外键')  # 班级id，外键，可空
     enrollment_dt = Column(Date, nullable=False, comment='入学时间')  # 入学时间，非空
     graduation_dt = Column(Date, nullable=False, comment='毕业时间')  # 毕业时间，非空
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
 
 class School(Base):  # 学校表
@@ -55,9 +73,9 @@ class School(Base):  # 学校表
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     name = Column(VARCHAR(64), nullable=False, unique=True, comment='学校名称')  # 学校名称，非空，唯一
     school_abbreviation = Column(VARCHAR(10), nullable=False, comment='学校简称，如SDU')  # 学校简称，非空
-    school_logo = Column(VARCHAR(64), nullable=False, unique=True, comment='学校logo')  # 学校logo，非空唯一
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
-    session = relationship("College")
+    school_logo_id = Column(Integer, ForeignKey('user_file.id'), nullable=False, unique=True,
+                            comment='学校logo')  # 学校logo，非空唯一
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
 
 class College(Base):  # 学院表
@@ -70,10 +88,9 @@ class College(Base):  # 学院表
     school_id = Column(Integer, ForeignKey('school.id'), nullable=False, index=True,
                        comment='外键，学校 ID')  # 外键，学校id，非空，索引
     name = Column(VARCHAR(64), nullable=False, comment='学院名称')  # 学院名称，非空
-    college_logo = Column(VARCHAR(64), nullable=False, unique=True, comment='学院logo')  # 学院logo，非空唯一
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
-    session = relationship("Major")
-    session1 = relationship("Class")
+    college_logo_id = Column(Integer, ForeignKey('user_file.id'), nullable=False, unique=True,
+                             comment='学院logo')  # 学院logo，非空唯一
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
 
 class Major(Base):  # 专业表
@@ -85,7 +102,7 @@ class Major(Base):  # 专业表
     college_id = Column(Integer, ForeignKey('college.id'), nullable=False, index=True,
                         comment='外键，学院ID')  # 外键，学院id，非空，索引
     name = Column(VARCHAR(64), nullable=False, comment='专业名称')  # 专业名称，非空
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
 
 class Class(Base):  # 班级表
@@ -97,7 +114,7 @@ class Class(Base):  # 班级表
     college_id = Column(Integer, ForeignKey('college.id'), nullable=False, index=True,
                         comment='外键，学院ID')  # 外键，学院id，非空，索引
     name = Column(VARCHAR(64), nullable=False, comment='班级名称')  # 班级名称，非空
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
 
 class Operation(Base):  # 操作表
@@ -109,7 +126,7 @@ class Operation(Base):  # 操作表
     parameters = Column(VARCHAR(4 * 1024), comment='操作参数')  # 操作参数
     oper_user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True,
                           comment='操作人 id，外键')  # 操作人 id，外键，非空，索引
-    oper_dt = Column(DateTime, nullable=False, comment='操作时间')
+    oper_dt = Column(DateTime, nullable=False, default=datetime.datetime.now(), comment='操作时间')
     oper_hash = Column(VARCHAR(128), index=True, comment='操作哈希值')  # 操作哈希值，索引
 
 
@@ -131,33 +148,38 @@ class Session(Base):  # session表
     exp_dt = Column(DateTime, comment='过期时间', nullable=False)  # 过期时间，非空
     ip = Column(VARCHAR(32), comment='客户端ip')  # ip
     user_agent = Column(VARCHAR(256), comment='客户端信息')  # 客户端信息
-    create_dt = Column(DateTime, comment='创建时间')  # 创建时间
-    func_type = Column(Integer, comment='0 用户登录 session:1 用户邮箱验证 session,2 文件下载 session,3 文件上传 session')  # 操作类型
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否已经删除
+    create_dt = Column(DateTime, comment='创建时间', default=func.now())  # 创建时间
+    func_type = Column(Integer,
+                       comment='0 用户登录 session:1 用户邮箱验证 session,2 文件下载 session,3 文件上传 session')  # 操作类型
+    has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否已经删除
 
 
 class Captcha(Base):  # 验证码表
     __tablename__ = 'captcha'
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     value = Column(VARCHAR(8), nullable=False, comment='验证码值')  # 验证码值，非空
-    has_delete = Column(Integer, nullable=False, index=True, comment='是否已经删除')  # 是否已经删除
+    has_delete = Column(Integer, nullable=False, index=True, comment='是否已经删除', default=0)  # 是否已经删除
 
 
-class Development_Program(Base):  # 培养方案表
-    __tablename__ = 'development_program'
-    id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
-    major_id = Column(Integer, ForeignKey('majore.id'), nullable=False, index=True,
-                        comment='外键，专业ID')  # 外键，专业id，非空，索引
-    political_education = Column(Integer, nullable=True,comment="思想政治理论课")
-    physical_education = Column(Integer, nullable=True, comment="大学体育")
-    english = Column(Integer, nullable=True, comment="大学英语")
-    general_education = Column(Integer, nullable=True, comment="通识教育核心课程")
-    chinese_studies = Column(Integer, nullable=True, comment="国学修养")
-    art_aesthetics = Column(Integer, nullable=True, comment="艺术审美")
-    innovation_entrepreneurship = Column(Integer, nullable=True, comment="创新创业")
-    humanities = Column(Integer, nullable=True, comment="人文学科")
-    social_sciences = Column(Integer, nullable=True, comment="社会科学")
-    scientific_literacy = Column(Integer, nullable=True, comment="科学素养")
-    information_technology = Column(Integer, nullable=True, comment="信息技术")
-    general_elective = Column(Integer, nullable=True, comment="通识教育选修课程")
-    has_delete = Column(Integer, nullable=False, comment='是否已经删除')  # 是否被删除，非空
+class Education_Program(Base):  # 培养方案表
+    __tablename__ = 'education_program'
+    id = Column(Integer, primary_key=True, comment='培养方案ID')
+    major_id = Column(Integer, ForeignKey('major.id'), nullable=False, index=True, unique=True,
+                      comment='外键，专业ID')  # 外键，专业id，非空，索引
+    thought_political_theory = Column(Float, nullable=True, comment='思想政治理论课')
+    college_sports = Column(Float, nullable=True, comment='大学体育')
+    college_english = Column(Float, nullable=True, comment='大学英语')
+    chinese_culture = Column(Float, nullable=True, comment='国学修养')
+    art_aesthetics = Column(Float, nullable=True, comment='艺术审美')
+    innovation_entrepreneurship = Column(Float, nullable=True, comment='创新创业')
+    humanities = Column(Float, nullable=True, comment='人文学科')
+    social_sciences = Column(Float, nullable=True, comment='社会科学')
+    scientific_literacy = Column(Float, nullable=True, comment='科学素养')
+    information_technology = Column(Float, nullable=True, comment='信息技术')
+    general_education_elective = Column(Float, nullable=True, comment='通识教育选修课程')
+    major_compulsory_courses = Column(Float, nullable=True, comment='专业必修课程')
+    major_elective_courses = Column(Float, nullable=True, comment='专业选修课程')
+    key_improvement_courses = Column(Float, nullable=True, comment='重点提升必修课程')
+    qilu_entrepreneurship = Column(Float, nullable=True, comment='齐鲁创业')
+    jixia_innovation = Column(Float, nullable=True, comment='稷下创新')
+    has_delete = Column(Integer, nullable=False, index=True, comment='是否已经删除', default=0)  # 是否被删除，非空
