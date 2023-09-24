@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 from fastapi import HTTPException, Request
@@ -11,7 +12,7 @@ from model.project import Project, ProjectContent, ProjectCredit, ProjectContent
     ProjectContentUserSubmission, ProjectContentUserScore
 from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate, ProjectBase_Opt, \
     ProjectContentBaseOpt, user_submission, user_submission_Opt, Submission_Opt, SubmissionListCreate, \
-    project_content_renew, content_score, User_Opt, ProjectCreate, video_finish_progress
+    project_content_renew, content_score, User_Opt, ProjectCreate, video_finish_progress, Credit_Opt
 from type.page import page, dealDataList
 from sqlalchemy import and_
 from service.permissions import permissionModel
@@ -42,10 +43,16 @@ class ProjectService(dbSession):
                 session.add(db_content)
                 session.commit()
             role_model = permissionModel()
+            superiorId = role_model.search_user_default_role(user_id)
             for role in project.roles:
                 role_id = role_model.add_role_for_work(service_id=db_project.id,
                                                        service_type=7, user_id=user_id, role_name=role.role_name)
                 role_model.attribute_privilege_for_role(role.privilege_list, role_id)
+            self_role = role_model.add_role_for_work(service_id=db_project.id,
+                                         service_type=7, user_id=user_id, role_name=db_project.name)
+            all_privilege = role_model.search_privilege_id_list(7)
+            role_model.attribute_privilege_for_role(all_privilege, self_role)
+            role_model.attribute_user_role(user_id, self_role)
             return db_project.id
 
     def update_project(self, project_id: int, newproject: ProjectUpdate, user_id: int) -> int:
@@ -89,7 +96,8 @@ class ProjectService(dbSession):
             file_urls = get_url_by_user_file_id(request, date['img_id'])
             date['url'] = file_urls[date['img_id']]['url']
             date['file_type'] = file_urls[date['img_id']]['file_type']
-            date['contents'] = self.list_projects_content(project_id=project_id, user_id=user_id)
+            date['contents'] = self.list_projects_content(request=request, project_id=project_id, user_id=user_id)
+
             return date
 
     def list_projects_content(self, request: Request, project_id: int, user_id: int):
@@ -497,3 +505,63 @@ class ProjectService(dbSession):
                     else:
                         return 'renew_finish'
             return 'renew_failure'
+
+    def get_project_credits_all(self, project_id: int):
+        with self.get_db() as session:
+            query = session.query(ProjectCredit).filter(ProjectCredit.project_id == project_id)
+            results = query.all()
+            results = dealDataList(results, Credit_Opt, {})
+            return results
+
+    def renew_project_content_special(self, project_id: int, content_id: int, user_id: int):
+        with self.get_db() as session:
+            content = session.query(ProjectContent).filter(ProjectContent.id == content_id,
+                                                           ProjectContent.project_id == project_id,
+                                                           ProjectContent.has_delete == 0).first()
+            description = content.feature
+            result = {}
+            pairs = description.split(';')
+            for pair in pairs:
+                key_value = pair.split(':')
+                if len(key_value) == 2:
+                    key = key_value[0]
+                    values = [int(num) for num in key_value[1].split(',')]
+                    result[key] = values  # 对字符串进行处理
+            count = len(result['c'])
+
+            # 获取所有符合条件的 ProjectContentUserScore 的 is_pass 的和
+            total_pass = session.query(func.sum(ProjectContentUserScore.is_pass)).filter(
+                ProjectContentUserScore.user_pcs_id.in_(result['c']),
+                ProjectContentUserScore.user_id == user_id).scalar()
+            if total_pass == count:
+                query = session.query(ProjectContentUserScore).filter(ProjectContentUserScore.user_pcs_id == content_id,
+                                                                      ProjectContentUserScore.user_id == user_id)
+                check_score = query.first()
+                if check_score is None:
+                    db_score = ProjectContentUserScore(id=None,
+                                                       user_pcs_id=content_id, user_id=user_id,
+                                                       judger=1, honesty='', honesty_weight=0,
+                                                       is_pass=1, score=None, comment='')
+                    session.add(db_score)
+                    session.commit()
+                    session.refresh(db_score)
+                else:
+                    session.query(ProjectContentUserScore). \
+                        filter(ProjectContentUserScore.user_id == user_id,
+                               ProjectContentUserScore.user_pcs_id == content_id).update(
+                        {'is_pass': 1})
+                return 1
+            return 0
+
+    def get_user_personal_file_by_user_id(self, user_id):
+        with self.get_db() as session:
+            role_model = permissionModel()
+            role_list = role_model.search_role_by_user(user_id)
+            service_ids = role_model.search_service_id(role_list, service_type=7, name="查看项目")
+            # service_ids = [1, 2, 3, 4, 5, 6, 7]
+            query = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids))
+            # 执行分页查询
+            data = query.all()  # .all()
+            # 序列化结
+            results = dealDataList(data, ProjectBase_Opt, {'has_delete'})
+            return {'project': results}
