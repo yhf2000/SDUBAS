@@ -45,6 +45,15 @@ class RSAKeys(Base):  #用户RSA公私钥表
     expires_at = Column(DateTime,server_default=text("(CURRENT_TIMESTAMP + INTERVAL 14 DAY)"),nullable=False)
     has_delete = Column(Boolean, index=True,default=0,nullable=False)  # 是否已经删除
 
+class ASEKey(Base):
+    __tablename__ = 'ASE_key'
+    id = Column(Integer, primary_key=True)  # 主键
+    file_id = Column(Integer, ForeignKey('user_file.id'), nullable=False)  # 文件id，外键
+    ase_key = Column(String(128), nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    has_delete = Column(Boolean, index=True, default=0, nullable=False)  # 是否已经删除
+
+
 
 class Servers(Base):  # 服务器表
     __tablename__ = 'Servers'

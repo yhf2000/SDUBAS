@@ -1,25 +1,24 @@
 import datetime
+import io
 import json
 import os
-import time
 import uuid
 from urllib.parse import quote
-
 from docx2pdf import convert
-
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import File, UploadFile
 from fastapi import Request, Header, Depends
+from minio import S3Error
 from starlette.responses import FileResponse, JSONResponse, StreamingResponse
 from Celery.add_operation import add_operation
-from model.db import session_db
+from model.db import session_db, minio_client
 from service.file import FileModel, UserFileModel, RSAModel
 from service.user import UserModel, SessionModel
-from type.file import file_interface, user_file_interface, RSA_interface, user_file_all_interface
+from type.file import file_interface, user_file_interface, user_file_all_interface
+from type.functions import make_parameters, remove_extension, \
+    find_files_with_name_and_extension, ppt_to_pdf,download_files
 from type.page import page
 from type.user import session_interface
-from type.functions import make_parameters, generate_rsa_key_pair, decrypt_file, encrypt_file, remove_extension, \
-    find_files_with_name_and_extension, ppt_to_pdf
 from utils.auth_login import auth_login
 from utils.response import user_standard_response, page_response, makePageResult
 
@@ -89,15 +88,16 @@ async def file_upload(request: Request, file: UploadFile = File(...), session=De
     id = user_file_model.get_user_file_by_file_name(file.filename)  # 查看文件名是否存在
     if id is not None:
         return {'message': '文件名已存在，请修改后重新上传', 'data': None, 'code': 2}
-    contents = await file.read()
     file_id = user_file_model.get_file_id_by_id(old_session['file_id'])[0]
     get_file = file_model.get_file_by_id(file_id)
-    folder = "files" + '/' + get_file.hash_md5[:8] + '/' + get_file.hash_sha256[-8:] + '/'  # 先创建文件夹
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    with open(folder + file.filename,
-              "wb") as f:  # 取hash_md5前八位与hash_sha256的后八位
-        f.write(contents)  # 将获取的fileb文件内容，写入到新文件中
+    folder = get_file.hash_md5[:8] + '/' + get_file.hash_sha256[-8:] + '/'  # 先创建路由
+    try:
+        contents = await file.read()
+        object_prefix =folder   # 指定对象键前缀
+        object_name = object_prefix + file.filename# 构建对象键
+        minio_client.put_object('main', object_name, io.BytesIO(contents), len(contents))# 将文件内容上传到Minio存储桶中
+    except S3Error as e:
+        raise HTTPException(status_code=401, detail=f"Error: {e}")
     session_model.update_session_use_by_token(token, 1)  # 将该session使用次数设为1
     session_model.delete_session_by_token(token)  # 将该session设为已失效
     session_db.delete(token)  # 将缓存删掉
@@ -154,7 +154,7 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
             session_model.update_session_use_by_token(token, 1)  # 将该session使用次数加1
         user_file = user_file_model.get_user_file_by_id(old_session['file_id'])
         file = file_model.get_file_by_id(user_file.file_id)
-        pre_folder = "files" + '/' + file.hash_md5[:8] + '/' + file.hash_sha256[-8:]
+        pre_folder =  file.hash_md5[:8] + '/' + file.hash_sha256[-8:]
         folder = pre_folder + '/' + user_file.name  # 先找到路径
         # private_key = RSA_model.get_private_key_by_user_id(session['user_id'])
         # decrypted_content = decrypt_file(folder,private_key[0].encode('utf-8'))
@@ -162,27 +162,29 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
         if old_session['use_limit'] == -1:
             if user_file.type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' or user_file.type == 'application/msword':  # word转pdf
                 file_name_without_extension = remove_extension(user_file.name)  # 除去后缀的文件名
-                matching_files = find_files_with_name_and_extension(pre_folder, file_name_without_extension, 'pdf')
                 filename = file_name_without_extension + '.pdf'
-                if matching_files:  # 找到了匹配的文件
-                    folder = matching_files[0]
+                pdf_file = pre_folder + '/' + filename
+                id = user_file_model.get_user_file_by_file_name(filename)
+                if id is not None:
+                    object_data = minio_client.get_object(pdf_file)
+                    folder = pdf_file
                 else:
                     word_file = folder
-                    pdf_file = pre_folder + '/' + file_name_without_extension + '.pdf'
-                    # 调用 convert 函数进行转换
                     new_file = user_file_all_interface(user_id=session['user_id'], file_id=user_file.file_id,
                                                        name=file_name_without_extension + '.pdf',
                                                        type='application/pdf')
                     user_file_model.add_user_file_all(new_file)
                     folder = pdf_file
-                    convert(word_file, pdf_file)
+                    # convert(word_file, pdf_file)# 调用 convert 函数进行转换
                 user_file.type = 'application/pdf'
             elif user_file.type == 'application/vnd.openxmlformats-officedocument.presentationml.presentation' or user_file.type == 'application/vnd.ms-powerpoint':  # ppt转pdf
                 file_name_without_extension = remove_extension(user_file.name)  # 除去后缀的文件名
-                matching_files = find_files_with_name_and_extension(pre_folder, file_name_without_extension, 'pdf')
                 filename = file_name_without_extension + '.pdf'
-                if matching_files:  # 找到了匹配的文件
-                    folder = matching_files[0]
+                pdf_file = pre_folder + '/' + filename
+                id = user_file_model.get_user_file_by_file_name(filename)
+                if id is not None:
+                    object_data = minio_client.get_object(pdf_file)
+                    folder = pdf_file
                 else:
                     current_path = __file__.replace("\\",
                                                     "/") + '/' + '..' + '/' + '..' + '/' + pre_folder  # 要获取全局路径！！！
@@ -205,6 +207,7 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
             return FileResponse(folder, filename=filename, headers=headers)
             # return FileResponse(decrypted_content,headers=headers)
         else:
+            content = download_files(folder)
             parameters = await make_parameters(request)
             add_operation.delay(8, old_session['file_id'], '用户下载了一个文件', parameters, old_session['user_id'])
             '''
@@ -214,7 +217,9 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
             def file_generator():
                 yield decrypted_content
             return StreamingResponse(file_generator(), media_type="application/octet-stream",headers=headers)'''
-            return FileResponse(folder, filename=user_file.name)
+            return StreamingResponse(content, media_type='text/plain',headers={
+                    "Content-Disposition": f'attachment; filename="{user_file.name}"'
+                })
     return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
 
 

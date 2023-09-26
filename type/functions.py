@@ -16,7 +16,10 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from fastapi import Request
-from model.db import session_db, url_db, user_information_db
+from minio import Minio, S3Error
+from starlette.responses import JSONResponse
+
+from model.db import session_db, url_db, user_information_db, minio_client
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
 from service.user import SessionModel, UserModel, UserinfoModel, EducationProgramModel
@@ -306,3 +309,12 @@ def get_education_programs(major_id):  # 根据专业id查询培养方案的内�
     programs.pop('id')
     programs.pop('has_delete')
     return programs
+
+
+def download_files(object_key):  # 根据桶名称与文件名从Minio上下载文件
+    try:
+        object_data = minio_client.get_object('main', object_key)
+        content = io.BytesIO(object_data.read())
+        return content
+    except S3Error as e:
+        return JSONResponse(content={'message': e, 'code': 3, 'data': False})
