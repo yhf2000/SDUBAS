@@ -10,8 +10,6 @@ import os
 import random
 import time
 import uuid
-import win32com.client
-from docx import Document
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -87,8 +85,6 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
 def get_url(new_session, new_token):
     new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
         "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
-    new_session.create_dt = time.strptime(new_session.create_dt.strftime(
-        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
     url = 'http://127.0.0.1:8000/files/download/' + new_token
@@ -113,12 +109,15 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
             else:
                 url = url_db.get(id_list)
                 if url is not None:  # 有效url中有
+                    print(url)
                     urls.update({id_list: json.loads(url)})
                 else:
                     new_token = str(uuid.uuid4().hex)  # 生成token
                     new_session = make_download_session(new_token, request, user_file[1], id_list, -1, 72)
                     session_model.add_session(new_session)
                     url = get_url(new_session, new_token)
+                    print(url)
+                    print(type_map[user_file[2]])
                     temp = dict({"url": url, "file_type": type_map[user_file[2]]})
                     url_db.set(id_list, json.dumps(temp))
                     urls.update({id_list: temp})

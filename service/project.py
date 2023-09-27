@@ -49,7 +49,7 @@ class ProjectService(dbSession):
                                                        service_type=7, user_id=user_id, role_name=role.role_name)
                 role_model.attribute_privilege_for_role(role.privilege_list, role_id)
             self_role = role_model.add_role_for_work(service_id=db_project.id,
-                                         service_type=7, user_id=user_id, role_name=db_project.name)
+                                                     service_type=7, user_id=user_id, role_name=db_project.name)
             all_privilege = role_model.search_privilege_id_list(7)
             role_model.attribute_privilege_for_role(all_privilege, self_role)
             role_model.attribute_user_role(user_id, self_role)
@@ -76,6 +76,7 @@ class ProjectService(dbSession):
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="查看项目")
+            service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
             query = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids))
             total_count = query.count()  # 总共
             # 执行分页查询
