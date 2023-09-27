@@ -194,7 +194,7 @@ async def get_work_role(request: Request, service_id: int = Query(), service_typ
                         pageNow: int = Query(description="页码", gt=0),
                         pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     db = permissionModel()
-    user_id = int(request.headers.get("user_id"))
+    # user_id = int(request.headers.get("user_id"))
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, res = db.get_role_by_work(service_type, service_id)
     return makePageResult(pg=Page, tn=tn, data=res)

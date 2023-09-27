@@ -1,3 +1,4 @@
+from type.financial import User_Name_Add
 from utils.auth_permission import auth_permission, auth_permission_default
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from utils.response import standard_response, makePageResult
@@ -6,6 +7,7 @@ from type.page import page
 from type import financial as financial_Basemodel
 from type.functions import make_parameters
 from Celery.add_operation import add_operation
+from service.permissions import permissionModel
 
 resources_router = APIRouter()
 
@@ -59,12 +61,20 @@ async def Update_resource_by_count(request: Request, resource_id: int,
     return results
 
 
-@resources_router.post("/resource/apply/{resource_id}")  # 申请一个具体的资源
+@resources_router.post("/resource/apply/{resource_id}")  # 申请一个具体的资源(不需要审批版)
 @standard_response
 async def apply_Resource(resource_id: int, apiSchema: financial_Basemodel.ApplyBody,
                          user=Depends(auth_permission)):
     db = ResourceModel()
     return db.apply_resource(user_id=user['user_id'], resource_id=resource_id, data=apiSchema)
+
+
+@resources_router.get("/resource/application/{resource_id}")  # 查看资源被占用时间
+@standard_response
+async def get_application(resource_id: int,
+                         user=Depends(auth_permission)):
+    db = ResourceModel()
+    return db.get_resource_application(resource_id)
 
 
 @resources_router.get("/resource/apply/get")  # 获取所有可以审批的资源
@@ -117,6 +127,21 @@ async def delete(request: Request, resource_id: int, user=Depends(auth_permissio
     else:  # 无，项目找不到
         raise HTTPException(status_code=404, detail="Item not found")
 
+
+@resources_router.post("/resource/delete_user_in_resources/{resource_id}/{role_id}/{delete_user}")  # 删除资源用户
+@standard_response
+async def delete_user_in_project(request: Request, role_id: int, delete_user: int,
+                                 user=Depends(auth_permission)):
+    db = permissionModel()
+    db.delete_work_user(delete_user, role_id)
+    return 'OK'
+
+@resources_router.post("/resource/add_user_in_resources/{resource_id}")  # 添加资源用户
+@standard_response
+async def add_user_in_resources(request: Request, data: User_Name_Add):
+    db = permissionModel()
+    db.add_work_user(data.username, data.role_id)
+    return 'OK'
 
 @resources_router.post("/financial")  # 添加资金项目
 @standard_response
