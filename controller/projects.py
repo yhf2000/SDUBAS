@@ -314,7 +314,7 @@ async def get_all_content_user_score(request: Request,
 async def delete_user_in_project(request: Request, project_id: int, delete_user: int = Query(),
                                  user=Depends(auth_permission)):
     db = permissionModel()
-    db.delete_project_user(delete_user, project_id)
+    db.delete_work_user(delete_user, project_id)
     return 'OK'
 
 
@@ -322,5 +322,5 @@ async def delete_user_in_project(request: Request, project_id: int, delete_user:
 @standard_response
 async def add_user_in_project(request: Request, project_id: int, data: User_Name):
     db = permissionModel()
-    db.delete_project_user(delete_user, project_id)
+    db.add_work_user(delete_user, project_id)
     return 'OK'

@@ -78,10 +78,9 @@ class resource_count_update(BaseModel):
 
 
 class ApplyBody(BaseModel):
-    name: str
-    count: int = Field(..., gt=0)
-    begintime: str
-    endtime: str
+    day: int
+    begintime: float
+    endtime: float
 
 
 class Bill_basemodel(BaseModel):
@@ -103,3 +102,7 @@ class BillModelOpt(Bill_basemodel):
     @field_serializer('oper_dt')
     def serialize_dt(self, dt: datetime, _info):
         return getMsTime(dt)
+
+class User_Name_Add(BaseModel):
+    username: list
+    role_id: int
