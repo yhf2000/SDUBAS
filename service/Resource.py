@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+import datetime
 from typing import Any, Optional
 from fastapi.encoders import jsonable_encoder
 from model.financial import Resource, Financial
@@ -88,18 +88,51 @@ class ResourceModel(dbSession):
         # 返回成功或者失败
         with self.get_db() as session:
             role_model = permissionModel()
-            start_time = datetime.strptime(data.begintime, "%Y-%m-%d %H:%M:%S")
-            end_time = datetime.strptime(data.endtime, "%Y-%m-%d %H:%M:%S")
+            current_datetime = datetime.datetime.now()
+            current_datetime += datetime.timedelta(days=data.day)
             time_range = {
+                "year": current_datetime.year,
+                "month": current_datetime.month,
+                "day": current_datetime.day,
                 "start_time": data.begintime,
                 "end_time": data.endtime,
             }
             time_range_json = json.dumps(time_range)
             superiorId = role_model.search_user_default_role(user_id)
-            role_id = role_model.create_template_role('申请资源', superiorId, time_range_json)
+            role_id = role_model.create_template_role('资源使用', superiorId, time_range_json)
             role_model.attribute_user_role(user_id, role_id)
             role_model.attribute_role_for_work(5, resource_id, role_id)
             return 'OK'
+
+    def get_resource_application(self, resource_id: int):
+        with self.get_db() as session:
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).filter(
+                WorkRole.service_type == 5,
+                WorkRole.service_id == resource_id,
+                Role.has_delete == 0,
+                WorkRole.has_delete == 0,
+                Role.name == '资源使用'
+            ).all()
+            res = []
+            for item in query:
+                time_range = json.loads(item.template_val)
+                date_obj = datetime.datetime(time_range['year'], time_range['month'], time_range['day'])
+                current_date_only = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                time_difference = date_obj - current_date_only
+                days_difference = time_difference.days
+                if 0 <= days_difference <= 6:
+                    temp_res = {
+                        "day": days_difference,
+                        "start_time": time_range['start_time'],
+                        "end_time": time_range['end_time'],
+                    }
+                    res.append(temp_res)
+            return res
+
+
 
     def get_specific_applied_resources(self, user_id: int, resource_id: int):
         with self.get_db() as session:

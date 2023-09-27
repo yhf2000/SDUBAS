@@ -65,8 +65,8 @@ class permissionModel(dbSession):
             temp_dict = json.loads(result.superiorListId)
             superiorListId = add_superiorId(temp_dict, role_superiorId)
             NewRole = Role(name=role_name, description=role_name,
-                           superiorId=role_superiorId, superiorListId=superiorListId, template=1,
-                           template_val=template_val, status=1,
+                           superiorId=role_superiorId, superiorListId=superiorListId, template=0,
+                           template_val=template_val, status=0,
                            has_delete=0)
             session.add(NewRole)
             session.commit()
@@ -121,6 +121,16 @@ class permissionModel(dbSession):
 
     def attribute_user_role(self, user_id: int, role_id: int):  # 分配用户角色
         with self.get_db() as session:
+            query = session.query(UserRole).filter(
+                UserRole.role_id == role_id,
+                UserRole.user_id == user_id,
+                UserRole.has_delete == 0
+            ).first()
+            if query is not None:
+                raise HTTPException(
+                    status_code=402,
+                    detail="重复添加",
+                )
             new_user_role = UserRole(role_id=role_id, user_id=user_id, has_delete=0)
             session.add(new_user_role)
             session.commit()
@@ -234,7 +244,7 @@ class permissionModel(dbSession):
                     service_ids.append(item.service_id)
             return service_ids
 
-    def search_user_id_by_service(self, service_type: int, service_id: int): #userrolehasdelete
+    def search_user_id_by_service(self, service_type: int, service_id: int): #userrolehasdelete有改动
         with self.get_db() as session:
             user_list = []
             query = session.query(distinct(UserRole.user_id)).join(
@@ -242,7 +252,8 @@ class permissionModel(dbSession):
                 WorkRole.role_id == UserRole.role_id,
             ).filter(
                 WorkRole.service_type == service_type,
-                WorkRole.service_id == service_id
+                WorkRole.service_id == service_id,
+                UserRole.has_delete == 0
             )
             return query
 
@@ -391,24 +402,29 @@ class permissionModel(dbSession):
             total_count = len(res_list)
             return total_count, res_list
 
-    def delete_project_user(self, user_id: int, service_id: int):
+    def delete_work_user(self, user_id: int, role_id: int):
         with self.get_db() as session:
-            service_role_list = self.search_role_by_service(service_id, 7)
             query = session.query(UserRole).filter(
-                UserRole.role_id.in_(service_role_list),
+                UserRole.role_id == role_id,
                 UserRole.user_id == user_id
-            ).all()
-            for item in query:
-                item.has_delete = 1
-                session.add(item)
+            ).first()
+            if query is not None:
+                query.has_delete = 1
+                session.add(query)
             session.commit()
             return 'OK'
 
-    def add_project_user(self, name_list: list, project_id: int):
+    def add_work_user(self, name_list: list, role_id: int):
         with self.get_db() as session:
+            user_ids = []
             query = session.query(User).filter(
                 User.username.in_(name_list)
             ).all()
+            for item in query:
+                user_ids.append(item.id)
+            for item in user_ids:
+                self.attribute_user_role(item, role_id)
+            return 'OK'
 
 
     def search_created_user_info(self, user_id: int):
