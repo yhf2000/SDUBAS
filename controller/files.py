@@ -6,8 +6,7 @@ import uuid
 from urllib.parse import quote
 
 from docx2pdf import convert
-import docx
-from docx import Document
+
 from fastapi import APIRouter
 from fastapi import File, UploadFile
 from fastapi import Request, Header, Depends

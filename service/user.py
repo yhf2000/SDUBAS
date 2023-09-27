@@ -126,7 +126,7 @@ class UserModel(dbSession):
             return user
 
     def get_user_all_information_by_user_id(self, user_id):  # 根据user_id查询user的所有信息
-        with (self.get_db() as session):
+        with self.get_db() as session:
             informations = session.query(User.username, User.email, User.card_id, User.registration_dt,
                                          User_info.realname, User_info.gender, School.name, College.name, Major.name,
                                          Class.name, User_info.enrollment_dt, User_info.graduation_dt). \
