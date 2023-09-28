@@ -465,6 +465,24 @@ class permissionModel(dbSession):
                 new_role_list.append(item.role_id)
             return new_role_list
 
+    def search_role_info_by_service(self, service_id: int, service_type: int):
+        with self.get_db() as session:
+            role_list = []
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).filter(
+                WorkRole.service_type == service_type,
+                WorkRole.service_id == service_id
+            ).all()
+            for item in query:
+                temp = {
+                    "role_id": item.id,
+                    "role_name": item.name
+                }
+                role_list.append(temp)
+            return role_list
+
 
     def test(self, role_id: int):
         with self.get_db() as session:

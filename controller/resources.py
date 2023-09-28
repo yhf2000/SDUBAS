@@ -69,12 +69,12 @@ async def apply_Resource(resource_id: int, apiSchema: financial_Basemodel.ApplyB
     return db.apply_resource(user_id=user['user_id'], resource_id=resource_id, data=apiSchema)
 
 
-@resources_router.get("/resource/application/{resource_id}")  # 查看资源被占用时间
+@resources_router.get("/resource/application/{resource_id}/{day}")  # 查看资源被占用时间
 @standard_response
-async def get_application(resource_id: int,
+async def get_application(resource_id: int, day: int,
                          user=Depends(auth_permission)):
     db = ResourceModel()
-    return db.get_resource_application(resource_id)
+    return db.get_resource_application(resource_id, day)
 
 
 @resources_router.get("/resource/apply/get")  # 获取所有可以审批的资源
@@ -88,12 +88,17 @@ async def get_applied_resource(request: Request, pageNow: int = Query(descriptio
     add_operation.delay(5, 0, "可审批所有资源", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)
 
-@resources_router.get("/resource/ifapprove/{resource_id}")  # 查看某一个资源是否有申请
+@resources_router.get("/resource/ifapply/{resource_id}")  # 查看某一个资源的申请记录
 @standard_response
-async def get_specific_applied_resource(resource_id: int,
+async def get_specific_applied_resource(request: Request, resource_id: int, pageNow: int = Query(description="页码", gt=0),
+                               pageSize: int = Query(description="每页数量", gt=0),
                          user=Depends(auth_permission)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
     db = ResourceModel()
-    return db.get_specific_applied_resources(user['user_id'], resource_id)
+    tn, res = db.get_ifapply_resources(user['user_id'], resource_id, Page)
+    parameters = await make_parameters(request)
+    add_operation.delay(5, 0, "查看资源的申请记录", parameters, user['user_id'])
+    return makePageResult(pg=Page, tn=tn, data=res)
 
 
 @resources_router.put("/resource/approve/{resource_id}")  # 通过一个资源的申请,不可用

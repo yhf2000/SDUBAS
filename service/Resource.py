@@ -94,8 +94,8 @@ class ResourceModel(dbSession):
                 "year": current_datetime.year,
                 "month": current_datetime.month,
                 "day": current_datetime.day,
-                "start_time": data.begintime,
-                "end_time": data.endtime,
+                "start_time": data.time_range[0],
+                "end_time": data.time_range[1],
             }
             time_range_json = json.dumps(time_range)
             superiorId = role_model.search_user_default_role(user_id)
@@ -104,7 +104,7 @@ class ResourceModel(dbSession):
             role_model.attribute_role_for_work(5, resource_id, role_id)
             return 'OK'
 
-    def get_resource_application(self, resource_id: int):
+    def get_resource_application(self, resource_id: int, day: int):
         with self.get_db() as session:
             query = session.query(Role).join(
                 WorkRole,
@@ -117,19 +117,17 @@ class ResourceModel(dbSession):
                 Role.name == '资源使用'
             ).all()
             res = []
+            current_date_only = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             for item in query:
                 time_range = json.loads(item.template_val)
                 date_obj = datetime.datetime(time_range['year'], time_range['month'], time_range['day'])
-                current_date_only = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
                 time_difference = date_obj - current_date_only
                 days_difference = time_difference.days
-                if 0 <= days_difference <= 6:
-                    temp_res = {
-                        "day": days_difference,
-                        "start_time": time_range['start_time'],
-                        "end_time": time_range['end_time'],
-                    }
-                    res.append(temp_res)
+                if days_difference == day:
+                    temp_list = []
+                    temp_list.append(time_range['start_time'])
+                    temp_list.append(time_range['end_time'])
+                    res.append(temp_list)
             return res
 
 
@@ -168,6 +166,43 @@ class ResourceModel(dbSession):
                         }
                         result.append(temp_res)
                 return result
+
+    def get_ifapply_resources(self, user_id: int, resource_id: int, pg: page):
+        with self.get_db() as session:
+            result = []
+            role_model = permissionModel()
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).join(
+                Resource,
+                Resource.Id == WorkRole.service_id
+            ).filter(
+                Resource.Id == resource_id
+            )
+            if query is None:
+                return
+            else:
+                for item in query:
+                    if item.name == '资源使用':
+                        time_range = json.loads(item.template_val)
+                        role_id = item.id
+                        user = session.query(User).join(
+                            UserRole,
+                            UserRole.user_id == User.id
+                        ).filter(
+                            UserRole.role_id == role_id
+                        ).first()
+                        apply_time = str(time_range['year']) + '-' + str(time_range['month']) + '-' + str(time_range['day'])
+                        temp_res = {
+                            "user_name": user.username,
+                            "time": apply_time,
+                            "start_time": time_range['start_time'],
+                            "end_time": time_range['end_time'],
+                        }
+                        result.append(temp_res)
+                total_count = len(result)
+                return total_count, result
 
 
 
