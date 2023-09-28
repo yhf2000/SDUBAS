@@ -22,6 +22,14 @@ To execute the asynchronous task for adding operations, run the following comman
 celery -A Celery.add_operation worker --loglevel=INFO -P eventlet
 ```
 
+### Upload Files
+
+To execute the asynchronous task for uploading files, run the following command:
+
+```bash
+celery -A Celery.upload_file worker --loglevel=INFO -P eventlet
+```
+
 ## Encryption Methods
 
 ### Password Encryption

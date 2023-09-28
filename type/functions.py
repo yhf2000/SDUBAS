@@ -1,22 +1,21 @@
-import base64
+import copy
 import copy
 import datetime
 import glob
-import hashlib
 import io
-import comtypes.client
 import json
 import os
 import random
 import time
 import uuid
-from cryptography.hazmat.primitives.asymmetric import rsa
+import comtypes.client
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import Request
-from minio import Minio, S3Error
+from minio import S3Error
 from starlette.responses import JSONResponse
 
 from model.db import session_db, url_db, user_information_db, minio_client
@@ -94,10 +93,6 @@ def get_url(new_session, new_token):
     return url
 
 
-type_map = {'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'office',
-            'application/pdf': 'office',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'office', 'video/mp4': 'mp4',
-            'application/vnd.ms-powerpoint': 'office', 'application/msword': 'office'}
 
 
 def get_url_by_user_file_id(request, id_list):  # 得到下载链接
@@ -112,16 +107,13 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
             else:
                 url = url_db.get(id_list)
                 if url is not None:  # 有效url中有
-                    print(url)
                     urls.update({id_list: json.loads(url)})
                 else:
                     new_token = str(uuid.uuid4().hex)  # 生成token
                     new_session = make_download_session(new_token, request, user_file[1], id_list, -1, 72)
                     session_model.add_session(new_session)
                     url = get_url(new_session, new_token)
-                    print(url)
-                    print(type_map[user_file[2]])
-                    temp = dict({"url": url, "file_type": type_map[user_file[2]]})
+                    temp = dict({"url": url, "file_type": user_file[2]})
                     url_db.set(id_list, json.dumps(temp))
                     urls.update({id_list: temp})
         else:
@@ -136,32 +128,13 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     temp = copy.deepcopy(new_session)
                     sessions.append(temp)
                     url = get_url(new_session, new_token)
-                    temp = dict({"url": url, "file_type": type_map[user_file[i][2]]})
+                    temp = dict({"url": url, "file_type": user_file[i][2]})
                     url_db.set(user_file[i][0], json.dumps(temp))
                     urls.update({user_file[i][0]: json.dumps(temp)})
             if len(sessions) == 1:
                 session_model.add_session(sessions[0])
             else:
                 session_model.add_all_session(sessions)
-            for i in range(len(id_list)):
-                if id_list[i] not in urls.keys():
-                    urls.update({id_list[i]: None})
-    return urls
-
-
-def get_locate_url_by_user_file_id(id_list):  # 得到本地路由
-    urls = dict()
-    file = file_model.get_file_by_user_file_id(id_list)
-    if file is None:
-        urls.update({id_list: None})
-    else:
-        if type(id_list) == int:
-            url = "files" + '/' + file[0][:8] + '/' + file[1][-8:] + '/' + file[3]  # 找到路径
-            urls.update({id_list: url})
-        else:
-            for i in range(len(file)):
-                url = "files" + '/' + file[i][0][:8] + '/' + file[i][1][-8:] + '/' + file[i][3]  # 找到路径
-                urls.update({file[i][2]: url})
             for i in range(len(id_list)):
                 if id_list[i] not in urls.keys():
                     urls.update({id_list[i]: None})
@@ -303,18 +276,25 @@ programs_translation = {
 }
 
 
-def get_education_programs(major_id):  # 根据专业id查询培养方案的内容
-    programs = education_program_model.get_education_program_by_major_id(major_id)
+def get_education_programs(user_id):  # 根据用户id查询培养方案的内容
+    programs = education_program_model.get_education_program_by_user_id(user_id)
     programs.pop('major_id')
     programs.pop('id')
     programs.pop('has_delete')
     return programs
 
 
-def download_files(object_key):  # 根据桶名称与文件名从Minio上下载文件
+def get_files(object_key):  # 根据桶名称与文件名从Minio上下载文件
     try:
         object_data = minio_client.get_object('main', object_key)
         content = io.BytesIO(object_data.read())
         return content
     except S3Error as e:
         return JSONResponse(content={'message': e, 'code': 3, 'data': False})
+
+
+def download_files(path, minio_object_key):
+    response = minio_client.get_object('main', minio_object_key)
+    with open(path, 'wb') as local_file:
+        for data in response.stream(amt=1024):
+            local_file.write(data)
