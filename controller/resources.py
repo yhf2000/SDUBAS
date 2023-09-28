@@ -198,7 +198,7 @@ async def query_page(request: Request, financial_id: int, pageNow: int = Query(d
     if num is None:
         raise HTTPException(status_code=404, detail="Item not found")
     else:
-        tn, res = BillModel_db.query_amount(ID=financial_id, pg=Page, user_id=user['user_id'])  # 返回总额，分页数据
+        tn, res = BillModel_db.query_amount(request=request, ID=financial_id, pg=Page, user_id=user['user_id'])  # 返回总额，分页数据
         parameters = await make_parameters(request)
         add_operation.delay(6, financial_id, "查看账单", parameters, user['user_id'])
         return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数

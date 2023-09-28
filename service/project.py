@@ -18,7 +18,7 @@ from sqlalchemy import and_
 from service.permissions import permissionModel
 from model.permissions import UserRole
 from model.user import User
-from type.functions import get_url_by_user_file_id, get_video_time
+from type.functions import get_url_by_user_file_id, get_video_time, get_education_programs
 from type.user import operation_interface
 from service.user import OperationModel
 
@@ -39,6 +39,7 @@ class ProjectService(dbSession):
                 content.project_id = db_project.id
                 if content.file_id is not None:
                     content.file_time = get_video_time(content.file_id)
+                    # content.file_time = 200
                 db_content = ProjectContent(**content.model_dump())
                 session.add(db_content)
                 session.commit()
@@ -364,7 +365,7 @@ class ProjectService(dbSession):
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="提交项目内容")
             credit_role_id = 1
-            service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            # service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
             subquery = session.query(Project). \
                 select_from(Project). \
@@ -382,14 +383,25 @@ class ProjectService(dbSession):
                 filter(ProjectCredit.role_id == credit_role_id). \
                 group_by(ProjectCredit.type). \
                 add_columns(func.sum(ProjectCredit.credit).label("credit_count"))
-
+            file_credits = get_education_programs(user_id)
+            # file_credits = {'siuyi': 50, '国学': 30, '艺术': 20, '体育': 10}
             results = query.all()
             total_count = []
             for project in results:
-                count = {'credit_type': project[0],
-                         'credit_count': project[1]}
+                requiredCredits = file_credits.get(project[0])
+                if requiredCredits is None:
+                    requiredCredits = 0
+                else:
+                    file_credits.pop(project[0])
+                count = {'type': project[0],
+                         'completedCredits': project[1],
+                         'requiredCredits': requiredCredits}
                 total_count.append(count)
-
+            for key, value in file_credits.items():
+                count = {'type': key,
+                         'completedCredits': 0,
+                         'requiredCredits': value}
+                total_count.append(count)
         return total_count
 
     def get_all_project_score(self, project_id: int, user_id: int, pg: page):
@@ -489,7 +501,7 @@ class ProjectService(dbSession):
                 return 'renew_finish'
             elif content_user_score_check.is_pass == -1:
                 last_check = content_user_score_check.last_check_time.timestamp()
-                if time - last_check >= 30:
+                if time - last_check >= 25:
                     has_view_time = content_user_score_check.viewed_time + 30
                     is_pass = -1
                     if has_view_time >= content.file_time:
@@ -554,15 +566,47 @@ class ProjectService(dbSession):
                 return 1
             return 0
 
-    def get_user_personal_file_by_user_id(self, user_id):
+    def get_user_personal_file_by_user_id(self, user_id: int, pg: page):
         with self.get_db() as session:
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="查看项目")
-            # service_ids = [1, 2, 3, 4, 5, 6, 7]
-            query = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids))
+            # service_ids = [16, 17, 18]
+            query = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids),
+                                                  Project.type.in_(["竞赛", "活动"]))
             # 执行分页查询
-            data = query.all()  # .all()
+            total_count = query.count()
+            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             # 序列化结
             results = dealDataList(data, ProjectBase_Opt, {'has_delete'})
-            return {'project': results}
+            return total_count, results
+
+    def get_project_by_credit_type(self, user_id: int, credit_type: str, pg: page):
+        with self.get_db() as session:
+            credit_role_id = 1
+            subquery = session.query(ProjectCredit).filter(
+                ProjectCredit.role_id == credit_role_id, ProjectCredit.type == credit_type).subquery()
+            query = session.query(Project, subquery.c.credit, subquery.c.type). \
+                select_from(Project). \
+                join(subquery, subquery.c.project_id == Project.id). \
+                join(ProjectContent, ProjectContent.project_id == Project.id). \
+                outerjoin(ProjectContentUserScore,
+                          (ProjectContentUserScore.user_pcs_id == ProjectContent.id) &
+                          (ProjectContentUserScore.user_id == user_id)). \
+                filter(Project.has_delete == 0,
+                       ProjectContent.has_delete == 0). \
+                group_by(Project.id)
+
+            query = query.add_columns(
+                case((func.sum(ProjectContentUserScore.is_pass) == func.count(ProjectContent.id), 1), else_=0).label(
+                    "is_pass")
+            )
+            total_count = query.count()
+            projects = query.offset(pg.offset()).limit(pg.limit())
+            results = []
+            for project, project_credit, credit_type, is_pass in projects:
+                result = {'project_id': project.id, 'project_name': project.name, 'credit': project_credit,
+                          'type': credit_type,
+                          'is_pass': is_pass}
+                results.append(result)
+        return total_count, results

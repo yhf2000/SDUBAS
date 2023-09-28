@@ -95,7 +95,7 @@ async def get_specific_project_content(request: Request, project_id: int, conten
     # 查看某一项目内容
 
 
-@projects_router.post("/credits/{project_id}")
+@projects_router.put("/credits/{project_id}")
 @standard_response
 async def add_project_credit(request: Request, project_id: int, credit: CreditCreate, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
@@ -300,10 +300,10 @@ async def get_all_content_user_score(request: Request,
 
 @projects_router.put("/{project_id}/content/video/renew")
 @standard_response
-async def get_all_content_user_score(request: Request,
-                                     project_id: int,
-                                     content_renew: video_finish_progress,
-                                     user=Depends(auth_permission)):
+async def renew_video(request: Request,
+                      project_id: int,
+                      content_renew: video_finish_progress,
+                      user=Depends(auth_permission)):
     result = project_service.video_content_progress_renew(content_renew=content_renew, user_id=user['user_id'])
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "视频观看进度更新", parameters, user['user_id'])
@@ -312,13 +312,30 @@ async def get_all_content_user_score(request: Request,
 
 @projects_router.get("/user/personal/file")
 @standard_response
-async def get_all_content_user_score(request: Request,
-                                     user_id: int = Query(description="页码", gt=0),
-                                     user=Depends(auth_permission)):
-    results = project_service.get_user_personal_file_by_user_id(user_id=user_id)
+async def get_all_content_user_personal(request: Request,
+                                        user_id: int = Query(description="页码", gt=0),
+                                        pageNow: int = Query(description="页码", gt=0),
+                                        pageSize: int = Query(description="每页数量", gt=0),
+                                        user=Depends(auth_permission)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
+    tn, results = project_service.get_user_personal_file_by_user_id(user_id=user_id, pg=Page)
     parameters = await make_parameters(request)
     add_operation.delay(0, 0, "查看用户个人档案", parameters, user['user_id'])
-    return results
+    return makePageResult(pg=Page, tn=tn, data=results)
+
+
+@projects_router.get("/project/list/{credit_type}")
+@standard_response
+async def get_all_content_user_personal(request: Request,
+                                        credit_type: str,
+                                        pageNow: int = Query(description="页码", gt=0),
+                                        pageSize: int = Query(description="每页数量", gt=0),
+                                        user=Depends(auth_permission)):
+    Page = page(pageNow=pageNow, pageSize=pageSize)
+    tn, results = project_service.get_project_by_credit_type(user_id=user['user_id'], credit_type=credit_type, pg=Page)
+    parameters = await make_parameters(request)
+    add_operation.delay(0, 0, "查看用户个人学分项目", parameters, user['user_id'])
+    return makePageResult(pg=Page, tn=tn, data=results)
 
 
 @projects_router.post("/delete_user_in_project/{project_id}")  # 删除项目用户
