@@ -38,8 +38,8 @@ class ProjectService(dbSession):
             for content in project.contents:
                 content.project_id = db_project.id
                 if content.file_id is not None:
-                    # content.file_time = get_video_time(content.file_id)
-                    content.file_time = 200
+                    content.file_time = get_video_time(content.file_id)
+                    # content.file_time = 200
                 db_content = ProjectContent(**content.model_dump())
                 session.add(db_content)
                 session.commit()
@@ -383,8 +383,8 @@ class ProjectService(dbSession):
                 filter(ProjectCredit.role_id == credit_role_id). \
                 group_by(ProjectCredit.type). \
                 add_columns(func.sum(ProjectCredit.credit).label("credit_count"))
-            # file_credits = get_education_programs(user_id)
-            file_credits = {'siuyi': 50, '国学': 30, '艺术': 20, '体育': 10}
+            file_credits = get_education_programs(user_id)
+            # file_credits = {'siuyi': 50, '国学': 30, '艺术': 20, '体育': 10}
             results = query.all()
             total_count = []
             for project in results:
