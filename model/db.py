@@ -1,11 +1,22 @@
 from contextlib import contextmanager
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.orm import declarative_base
-
 from const import SQLALCHEMY_DATABASE_URL
 import redis
+from minio import Minio, S3Error
+
+minio_client = Minio(
+    "43.138.34.119:9000",  # 更新为MinIO服务器的地址和端口
+    access_key="minioadmin",  # 你的MinIO访问密钥
+    secret_key="minioadmin",  # 你的MinIO秘密密钥
+    secure=False  # 是否使用安全连接（根据你的MinIO配置选择）
+)
+try:
+    if not minio_client.bucket_exists('main'):
+        minio_client.make_bucket('main')
+except S3Error as e:
+    print(f'Error: {e}')
 
 pool1 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, encoding='UTF-8')
 pool2 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=2, encoding='UTF-8')

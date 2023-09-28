@@ -6,7 +6,7 @@ from fastapi import Request, Depends
 from Celery.add_operation import add_operation
 from service.education import SchoolModel, CollegeModel, MajorModel, ClassModel
 from service.user import SessionModel, OperationModel, UserinfoModel, EducationProgramModel
-from type.functions import make_parameters, get_locate_url_by_user_file_id, programs_translation
+from type.functions import make_parameters, programs_translation
 from type.page import page
 from type.user import school_interface, class_interface, college_interface, major_interface, education_program_interface
 from utils.auth_login import auth_login

@@ -1,12 +1,29 @@
 import datetime
 
 from fastapi.encoders import jsonable_encoder
-
 import model.user
 from model.db import dbSession
 from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College, Education_Program
 from type.user import user_info_interface, session_interface, \
     operation_interface, user_add_interface, education_program_interface
+programs_translation1 = {
+    "thought_political_theory": "思想政治理论课",
+    "college_sports": "大学体育",
+    "college_english": "大学英语",
+    "chinese_culture": "国学修养",
+    "art_aesthetics": "艺术审美",
+    "innovation_entrepreneurship": "创新创业",
+    "humanities":"人文学科: ",
+    "social_sciences": "社会科学",
+    "scientific_literacy": "科学素养",
+    "information_technology": "信息技术",
+    "general_education_elective": "通识教育选修课程",
+    "major_compulsory_courses": "专业必修课程",
+    "major_elective_courses": "专业选修课程",
+    "key_improvement_courses": "重点提升必修课程",
+    "qilu_entrepreneurship": "齐鲁创业",
+    "jixia_innovation":"稷下创新"
+}
 
 
 class UserModel(dbSession):
@@ -412,16 +429,17 @@ class EducationProgramModel(dbSession):
             session.commit()
             return id
 
-    def get_education_program_by_major_id(self, major_id):  # 根据major_id查询education_program
+    def get_education_program_by_user_id(self,user_id):  # 根据user_id查询education_program
         with self.get_db() as session:
-            value = session.query(Education_Program).filter(Education_Program.has_delete == 0,
-                                                            Education_Program.major_id == major_id).first()
+            value = session.query(Education_Program).outerjoin(User_info,User_info.major_id == Education_Program.major_id).filter(Education_Program.has_delete == 0,
+                                                            User_info.user_id== user_id).first()
             session.commit()
             if value:
                 # 使用字典推导式创建带有属性名的字典
-                result_dict = {key: getattr(value, key) for key in value.__dict__ if not key.startswith('_')}
+                result_dict = {key: getattr(value, key) for key in value.__dict__ if not key.startswith('_') and getattr(value, key) is not None}
+                translated_result = {programs_translation1.get(key, key): value for key, value in result_dict.items()}
                 session.commit()
-                return result_dict
+                return translated_result
             else:
                 return None
 
