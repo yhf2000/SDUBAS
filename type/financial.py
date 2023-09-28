@@ -79,8 +79,7 @@ class resource_count_update(BaseModel):
 
 class ApplyBody(BaseModel):
     day: int
-    begintime: float
-    endtime: float
+    time_range: list
 
 
 class Bill_basemodel(BaseModel):

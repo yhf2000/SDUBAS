@@ -610,3 +610,9 @@ class ProjectService(dbSession):
                           'is_pass': is_pass}
                 results.append(result)
         return total_count, results
+
+    def get_project_credits_role_info(self, project_id: int):
+        with self.get_db() as session:
+            role_model = permissionModel()
+            role_list = role_model.search_role_info_by_service(project_id, 3)
+            return role_list

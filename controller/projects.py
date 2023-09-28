@@ -290,7 +290,7 @@ async def get_all_content_user_score(request: Request, project_id: int, content_
 async def get_all_content_user_score(request: Request,
                                      pageNow: int = Query(description="页码", gt=0),
                                      pageSize: int = Query(description="每页数量", gt=0),
-                                     user=Depends(auth_permission)):
+                                     user=Depends(auth_permission_default)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, results = project_service.get_user_credit_all(user_id=user['user_id'], pg=Page)
     parameters = await make_parameters(request)
@@ -303,7 +303,7 @@ async def get_all_content_user_score(request: Request,
 async def renew_video(request: Request,
                       project_id: int,
                       content_renew: video_finish_progress,
-                      user=Depends(auth_permission)):
+                      user=Depends(auth_login)):
     result = project_service.video_content_progress_renew(content_renew=content_renew, user_id=user['user_id'])
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "视频观看进度更新", parameters, user['user_id'])
@@ -353,3 +353,13 @@ async def add_user_in_project(request: Request, project_id: int, data: User_Name
     db = permissionModel()
     db.add_work_user(delete_user, project_id)
     return 'OK'
+
+
+@projects_router.get("/project/credits_role/{project_id}")
+@standard_response
+async def get_project_credits_role(request: Request, project_id: int,
+                                     user=Depends(auth_permission)):
+    role_list = project_service.get_project_credits_role_info(project_id)
+    parameters = await make_parameters(request)
+    # add_operation.delay(0, 0, "获取能够参加项目学分认定的角色", parameters, user['user_id'])
+    return role_list
