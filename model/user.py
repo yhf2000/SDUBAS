@@ -40,12 +40,7 @@ class User(Base):  # 用户表
 
 @event.listens_for(User, 'before_insert')  # 再插入前自动加密
 def auto_encrypted_password(mapper, connection, target):
-    registration_dt = datetime.datetime.now()
-    target.registration_dt = registration_dt
-    registration_dt = registration_dt.strftime(
-        "%Y-%m-%d %H:%M:%S")
-    password = target.password
-    target.password = encrypted_password(password, registration_dt)
+    target.password = encrypted_password(target.password, target.card_id)
 
 
 class User_info(Base):  # 用户信息表
@@ -122,12 +117,13 @@ class Operation(Base):  # 操作表
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     service_type = Column(Integer, nullable=False, index=True, comment='业务类型')  # 业务类型，非空，索引
     service_id = Column(Integer, nullable=True, comment='业务id')  # 业务id，可空
-    func = Column(VARCHAR(128), comment='操作')  # 操作
-    parameters = Column(VARCHAR(4 * 1024), comment='操作参数')  # 操作参数
+    operation_type = Column(VARCHAR(64), comment='操作类型', nullable=False)  # 操作类型
+    func = Column(VARCHAR(128), comment='操作', nullable=False)  # 操作
+    parameters = Column(VARCHAR(4 * 1024), comment='操作参数', nullable=False)  # 操作参数
     oper_user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True,
                           comment='操作人 id，外键')  # 操作人 id，外键，非空，索引
-    oper_dt = Column(DateTime, nullable=False, default=datetime.datetime.now(), comment='操作时间')
-    oper_hash = Column(VARCHAR(128), index=True, comment='操作哈希值')  # 操作哈希值，索引
+    oper_dt = Column(DateTime, nullable=False, comment='操作时间')
+    oper_hash = Column(VARCHAR(128), index=True, comment='操作哈希值' ,nullable=False)  # 操作哈希值，索引
 
 
 class Session(Base):  # session表

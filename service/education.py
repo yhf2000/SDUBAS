@@ -8,7 +8,6 @@ from type.user import school_interface, college_interface, class_interface, majo
 class SchoolModel(dbSession):  # 学校model
     def add_school(self, obj: school_interface):  # 添加一个school
         obj_dict = jsonable_encoder(obj)
-        obj_dict.pop('file_id')
         obj_add = School(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
@@ -105,7 +104,6 @@ class SchoolModel(dbSession):  # 学校model
 class CollegeModel(dbSession):
     def add_college(self, obj: college_interface):  # 添加一个college
         obj_dict = jsonable_encoder(obj)
-        obj_dict.pop('file_id')
         obj_add = College(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)

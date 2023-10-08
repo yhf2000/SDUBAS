@@ -616,3 +616,12 @@ class ProjectService(dbSession):
             role_model = permissionModel()
             role_list = role_model.search_role_info_by_service(project_id, 3)
             return role_list
+
+    def judge_private_file(self, user_id: int, file_id: int):
+        with self.get_db() as session:
+            exist = session.query(ProjectContentUserSubmission).filter(ProjectContentUserSubmission.user_id == user_id,
+                                                                       ProjectContentUserSubmission.file_id == file_id,
+                                                                       ProjectContentUserSubmission.has_delete == 0).first()
+            if exist is None:
+                return 0
+            return 1

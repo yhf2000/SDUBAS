@@ -52,7 +52,6 @@ class school_interface(BaseModel):
     )
     name: str = None
     school_abbreviation: str = None
-    file_id: int = None
     school_logo_id: int = None
 
 
@@ -61,9 +60,8 @@ class college_interface(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    name: str
-    school_id: int
-    file_id: int = None
+    name: str = None
+    school_id: int = None
     college_logo_id: int = None
 
 
@@ -72,10 +70,10 @@ class major_interface(BaseModel):
         arbitrary_types_allowed=True,
         from_attributes=True,
     )
-    name: str
-    school_id: int
-    college_id: int
-    education_program: dict
+    name: str = None
+    school_id: int= None
+    college_id: int = None
+    education_program: dict = None
 
 
 class class_interface(college_interface):
@@ -100,17 +98,18 @@ class email_interface(register_interface):
 class operation_interface(BaseModel):
     service_type: int
     service_id: int = None
+    operation_type :str
     func: str
     parameters: str
     oper_user_id: int
     oper_hash: str = None
+    oper_dt : datetime
 
     def get_oper_hash(self):
         hash_object = hashlib.sha256()
-        hash_object.update(self.parameters.encode('utf-8'))
+        hash_object.update(self.func.encode('utf-8'))
         hash_hex = hash_object.hexdigest()
         return hash_hex
-
 
 class user_info_interface(BaseModel):
     card_id: str = None
