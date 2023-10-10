@@ -1,3 +1,4 @@
+import datetime
 import json
 
 from fastapi import APIRouter
@@ -5,8 +6,9 @@ from fastapi import Request, Depends
 
 from Celery.add_operation import add_operation
 from service.education import SchoolModel, CollegeModel, MajorModel, ClassModel
-from service.user import SessionModel, OperationModel, UserinfoModel, EducationProgramModel
-from type.functions import make_parameters, programs_translation
+from service.user import SessionModel, OperationModel, UserinfoModel, EducationProgramModel,UserModel
+from service.file import UserFileModel
+from type.functions import  programs_translation,get_user_name,make_parameters
 from type.page import page
 from type.user import school_interface, class_interface, college_interface, major_interface, education_program_interface
 from utils.auth_login import auth_login
@@ -21,7 +23,8 @@ class_model = ClassModel()
 operation_model = OperationModel()
 user_info_model = UserinfoModel()
 education_program_model = EducationProgramModel()
-
+user_model = UserModel()
+user_file_model = UserFileModel()
 
 # 验证学校，学院，专业，班级是否存在的接口。有选择性地传入各个id进行判断
 def verify_education_by_id(school_id: int = None, college_id: int = None, major_id: int = None, class_id: int = None):
@@ -50,9 +53,10 @@ def verify_education_by_id(school_id: int = None, college_id: int = None, major_
 async def user_school_add(request: Request, school_data: school_interface, session=Depends(auth_login)):
     exist_school_name = school_model.get_school_information_by_name(school_data.name)
     str = ''
-    exist_school_logo = school_model.get_school_exist_by_school_logo(school_data.file_id)
+    exist_school_logo = school_model.get_school_exist_by_school_logo(school_data.school_logo_id)
     if exist_school_logo is not None:
         return {'message': '学校logo已被使用', 'code': 2, 'data': False}
+    username = get_user_name(session['user_id'])
     if exist_school_name is not None:  # 首先查看学校是否存在即学校名存在且未被删除
         if exist_school_name.has_delete == 0:
             return {'message': '学校名已存在', 'code': 1, 'data': False}
@@ -61,23 +65,23 @@ async def user_school_add(request: Request, school_data: school_interface, sessi
             if school_data.school_abbreviation != exist_school_name.school_abbreviation:  # 学校简称如果变化则进行更新
                 school_model.update_school_information(exist_school_name.id, school_data.name,
                                                        school_data.school_abbreviation)
-            if school_data.file_id != exist_school_name.school_logo_id:  # 学校logo_id如果变化则进行更新
-                school_model.update_school_logo(exist_school_name.id, school_data.file_id)
-            str = '管理员恢复一个曾删除的学校'
+            if school_data.school_logo_id != exist_school_name.school_logo_id:  # 学校logo_id如果变化则进行更新
+                school_model.update_school_logo(exist_school_name.id, school_data.school_logo_id)
+            str = f'{username}于qpzm7913恢复一个曾删除的学校id为{exist_school_name.id}的学校'
             id = exist_school_name.id
     else:
-        school_data.school_logo_id = school_data.file_id
+        img_name = user_file_model.get_file_name_by_id(school_data.school_logo_id)[0]
         id = school_model.add_school(school_data)
-        str = '管理员通过输入学校名称和学校简称添加一个学校'
+        str = f'{username}于qpzm7913通过输入学校名称{school_data.name}和学校简称{school_data.school_abbreviation}和上传图片{img_name}添加了一个学校'
     parameters = await make_parameters(request)
-    add_operation.delay(1, id, str, parameters, session['user_id'])
+    add_operation.delay(1, id, '添加学校',str, parameters, session['user_id'])
     return {'message': '添加成功', 'code': 0, 'data': True}
 
 
 # 以分页形式查看管理员所能操作的所有学校
 @users_router.get("/school_view")
 @page_response
-async def user_school_view(pageNow: int, pageSize: int, permission=Depends(auth_login)):
+async def user_school_view(pageNow: int, pageSize: int,request:Request, permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_school = school_model.get_school_by_admin(Page)  # 以分页形式返回
     result = {'rows': None}
@@ -90,6 +94,9 @@ async def user_school_view(pageNow: int, pageSize: int, permission=Depends(auth_
             temp_dict['id'] = id
             school_data.append(temp_dict)
         result = makePageResult(Page, len(all_school), school_data)
+    parameters = await make_parameters(request)
+    name = get_user_name(permission['user_id'])
+    add_operation.delay(1, None, '查看学校',f"{name}于qpzm7913查看所有学校" , parameters, permission['user_id'])
     return {'message': '学校如下', "data": result, "code": 0}
 
 
@@ -101,8 +108,9 @@ async def user_school_delete(request: Request, school_id: int, session=Depends(a
     if code == 1:
         return {'message': '学校不存在', 'data': False, 'code': code}
     id = school_model.delete_school(school_id)  # 在school表中将这个学校has_delete设为1
+    username = get_user_name(session['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(1, None, '管理员通过选择学校来删除一个学校', parameters, session['user_id'])
+    add_operation.delay(1, id, '删除学校',f'{username}于qpzm7913删除学校id为{id}的学校', parameters, session['user_id'])
     return {'message': '删除成功', 'data': True, 'code': 0}
 
 
@@ -118,8 +126,9 @@ async def user_school_update(request: Request, school_id: int, school_data: scho
     if exist_school is not None and exist_school[0] != school_id:  # 要修改的学校名字已存在
         return {'message': '学校名字已存在', 'data': False, 'code': 2}
     school_model.update_school_information(school_id, school_data.name, school_data.school_abbreviation)  # 修改学校信息
+    username = get_user_name(session['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(1, school_id, '管理员通过选择学校来修改学校信息', parameters, session['user_id'])
+    add_operation.delay(1, school_id, '修改学校信息',f'{username}于qpzm7913通过选择学校id为{school_id}的学校并输入学校名称{school_data.name}和学校简称{school_data.school_abbreviation}来修改学校信息',parameters, session['user_id'])
     return {'message': '修改成功', 'data': {'school_id': school_id}, 'code': 0}
 
 
@@ -130,24 +139,25 @@ async def user_college_add(request: Request, college_data: college_interface, se
     code = verify_education_by_id(school_id=college_data.school_id)  # 查看学校是否存在
     if code == 1:
         return {'message': '学校不存在', 'data': False, 'code': 1}
-    exist_college_logo = college_model.get_college_exist_by_college_logo(college_data.file_id)
+    exist_college_logo = college_model.get_college_exist_by_college_logo(college_data.college_logo_id)
     if exist_college_logo is not None:
         return {'message': '学院logo已被使用', 'code': 3, 'data': False}
     college = college_model.get_college_status_by_name(college_data)  # 查看学院的状态
     str = ''
+    username = get_user_name(session['user_id'])
     if college is not None:  # 该校已有该学院
         if college[0] == 0:
             return {'message': '该校已有该学院', 'data': False, 'code': 2}
         else:  # 将被删除的学院恢复
             college_model.update_college_status_by_id(college[1])
-            str = '管理员恢复一个曾删除的学院'
+            str = f'{username}于qpzm7913恢复一个曾删除的学院id为{college[1]}的学院'
             id = college[1]
     else:  # 新建一个学院
-        college_data.college_logo_id = college_data.file_id
+        img_name = user_file_model.get_file_name_by_id(college_data.college_logo_id)[0]
         id = college_model.add_college(college_data)
-        str = '管理员通过选择学校和输入学院名称添加一个学院'
+        str = f'{username}于qpzm7913通过选择学校id为{college_data.school_id}的学校，并通过输入学院名称{college_data.name}和上传图片{img_name}添加了一个学院'
     parameters = await make_parameters(request)
-    add_operation.delay(2, id, str, parameters, session['user_id'])
+    add_operation.delay(2, id, '添加学院',str, parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}
 
 
@@ -159,15 +169,16 @@ async def user_college_delete(request: Request, college_id: int, session=Depends
     if code == 1:
         return {'message': '学院不存在', 'data': False, 'code': code}
     id = college_model.delete_college(college_id)
+    username = get_user_name(session['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(2, id, '管理员通过选择学院删除一个学院', parameters, session['user_id'])
+    add_operation.delay(2, id, '删除学院', f'{username}于qpzm7913删除学院id为{id}的学院', parameters, session['user_id'])
     return {'message': '删除成功', 'data': True, 'code': 0}
 
 
 # 以分页形式查看管理员所能操作的所有学院
 @users_router.get("/college_view")
 @page_response
-async def user_college_view(school_id: int, pageNow: int, pageSize: int):
+async def user_college_view(school_id: int, pageNow: int, pageSize: int,request:Request,permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_college = college_model.get_college_by_school_id(school_id, Page)  # 以分页形式返回
     result = {'rows': None}
@@ -182,6 +193,9 @@ async def user_college_view(school_id: int, pageNow: int, pageSize: int):
             temp_dict.pop('school_id')
             college_data.append(temp_dict)
         result = makePageResult(Page, len(all_college), college_data)
+    parameters = await make_parameters(request)
+    name = get_user_name(permission['user_id'])
+    add_operation.delay(2, None, '查看学院', f"{name}于qpzm7913查看所有学院", parameters, permission['user_id'])
     return {'message': '学院如下', 'data': result, 'code': 0}
 
 
@@ -200,8 +214,11 @@ async def user_college_update(request: Request, college_id: int, college_data: c
     if exist_college is not None and exist_college[0] != college_id:
         return {'message': '该学校下的学院名字已存在', 'data': False, 'code': 3}
     college_model.update_college_school_id_name(college_id, college_data.name)
+    username = get_user_name(session['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(2, college_id, '管理员通过选择学院修改学院信息', parameters, session['user_id'])
+    add_operation.delay(2, college_id, '修改学院信息',
+                        f'{username}于qpzm7913通过选择学校id为{college_data.school_id}的学校并选择学院id为{college_id}的学院并输入学院名称{college_data.name}来修改学院信息',
+                        parameters, session['user_id'])
     return {'message': '修改成功', 'data': {'college_id': college_id}, 'code': 0}
 
 
@@ -217,13 +234,14 @@ async def user_major_add(request: Request, major_data: major_interface, session=
         return {'message': '学院不存在', 'data': False, 'code': 2}
     major = major_model.get_major_status_by_name(major_data)
     str = ''
+    username = get_user_name(session['user_id'])
     if major is not None:
         if major[0] == 0:  # 该学校的该学院已有该专业
             return {'message': '该学校的该学院已有该专业', 'data': False, 'code': 3}
         else:  # 恢复一个曾删除的专业
             major_model.update_major_status_by_id(major[1])
             id = major[1]
-            str = '管理员恢复一个曾删除的专业'
+            str = f'{username}于qpzm7913恢复一个曾删除的专业id为{major[1]}的专业'
             education_program_model.update_education_program_exist(id)
     else:  # 新建一个专业
         id = major_model.add_major(major_data)
@@ -238,10 +256,10 @@ async def user_major_add(request: Request, major_data: major_interface, session=
         programs = new_programs
         programs['major_id'] = id
         new_program = education_program_interface(**programs)
-        education_program_model.add_education_program(new_program)
-        str = '管理员通过选择学校，学院，输入专业名称，上传专业的培养方案添加一个专业'
+        id1 = education_program_model.add_education_program(new_program)
+        str = f'{username}于qpzm7913通过选择学校id为{major_data.school_id}的学校，选择学院id为{major_data.college_id}的学院,并通过输入专业名称{major_data.name}和上传id为{id1}的培养方案添加了一个专业'
     parameters = await make_parameters(request)
-    add_operation.delay(3, id, str, parameters, session['user_id'])
+    add_operation.delay(3, id, '添加专业',str, parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}
 
 
@@ -254,15 +272,16 @@ async def user_major_delete(request: Request, major_id: int, session=Depends(aut
         return {'message': '专业不存在', 'data': False, 'code': code}
     id = major_model.delete_major(major_id)
     education_program_model.delete_education_program(id)
+    username = get_user_name(session['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(3, id, '管理员通过选择专业删除一个专业', parameters, session['user_id'])
+    add_operation.delay(3, id, '删除学院', f'{username}于qpzm7913删除专业id为{id}的专业',parameters, session['user_id'])
     return {'message': '删除成功', 'data': {'major_id': id}, 'code': 0}
 
 
 # 以分页形式查看管理员所能操作的所有专业
 @users_router.get("/major_view")
 @page_response
-async def user_major_view(college_id: int, pageNow: int, pageSize: int):
+async def user_major_view(college_id: int, pageNow: int, pageSize: int,request:Request,permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_major = major_model.get_major_by_college_id(college_id, Page)  # 以分页形式返回
     result = {'rows': None}
@@ -281,6 +300,9 @@ async def user_major_view(college_id: int, pageNow: int, pageSize: int):
             temp_dict.pop('college_id')
             major_data.append(temp_dict)
         result = makePageResult(Page, len(all_major), major_data)
+    parameters = await make_parameters(request)
+    name = get_user_name(permission['user_id'])
+    add_operation.delay(3, None, '查看专业', f"{name}于qpzm7913查看所有专业", parameters, permission['user_id'])
     return {'message': '专业如下', "data": result, 'code': 0}
 
 
@@ -301,8 +323,11 @@ async def user_major_update(request: Request, major_data: major_interface, major
     if exist_major is not None and exist_major[0] != major_id:  # 要修改为的专业名字已存在
         return {'message': '该学校的该学院的该专业已存在', 'data': False, 'code': 4}
     major_model.update_major_information(major_id, major_data.name)  # 修改专业名
+    username = get_user_name(session['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(3, major_id, '管理员通过选择专业修改一个专业的信息', parameters, session['user_id'])
+    add_operation.delay(3, major_id, '修改专业信息',
+                        f'{username}于qpzm7913通过选择学校id为{major_data.school_id}的学校并选择学院id为{major_data.college_id}的学院并选择专业id为{major_id}的专业并输入专业名称{major_data.name}来修改专业信息',
+                        parameters, session['user_id'])
     return {'message': '修改成功', 'data': {'major_id': major_id}, 'code': 0}
 
 
@@ -318,18 +343,19 @@ async def user_class_add(request: Request, class_data: class_interface, session=
         return {'message': '学院不存在', 'data': False, 'code': 2}
     clas = class_model.get_class_status_by_name(class_data)  # 查看班级是否存在
     str = ''
+    username = get_user_name(session['user_id'])
     if clas is not None:
         if clas[0] == 0:  # 该学校的该学院已有该班级
             return {'message': '该学校的该学院已有该班级', 'data': False, 'code': 3}
         else:  # 管理员恢复一个曾删除的班级
             class_model.update_class_status_by_id(clas[1])
             id = clas[1]
-            str = '管理员恢复一个曾删除的班级'
+            str = f'{username}于qpzm7913恢复一个曾删除的班级id为{clas[1]}的班级'
     else:  # 新建一个班级
         id = class_model.add_class(class_data)
-        str = '管理员通过选择学校，学院和输入班级名称添加一个班级'
+        str = f'{username}于qpzm7913通过选择学校id为{class_data.school_id}的学校，选择学院id为{class_data.college_id}的学院,并通过输入班级名称{class_data.name}添加了一个班级'
     parameters = await make_parameters(request)
-    add_operation.delay(4, id, str, parameters, session['user_id'])
+    add_operation.delay(4, id, '添加班级',str, parameters, session['user_id'])
     return {'message': '添加成功', 'data': True, 'code': 0}
 
 
@@ -341,8 +367,9 @@ async def user_class_delete(request: Request, class_id: int, session=Depends(aut
     if code == 1:
         return {'message': '班级不存在', 'data': False, 'code': code}
     id = class_model.delete_class(class_id)
+    username = get_user_name(session['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(4, id, '管理员通过选择班级删除一个班级', parameters, session['user_id'])
+    add_operation.delay(4, id, '删除班级', f'{username}在qpzm7913删除班级id为{id}的班级', parameters, session['user_id'])
     return {'message': '删除成功', 'data': {'class_id': id}, 'code': 0}
 
 
@@ -363,15 +390,18 @@ async def user_class_update(request: Request, class_id: int, class_data: class_i
     if exist_class is not None and exist_class[0] != class_id:  # 要修改的班级名已存在
         return {'message': '该学校的该学院的该班级已存在', 'data': False, 'code': 4}
     class_model.update_class_information(class_id, class_data.name)  # 进行修改
+    username = get_user_name(session['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(4, class_id, '管理员通过选择班级修改一个班级的信息', parameters, session['user_id'])
+    add_operation.delay(4, class_id, '修改班级信息',
+                        f'{username}于qpzm7913通过选择学校id为{class_data.school_id}的学校并选择学院id为{class_data.college_id}的学院并选择班级id为{class_id}的班级并输入班级名称{class_data.name}来修改班级信息',
+                        parameters, session['user_id'])
     return {'message': '修改成功', 'data': {'class_id': class_id}, 'code': 0}
 
 
 # 查看管理员所能操作的所有班级
 @users_router.get("/class_view")
 @page_response
-async def user_class_view(college_id: int, pageNow: int, pageSize: int):
+async def user_class_view(college_id: int, pageNow: int, pageSize: int,request:Request,permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
     all_class = class_model.get_class_by_college_id(college_id, Page)  # 以分页形式返回
     result = {'rows': None}
@@ -390,6 +420,9 @@ async def user_class_view(college_id: int, pageNow: int, pageSize: int):
             temp_dict.pop('college_id')
             class_data.append(temp_dict)
         result = makePageResult(Page, len(all_class), class_data)
+    parameters = await make_parameters(request)
+    name = get_user_name(permission['user_id'])
+    add_operation.delay(4, None, '查看班级', f"{name}于qpzm7913查看所有班级", parameters, permission['user_id'])
     return {'message': '班级如下', 'data': result, 'code': 0}
 
 

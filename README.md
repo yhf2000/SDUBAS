@@ -35,7 +35,7 @@ celery -A Celery.upload_file worker --loglevel=INFO -P eventlet
 ### Password Encryption
 
 - Algorithm: SHA-256
-- Salt: User's registration timestamp
+- Salt: User's card_id
 
 ### Operation Encryption
 

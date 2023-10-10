@@ -1,14 +1,15 @@
 from fastapi.encoders import jsonable_encoder
 
 from model.db import dbSession
-from model.file import File, User_File, RSAKeys
-from type.file import file_interface, user_file_interface, RSA_interface, user_file_all_interface
+from model.file import File, User_File, RSAKeys, ASEKey
+from type.file import file_interface, user_file_interface, RSA_interface, user_file_all_interface, ASE_interface
 
 
 class FileModel(dbSession):
     def add_file(self, obj: file_interface):  # 用户上传文件(在file表中添加一个记录)
         obj_dict = jsonable_encoder(obj)
         obj_dict.pop('time')
+        obj_dict.pop('type')
         obj_add = File(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
@@ -132,6 +133,12 @@ class UserFileModel(dbSession):
             session.commit()
             return user_file
 
+    def get_file_name_by_id(self, id: int):  # 根据id查询user_file的file_name
+        with self.get_db() as session:
+            name = session.query(User_File.name).filter(User_File.has_delete == 0, User_File.id == id).first()
+            session.commit()
+            return name
+
     def get_video_time_by_id(self, id: int):  # 根据id查询user_file的time
         with self.get_db() as session:
             time = session.query(User_File.video_time).filter(User_File.has_delete == 0, User_File.id == id).first()
@@ -183,8 +190,8 @@ class RSAModel(dbSession):
 
     def get_public_key_by_user_id(self, user_id: int):  # 根据user_id查询公钥
         with self.get_db() as session:
-            public_key = session.query(RSAKeys.public_key_pem, RSAKeys.expires_at).filter(RSAKeys.has_delete == 0,
-                                                                                          RSAKeys.user_id == user_id).first()
+            public_key = session.query(RSAKeys.public_key_pem).filter(RSAKeys.has_delete == 0,
+                                                                      RSAKeys.user_id == user_id).first()
             session.commit()
             return public_key
 
@@ -194,3 +201,26 @@ class RSAModel(dbSession):
                                                                         RSAKeys.user_id == user_id).first()
             session.commit()
             return private_key
+
+
+class ASEModel(dbSession):
+    def add_file_ASE(self, obj: ASE_interface):  # 生成ASE的记录
+        obj_dict = jsonable_encoder(obj)
+        obj_add = ASEKey(**obj_dict)
+        with self.get_db() as session:
+            session.add(obj_add)
+            session.flush()
+            session.commit()
+            return obj_add.id
+
+    def delete_file_ASE(self, file_id: int):  # 删除一条ASE密钥的记录
+        with self.get_db() as session:
+            session.query(ASEKey).filter(ASEKey.file_id == file_id).update({"has_delete": 1})
+            session.commit()
+            return 'ok'
+
+    def get_ase_key_by_file_id(self, file_id: int):  # 根据file_id查询密钥
+        with self.get_db() as session:
+            key = session.query(ASEKey.ase_key).filter(ASEKey.has_delete == 0, ASEKey.file_id == file_id).first()
+            session.commit()
+            return key

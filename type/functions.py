@@ -1,14 +1,12 @@
 import copy
-import copy
 import datetime
-import glob
 import io
 import json
-import os
 import random
-import time
+import re
 import uuid
-import comtypes.client
+
+from Crypto.Cipher import AES
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
@@ -64,6 +62,10 @@ async def make_parameters(request: Request):  # 生成操作表里的parameters
     return json.dumps(parameters.__dict__, ensure_ascii=False)
 
 
+def get_user_name(user_id):
+    return user_model.get_user_name_by_user_id(user_id)[0]
+
+
 def get_user_id(request: Request):  # 获取user_id
     token = request.cookies.get("SESSION")
     session = session_db.get(token)  # 有效session中没有
@@ -85,14 +87,11 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
 
 
 def get_url(new_session, new_token):
-    new_session.exp_dt = time.strptime(new_session.exp_dt.strftime(
-        "%Y-%m-%d %H:%M:%S"), "%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
+    new_session.exp_dt = new_session.exp_dt.strftime("%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
     url = 'http://127.0.0.1:8000/files/download/' + new_token
     return url
-
-
 
 
 def get_url_by_user_file_id(request, id_list):  # 得到下载链接
@@ -183,60 +182,28 @@ def generate_rsa_key_pair():  # 获得一对公钥和私钥
     return private_pem, public_pem
 
 
-def decrypt_file(file, private_key_pem):  # 使用私钥解密文件内容
-    # 加载私钥
-    with open(file, 'rb') as file:
-        encrypted_content = file.read()
+def decrypt_aes_key_with_rsa(encrypted_aes_key: bytes, private_key_pem: bytes):  # 使用私钥解密AES密钥
     private_key = serialization.load_pem_private_key(private_key_pem, password=None, backend=default_backend())
-    # 使用私钥解密文件内容
-    decrypted_content = private_key.decrypt(
-        encrypted_content,
+    decrypted_aes_key = private_key.decrypt(
+        encrypted_aes_key,
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None
         )
     )
-    return decrypted_content
+    return decrypted_aes_key
 
 
-def encrypt_file(file_content, public_key_pem):  # 加密文件（只能加密txt,其他类型需特殊处理）
-    # 读取文件内容
-    # 加载公钥
-    public_key = serialization.load_pem_public_key(public_key_pem, backend=default_backend())
-
-    # 使用公钥加密文件内容
-    encrypted_content = public_key.encrypt(
-        file_content,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-
-    return encrypted_content
-
-
-def remove_extension(filename):  # 去除文件名的后缀
-    name_without_extension = os.path.splitext(filename)[0]
-    return name_without_extension
-
-
-def find_files_with_name_and_extension(folder, filename, extension):  # 查找指定文件是否存在
-    # 构建要匹配的文件路径
-    pattern = f"{folder}/{filename}.{extension}"
-    # 查找具有指定文件名和后缀的文件
-    matching_files = glob.glob(pattern)
-    return matching_files
-
-
-def ppt_to_pdf(ppt_file, pdf_file):
-    powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
-    presentation = powerpoint.Presentations.Open(ppt_file, WithWindow=False)
-    presentation.ExportAsFixedFormat(pdf_file, 2)  # 2 表示导出为PDF格式
-    presentation.Close()
-    powerpoint.Quit()
+def decrypt_file(file_path: str, encrypt_aes_key: bytes, private_key: bytes) -> bytes:  # 解密文件
+    aes_key = decrypt_aes_key_with_rsa(encrypt_aes_key, private_key)
+    with open(file_path, 'rb') as file:
+        nonce = file.read(16)
+        tag = file.read(16)
+        encrypted_data = file.read()
+    aes_cipher = AES.new(aes_key, AES.MODE_EAX, nonce)
+    decrypted_data = aes_cipher.decrypt_and_verify(encrypted_data, tag)
+    return decrypted_data
 
 
 def get_user_information(user_id):  # 根据user_id查询用户基本信息
@@ -278,9 +245,10 @@ programs_translation = {
 
 def get_education_programs(user_id):  # 根据用户id查询培养方案的内容
     programs = education_program_model.get_education_program_by_user_id(user_id)
-    programs.pop('major_id')
-    programs.pop('id')
-    programs.pop('has_delete')
+    if programs is not None:
+        programs.pop('major_id')
+        programs.pop('id')
+        programs.pop('has_delete')
     return programs
 
 
@@ -293,8 +261,13 @@ def get_files(object_key):  # 根据桶名称与文件名从Minio上下载文件
         return JSONResponse(content={'message': e, 'code': 3, 'data': False})
 
 
-def download_files(path, minio_object_key):
-    response = minio_client.get_object('main', minio_object_key)
-    with open(path, 'wb') as local_file:
-        for data in response.stream(amt=1024):
-            local_file.write(data)
+def extract_word_between(text, word1, word2):  # 提取出两单词间的单词
+    pattern = r'{}(.*?){}'.format(re.escape(word1), re.escape(word2))
+    matches = re.findall(pattern, text)
+    return matches
+
+
+'''
+def judge_private_file(user_file_id,user_id):   # 判断某个文件是否是该用户的私有文件
+    return project_service_model.judge_private_file(user_id,user_file_id)
+'''

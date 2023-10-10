@@ -7,14 +7,14 @@ from model.project import Project, ProjectCredit, ProjectContentSubmission, Proj
     ProjectContentUserSubmission
 from model.user import User, User_info, School, College, Major, Class, Operation, Session, Captcha,Education_Program
 from model.financial import Financial, Resource, Bill
-from model.file import File, User_File,RSAKeys,Servers
+from model.file import File, User_File,RSAKeys,Servers,ASEKey
 from model.permissions import UserRole, WorkRole, Role, RolePrivilege, Privilege
 
 create_table_list = [Role,
                      Captcha, User, School, College, Major, Class, User_info, File, User_File, Operation, Session,
                      Financial, Resource, Bill, UserRole, WorkRole, Privilege, RolePrivilege,
                      Project, ProjectCredit, ProjectContent, ProjectContentSubmission, ProjectContentUserScore,
-                     ProjectContentUserSubmission,RSAKeys,Education_Program,Servers
+                     ProjectContentUserSubmission,RSAKeys,ASEKey,Education_Program,Servers
                      ]
 
 if __name__ == "__main__":
