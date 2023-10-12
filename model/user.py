@@ -1,16 +1,13 @@
-import datetime
 import hashlib
-
 from sqlalchemy import (
     Column,
     Integer,
     DateTime,
     VARCHAR,
-    ForeignKey, Date, Index, func, Float, event,
+    ForeignKey, Date, Index, Float, event,
 )
-from sqlalchemy.orm import relationship
 
-from model.db import Base
+from model.db import Base, get_time_now
 
 
 def encrypted_password(password, salt):  # 对密码进行加密
@@ -31,7 +28,7 @@ class User(Base):  # 用户表
     password = Column(VARCHAR(128), nullable=False, comment='密码')  # 密码，非空
     email = Column(VARCHAR(64), nullable=False, unique=True, comment='邮箱地址')  # 邮箱，非空，唯一
     card_id = Column(VARCHAR(32), nullable=True, unique=True, comment='学号或工号，SDU+学号')  # 学号，可空，唯一
-    registration_dt = Column(DateTime, nullable=False, comment='注册时间，新建时自动填写', default=func.now())  # 注册时间，非空
+    registration_dt = Column(DateTime, nullable=False, comment='注册时间，新建时自动填写', default=get_time_now())  # 注册时间，非空
     storage_quota = Column(Integer, nullable=False, comment='存储空间限制（MB）', default=32)  # 存储空间限制（MB），非空
     status = Column(Integer, nullable=False, index=True,
                     comment='是否已经禁用:0 正常使用,1 账号未激活,2 账号已注销,3 账号被封禁,', default=1)  # 账号状态，非空
@@ -40,7 +37,7 @@ class User(Base):  # 用户表
 
 @event.listens_for(User, 'before_insert')  # 再插入前自动加密
 def auto_encrypted_password(mapper, connection, target):
-    target.password = encrypted_password(target.password, target.card_id)
+    target.password = encrypted_password(target.password, target.username)
 
 
 class User_info(Base):  # 用户信息表
@@ -144,7 +141,7 @@ class Session(Base):  # session表
     exp_dt = Column(DateTime, comment='过期时间', nullable=False)  # 过期时间，非空
     ip = Column(VARCHAR(32), comment='客户端ip')  # ip
     user_agent = Column(VARCHAR(256), comment='客户端信息')  # 客户端信息
-    create_dt = Column(DateTime, comment='创建时间', default=func.now())  # 创建时间
+    create_dt = Column(DateTime, comment='创建时间', default=get_time_now())  # 创建时间
     func_type = Column(Integer,
                        comment='0 用户登录 session:1 用户邮箱验证 session,2 文件下载 session,3 文件上传 session')  # 操作类型
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否已经删除

@@ -9,7 +9,7 @@ from fastapi import Request, Header, Depends
 from starlette.responses import JSONResponse, StreamingResponse
 from Celery.add_operation import add_operation
 from Celery.upload_file import upload_file
-from model.db import session_db
+from model.db import session_db,get_time_now
 from service.file import FileModel, UserFileModel, RSAModel, ASEModel
 from service.user import UserModel, SessionModel
 from type.file import file_interface, user_file_interface, RSA_interface, ASE_interface
@@ -58,7 +58,7 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
         new_token = str(uuid.uuid4().hex)  # 生成token
         new_session = session_interface(user_id=user_id, file_id=user_file_id, token=new_token, ip=request.client.host,
                                         func_type=3, user_agent=user_agent, use_limit=1, exp_dt=(
-                    datetime.datetime.now() + datetime.timedelta(hours=6)))  # 生成新session
+                    get_time_now() + datetime.timedelta(hours=6)))  # 生成新session
         session_model.add_session(new_session)
         new_session = new_session.model_dump()
         new_session['exp_dt'] = new_session['exp_dt'].strftime("%Y-%m-%d %H:%M:%S")
@@ -130,7 +130,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     user_file = user_file_model.get_user_file_by_id(id)
     new_token = str(uuid.uuid4().hex)  # 生成token
     use_limit = 1
-    exp_dt = (datetime.datetime.now() + datetime.timedelta(hours=6))
+    exp_dt = (get_time_now() + datetime.timedelta(hours=6))
     new_session = session_interface(user_id=user_file.user_id, file_id=id, token=new_token,
                                     ip=request.client.host,
                                     func_type=2, user_agent=user_agent, use_limit=use_limit,

@@ -1,26 +1,17 @@
-import json
-from datetime import datetime
-
 from fastapi import HTTPException, Request
-from sqlalchemy import func, or_, distinct, case
-from utils.times import getMsTime
-from model.db import dbSession
-
-from sqlalchemy.orm import Session, aliased
-from typing import List, Any, Optional
+from sqlalchemy import and_
+from sqlalchemy import func, distinct, case
+from model.db import dbSession,get_time_now
+from model.permissions import UserRole
 from model.project import Project, ProjectContent, ProjectCredit, ProjectContentSubmission, \
     ProjectContentUserSubmission, ProjectContentUserScore
-from type.project import ProjectBase, ProjectUpdate, CreditCreate, SubmissionCreate, ScoreCreate, ProjectBase_Opt, \
-    ProjectContentBaseOpt, user_submission, user_submission_Opt, Submission_Opt, SubmissionListCreate, \
-    project_content_renew, content_score, User_Opt, ProjectCreate, video_finish_progress, Credit_Opt
-from type.page import page, dealDataList
-from sqlalchemy import and_
-from service.permissions import permissionModel
-from model.permissions import UserRole
 from model.user import User
+from service.permissions import permissionModel
 from type.functions import get_url_by_user_file_id, get_video_time, get_education_programs
-from type.user import operation_interface
-from service.user import OperationModel
+from type.page import page, dealDataList
+from type.project import ProjectUpdate, CreditCreate, ScoreCreate, ProjectBase_Opt, \
+    ProjectContentBaseOpt, user_submission, user_submission_Opt, SubmissionListCreate, \
+    project_content_renew, User_Opt, ProjectCreate, video_finish_progress, Credit_Opt
 
 
 class ProjectService(dbSession):
@@ -480,7 +471,7 @@ class ProjectService(dbSession):
 
     def video_content_progress_renew(self, content_renew: video_finish_progress, user_id: int):
         with self.get_db() as session:
-            time1 = datetime.now()
+            time1 = get_time_now()
             time = time1.timestamp()
             content_user_score_check = session.query(ProjectContentUserScore). \
                 filter(ProjectContentUserScore.user_id == user_id,
