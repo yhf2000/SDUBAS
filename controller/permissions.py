@@ -66,8 +66,7 @@ async def add_role_for_work(request: Request, data: type.permissions.Add_Role_Fo
 @standard_response
 async def test(request: Request):
     db = permissionModel()
-    role_id = db.test(1)
-    return {"role": role_id}
+    return db.create_work_role(1, 'xueyuan', 2)
 
 
 @permissions_router.post("/auth_privilege")  # 权限验证
@@ -116,8 +115,6 @@ async def return_service_id(request: Request, data: type.permissions.Return_Serv
 @standard_response
 async def return_user_id(request: Request, data: type.permissions.Return_User_Id):
     db = permissionModel()
-    permission_key = request.url.path
-    permission = None
     count = db.search_user_id_by_service(data.service_type, data.service_id)
     return count
 

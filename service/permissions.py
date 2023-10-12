@@ -254,8 +254,13 @@ class permissionModel(dbSession):
                 WorkRole.service_type == service_type,
                 WorkRole.service_id == service_id,
                 UserRole.has_delete == 0
+            ).join(
+                RolePrivilege,
+                RolePrivilege.role_id == UserRole.role_id
+            ).filter(
+                RolePrivilege.privilege_id == 2
             )
-            return query
+            return query.count()
 
     def search_college_default_role_id(self, role_list: list):
         with self.get_db() as session:
@@ -483,6 +488,47 @@ class permissionModel(dbSession):
                 role_list.append(temp)
             return role_list
 
+    def return_student_role(self, service_id: int, service_type: int):
+        with self.get_db() as session:
+            query = session.query(WorkRole).join(
+                RolePrivilege,
+                RolePrivilege.role_id == WorkRole.role_id
+            ).filter(
+                WorkRole.service_type == service_type,
+                WorkRole.service_id == service_id,
+                RolePrivilege.privilege_id == 2
+            ).all()
+            role_list = []
+            for item in query:
+                role_list.append(item.role_id)
+            return  role_list
+
+    def return_user_major_role(self, user_id: int):
+        with self.get_db() as session:
+            query = session.query(Role.id).join(
+                User,
+                User.role_id == Role.id
+            ).filter(
+                User.id == user_id
+            ).all()
+            for item in query:
+                role = session.query(Role).join(
+                    WorkRole,
+                    WorkRole.role_id == Role.id
+                ).filter(
+                    WorkRole.service_type == 3,
+                    Role.id == item
+                ).first()
+                if role is not None:
+                    return role.id
+
+    def create_work_role(self, user_id: int, role_name: str, service_type: int):
+        with self.get_db() as session:
+            superiorId = self.search_user_default_role(user_id)
+            role_id = self.create_role(role_name, superiorId)
+            self.attribute_user_role(user_id, role_id)
+            self.attribute_role_for_work(service_type, user_id, role_id)
+            return 'OK'
 
     def test(self, role_id: int):
         with self.get_db() as session:
