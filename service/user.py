@@ -96,7 +96,7 @@ class UserModel(dbSession):
 
     def get_user_some_by_username(self, username):  # 根据username查询user的部分信息
         with self.get_db() as session:
-            user = session.query(User.email, User.password, User.card_id, User.id).filter(User.has_delete == 0,
+            user = session.query(User.email, User.password, User.username, User.id).filter(User.has_delete == 0,
                                                                                                   User.username == username).first()
             session.commit()
             return user

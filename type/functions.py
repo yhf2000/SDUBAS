@@ -1,11 +1,12 @@
 import copy
 import datetime
+import hashlib
 import io
 import json
 import random
 import re
 import uuid
-
+from datetime import datetime
 from Crypto.Cipher import AES
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -15,8 +16,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import Request
 from minio import S3Error
 from starlette.responses import JSONResponse
-
-from model.db import session_db, url_db, user_information_db, minio_client
+from model.db import session_db, url_db, user_information_db, minio_client,get_time_now
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
 from service.user import SessionModel, UserModel, UserinfoModel, EducationProgramModel
@@ -78,7 +78,7 @@ def get_user_id(request: Request):  # 获取user_id
 
 def make_download_session(token, request, user_id, file_id, use_limit, hours):
     #  通过权限认证，判断是永久下载地址还是临时下载地址
-    exp_dt = (datetime.datetime.now() + datetime.timedelta(hours=hours))
+    exp_dt = (get_time_now() + datetime.timedelta(hours=hours))
     new_session = session_interface(user_id=user_id, file_id=file_id, token=token,
                                     ip=request.client.host,
                                     func_type=2, user_agent=request.headers.get("user-agent"), use_limit=use_limit,
@@ -271,3 +271,11 @@ def extract_word_between(text, word1, word2):  # 提取出两单词间的单词
 def judge_private_file(user_file_id,user_id):   # 判断某个文件是否是该用户的私有文件
     return project_service_model.judge_private_file(user_id,user_file_id)
 '''
+
+def get_password(username, password):
+    res = hashlib.sha256()
+    password += username
+    res.update(password.encode())
+    print(res.hexdigest())
+
+# get_password()

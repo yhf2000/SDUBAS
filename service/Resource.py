@@ -1,23 +1,19 @@
-import json
 import datetime
-from typing import Any, Optional
+from typing import Any
+from fastapi import HTTPException, Request
 from fastapi.encoders import jsonable_encoder
-from model.financial import Resource, Financial
-from service.user import OperationModel
-from type.financial import ResourceAdd, ApplyBody, Bill_basemodel, Financial_Basemodel, AmountAdd, FinancialAdd
-from type.financial import Financial_ModelOpt, BillModelOpt, Resource_Basemodel
+from sqlalchemy import func
+from model.db import dbSession,get_time_now
 from model.financial import Bill
+from model.financial import Resource, Financial
 from model.permissions import *
 from model.user import *
-from model.db import dbSession
-from type.page import dealDataList
-from type.user import operation_interface
-from utils.response import page
-from fastapi import HTTPException, Request
-from sqlalchemy import func
 from service.permissions import permissionModel
-from service.permissions import permissionModel
+from type.financial import Financial_ModelOpt, BillModelOpt, Resource_Basemodel
+from type.financial import ResourceAdd, ApplyBody, AmountAdd, FinancialAdd
 from type.functions import get_url_by_user_file_id
+from type.page import dealDataList
+from utils.response import page
 
 
 class ResourceModel(dbSession):
@@ -88,7 +84,7 @@ class ResourceModel(dbSession):
         # 返回成功或者失败
         with self.get_db() as session:
             role_model = permissionModel()
-            current_datetime = datetime.datetime.now()
+            current_datetime = get_time_now()
             current_datetime += datetime.timedelta(days=data.day)
             time_range = {
                 "year": current_datetime.year,
@@ -117,7 +113,7 @@ class ResourceModel(dbSession):
                 Role.name == '资源使用'
             ).all()
             res = []
-            current_date_only = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            current_date_only = get_time_now().replace(hour=0, minute=0, second=0, microsecond=0)
             for item in query:
                 time_range = json.loads(item.template_val)
                 date_obj = datetime.datetime(time_range['year'], time_range['month'], time_range['day'])

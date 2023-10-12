@@ -1,4 +1,7 @@
 from contextlib import contextmanager
+from datetime import datetime
+
+import pytz
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.orm import declarative_base
@@ -56,3 +59,11 @@ class dbSession:
             session.delete(record)
             session.commit()
             return record_id
+
+
+def get_time_now():
+    # 获取北京时区的对象
+    beijing_tz = pytz.timezone('Asia/Shanghai')
+    # 获取当前时间并将其转换为北京时间
+    current_time_utc = datetime.now(pytz.utc)  # 获取当前时间并将其标记为UTC时间
+    return current_time_utc.astimezone(beijing_tz)
