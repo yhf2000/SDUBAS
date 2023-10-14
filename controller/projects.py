@@ -342,7 +342,7 @@ async def get_all_content_user_score(request: Request,
     tn, results = project_service.get_user_credit_all(user_id=user_id, pg=Page)
     parameters = await make_parameters(request)
     name = get_user_name(user['user_id'])
-    add_operation.delay(0, 0, "查看用户学分明细", f"{name}于qpzm7913查看用户学分明细", parameters, user['user_id'])
+    add_operation.delay(0, 0, "查看用户学分明细", f"{name}于qpzm7913查看用户{user_id}学分明细", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
 
 

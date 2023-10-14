@@ -1,3 +1,5 @@
+import json
+
 from fastapi import HTTPException, Request
 from sqlalchemy import and_
 from sqlalchemy import func, distinct, case
@@ -377,8 +379,8 @@ class ProjectService(dbSession):
                 filter(ProjectCredit.role_id == credit_role_id). \
                 group_by(ProjectCredit.type). \
                 add_columns(func.sum(ProjectCredit.credit).label("credit_count"))
-            # file_credits = get_education_programs(user_id)
-            file_credits = {'siuyi': 50, '国学': 30, '艺术': 20, '体育': 10}
+            file_credits = get_education_programs(user_id)
+            # file_credits = {'siuyi': 50, '国学': 30, '艺术': 20, '体育': 10}
             results = query.all()
             total_count = []
             for project in results:
