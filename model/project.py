@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Index, Float, Text
 from sqlalchemy.sql import func
-from model.db import Base
-
+from model.db import Base,get_time_now
 
 class Project(Base):
     __tablename__ = 'project'
@@ -16,7 +15,7 @@ class Project(Base):
     tag = Column(String(64), nullable=False)  # 标签，不能为空
     img_id = Column(Integer, ForeignKey('user_file.id'), nullable=False)  # 用户文件id，外键，不能为空
     active = Column(Integer, nullable=False)  # 0 未开始：创建人可看，1 进行中，2 归档：只读，不能为空
-    create_dt = Column(DateTime, default=func.now(), nullable=False)  # 创建时间，自动设置，不能为空
+    create_dt = Column(DateTime, default=get_time_now(), nullable=False)  # 创建时间，自动设置，不能为空
     has_delete = Column(Integer, nullable=False)  # 是否已删除，不能为空
 
 
@@ -81,7 +80,7 @@ class ProjectContentUserSubmission(Base):
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)  # 用户id，外键，不能为空
     file_id = Column(Integer, ForeignKey('user_file.id'), nullable=True)  # 文件id，外键，可以为空
     content = Column(Text, nullable=True)  # 提交内容，可以为空，最大32Kb
-    submit_dt = Column(DateTime, default=func.now(), nullable=False)  # 提交时间，不能为空
+    submit_dt = Column(DateTime, default=get_time_now(), nullable=False)  # 提交时间，不能为空
 
 
 class ProjectContentUserScore(Base):
@@ -101,6 +100,6 @@ class ProjectContentUserScore(Base):
     is_pass = Column(Integer, nullable=False)  # 是否通过，不能为空，-1 待确定, 0 通过, 1 不通过
     score = Column(Float, nullable=True)  # 百分制分数，可以为空
     comment = Column(Text, nullable=False)  # 评测评论，不能为空，最大4Kb
-    judge_dt = Column(DateTime, default=func.now(), nullable=False)  # 打分时间，不能为空
+    judge_dt = Column(DateTime, default=get_time_now(), nullable=False)  # 打分时间，不能为空
     viewed_time = Column(Integer, nullable=True)  # 视频文件检查次数，可空
     last_check_time = Column(DateTime, nullable=True)  # 最新一次检查时间

@@ -1,11 +1,6 @@
-import copy
-import json
-from datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, TEXT, create_engine, func, Index
-from sqlalchemy.sql import func
-from model.db import Base
-
+from model.db import Base,get_time_now
 
 class Resource(Base):  # 资源表
     __tablename__ = "resource"
@@ -29,7 +24,7 @@ class Financial(Base):  # 资金表
     Id = Column(Integer, primary_key=True)  # 主键
     name = Column(String(64), nullable=False)  # 名称
     note = Column(TEXT, nullable=False)  # 备注
-    create_dt = Column(DateTime, nullable=False, default=func.now())  # 创建时间自动填入
+    create_dt = Column(DateTime, nullable=False, default=get_time_now())  # 创建时间自动填入
     has_delete = Column(Integer, nullable=False, default=0)  # 是否删除
     children = relationship("Bill")  # 一对多
 
@@ -48,4 +43,4 @@ class Bill(Base):  # 流水表
     log_content = Column(String(64), nullable=False)  # 日志
     log_file_id = Column(Integer, nullable=True)  # 上传凭证文件id，外键（需要增加）
     has_delete = Column(Integer, nullable=False, default=0)  # 是否删除，自动填入0
-    oper_dt = Column(DateTime, nullable=False, default=func.now())  # 操作时间自动填入
+    oper_dt = Column(DateTime, nullable=False, default=get_time_now())  # 操作时间自动填入

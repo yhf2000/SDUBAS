@@ -3,21 +3,19 @@ import datetime
 import json
 import random
 import string
-import time
 import uuid
 from io import BytesIO
-
 from captcha.image import ImageCaptcha
 from fastapi import APIRouter
 from fastapi import Request, Header, Depends
-
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
-from model.db import session_db, user_information_db
+from model.db import session_db, user_information_db,get_time_now
 from model.user import encrypted_password
 from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
-from type.functions import search_son_user, get_email_token, get_user_id, get_user_information,make_parameters,get_user_name,extract_word_between
+from type.functions import search_son_user, get_email_token, get_user_id, get_user_information, make_parameters, \
+    get_user_name, extract_word_between
 from type.page import page
 from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
@@ -26,7 +24,7 @@ from type.user import user_info_interface, \
     captcha_interface, user_interface, reason_interface, user_add_batch_interface
 from utils.auth_login import auth_login, auth_not_login
 from utils.auth_permission import auth_permission_default
-from utils.response import user_standard_response, page_response, status_response, makePageResult
+from utils.response import user_standard_response, page_response, makePageResult
 
 users_router = APIRouter()
 user_model = UserModel()
@@ -251,7 +249,7 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
                                 func_type=1,
                                 token=token, user_agent=user_agent, token_s6=email_token,
                                 use_limit=1, exp_dt=(
-                datetime.datetime.now() + datetime.timedelta(minutes=5)))  # 新建一个session
+                get_time_now() + datetime.timedelta(minutes=5)))  # 新建一个session
     id = session_model.add_session(session)
     session = session.model_dump()
     session['exp_dt'] = session['exp_dt'].strftime(
@@ -307,7 +305,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
     if user_information is None:  # 用户名不存在
         return {'message': '用户名或密码不正确', 'data': False, 'code': 1}
     else:  # 用户名存在
-        new_password = encrypted_password(log_data.password, user_information.card_id)  # 判定输入的密码是否正确
+        new_password = encrypted_password(log_data.password, user_information.username)  # 判定输入的密码是否正确
         if new_password == user_information.password:
             status = user_model.get_user_status_by_username(log_data.username)[0]  # 登陆时检查帐号状态
             if status == 1:
@@ -320,7 +318,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             session = session_interface(user_id=int(user_information.id), ip=request.client.host,
                                         func_type=0,
                                         token=token, user_agent=user_agent, exp_dt=(
-                        datetime.datetime.now() + datetime.timedelta(days=14)))
+                        get_time_now() + datetime.timedelta(days=14)))
             id = session_model.add_session(session)
             session = session.model_dump()
             session['exp_dt'] = session['exp_dt'].strftime(
@@ -353,9 +351,9 @@ async def user_logout(request: Request, session=Depends(auth_login)):
 async def user_password_update(request: Request, password: password_interface, session=Depends(auth_login)):
     user_id = session['user_id']
     user = user_model.get_user_by_user_id(user_id)
-    if user.password != encrypted_password(password.old_password, user.card_id):  # 原密码输入错误
+    if user.password != encrypted_password(password.old_password, user.username):  # 原密码输入错误
         return {'message': '密码输入不正确', 'data': False, 'code': 1}
-    new_password = encrypted_password(password.new_password, user.card_id)
+    new_password = encrypted_password(password.new_password, user.username)
     if user.password == new_password:  # 新密码与旧密码相同
         return {'message': '新密码不能与旧密码相同', 'data': False, 'code': 2}
     id = user_model.update_user_password(user_id, new_password)  # 更新新密码
@@ -406,7 +404,7 @@ async def user_set_password(request: Request, new_password: str, token: str):
         return {'data': False, 'message': '无法找到该页面', 'code': 1}
     user_id = user_id[0]
     user_information = user_model.get_user_by_user_id(user_id)
-    new_password = encrypted_password(new_password, user_information.card_id)
+    new_password = encrypted_password(new_password, user_information.username)
     if user_information.password == new_password:
         return {'data': False, 'message': '新密码不能与原密码相同', 'code': 2}
     user_model.update_user_password(user_id, new_password)  # 设置密码
