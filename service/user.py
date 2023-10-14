@@ -1,6 +1,8 @@
 import datetime
 
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import func
+
 import model.user
 from model.db import dbSession
 from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College, Education_Program
@@ -192,6 +194,7 @@ class UserModel(dbSession):
 class SessionModel(dbSession):
     def add_session(self, obj: session_interface):  # 添加一个session
         obj_dict = jsonable_encoder(obj)
+        obj_dict['exp_dt'] = func.from_unixtime(obj_dict['exp_dt'])
         obj_add = Session(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)

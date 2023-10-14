@@ -1,12 +1,11 @@
 import copy
-import datetime
 import hashlib
 import io
 import json
 import random
 import re
+import time
 import uuid
-from datetime import datetime
 from Crypto.Cipher import AES
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -15,8 +14,10 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import Request
 from minio import S3Error
+from sqlalchemy import func
 from starlette.responses import JSONResponse
-from model.db import session_db, url_db, user_information_db, minio_client,get_time_now
+
+from model.db import session_db, url_db, user_information_db, minio_client
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
 from service.user import SessionModel, UserModel, UserinfoModel, EducationProgramModel
@@ -78,11 +79,11 @@ def get_user_id(request: Request):  # 获取user_id
 
 def make_download_session(token, request, user_id, file_id, use_limit, hours):
     #  通过权限认证，判断是永久下载地址还是临时下载地址
-    exp_dt = (get_time_now() + datetime.timedelta(hours=hours))
+    exp_dt = get_time_now('hours',hours)
     new_session = session_interface(user_id=user_id, file_id=file_id, token=token,
                                     ip=request.client.host,
                                     func_type=2, user_agent=request.headers.get("user-agent"), use_limit=use_limit,
-                                    exp_dt=exp_dt)  # 生成新session
+                                    exp_dt=func.from_unixtime(exp_dt))  # 生成新session
     return new_session
 
 
@@ -195,14 +196,9 @@ def decrypt_aes_key_with_rsa(encrypted_aes_key: bytes, private_key_pem: bytes): 
     return decrypted_aes_key
 
 
-def decrypt_file(file_path: str, encrypt_aes_key: bytes, private_key: bytes) -> bytes:  # 解密文件
-    aes_key = decrypt_aes_key_with_rsa(encrypt_aes_key, private_key)
-    with open(file_path, 'rb') as file:
-        nonce = file.read(16)
-        tag = file.read(16)
-        encrypted_data = file.read()
-    aes_cipher = AES.new(aes_key, AES.MODE_EAX, nonce)
-    decrypted_data = aes_cipher.decrypt_and_verify(encrypted_data, tag)
+def decrypt_file(encrypted_data: bytes, aes_key: bytes) -> bytes:
+    aes_cipher = AES.new(aes_key, AES.MODE_EAX, nonce=encrypted_data[:16])
+    decrypted_data = aes_cipher.decrypt(encrypted_data[32:])
     return decrypted_data
 
 
@@ -267,10 +263,11 @@ def extract_word_between(text, word1, word2):  # 提取出两单词间的单词
     return matches
 
 
-'''
+
 def judge_private_file(user_file_id,user_id):   # 判断某个文件是否是该用户的私有文件
-    return project_service_model.judge_private_file(user_id,user_file_id)
-'''
+    return user_file_model.judge_private_file(user_id,user_file_id)
+
+
 
 def get_password(username, password):
     res = hashlib.sha256()
@@ -278,4 +275,19 @@ def get_password(username, password):
     res.update(password.encode())
     print(res.hexdigest())
 
-# get_password()
+
+def get_time_now(unit="seconds", value=0):
+    current_timestamp = int(time.time())
+    if unit == "seconds":
+        new_timestamp = current_timestamp + value
+    elif unit == "minutes":
+        new_timestamp = current_timestamp + (value * 60)
+    elif unit == "hours":
+        new_timestamp = current_timestamp + (value * 3600)
+    elif unit == "days":
+        new_timestamp = current_timestamp + (value * 86400)
+    else:
+        raise ValueError("Unsupported time unit")
+    return new_timestamp
+
+# get_password('zyq','1')

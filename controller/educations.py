@@ -8,6 +8,7 @@ from Celery.add_operation import add_operation
 from service.education import SchoolModel, CollegeModel, MajorModel, ClassModel
 from service.user import SessionModel, OperationModel, UserinfoModel, EducationProgramModel,UserModel
 from service.file import UserFileModel
+from service.permissions import permissionModel
 from type.functions import  programs_translation,get_user_name,make_parameters
 from type.page import page
 from type.user import school_interface, class_interface, college_interface, major_interface, education_program_interface
@@ -25,7 +26,7 @@ user_info_model = UserinfoModel()
 education_program_model = EducationProgramModel()
 user_model = UserModel()
 user_file_model = UserFileModel()
-
+permission_model = permissionModel()
 # 验证学校，学院，专业，班级是否存在的接口。有选择性地传入各个id进行判断
 def verify_education_by_id(school_id: int = None, college_id: int = None, major_id: int = None, class_id: int = None):
     if school_id is not None:
@@ -72,6 +73,7 @@ async def user_school_add(request: Request, school_data: school_interface, sessi
     else:
         img_name = user_file_model.get_file_name_by_id(school_data.school_logo_id)[0]
         id = school_model.add_school(school_data)
+        permission_model.create_work_role(session['user_id'],'学校学生',1)
         str = f'{username}于qpzm7913通过输入学校名称{school_data.name}和学校简称{school_data.school_abbreviation}和上传图片{img_name}添加了一个学校'
     parameters = await make_parameters(request)
     add_operation.delay(1, id, '添加学校',str, parameters, session['user_id'])
@@ -155,6 +157,7 @@ async def user_college_add(request: Request, college_data: college_interface, se
     else:  # 新建一个学院
         img_name = user_file_model.get_file_name_by_id(college_data.college_logo_id)[0]
         id = college_model.add_college(college_data)
+        permission_model.create_work_role(session['user_id'], '学院学生', 2)
         str = f'{username}于qpzm7913通过选择学校id为{college_data.school_id}的学校，并通过输入学院名称{college_data.name}和上传图片{img_name}添加了一个学院'
     parameters = await make_parameters(request)
     add_operation.delay(2, id, '添加学院',str, parameters, session['user_id'])
@@ -245,6 +248,7 @@ async def user_major_add(request: Request, major_data: major_interface, session=
             education_program_model.update_education_program_exist(id)
     else:  # 新建一个专业
         id = major_model.add_major(major_data)
+        permission_model.create_work_role(session['user_id'], '专业学生', 3)
         programs = major_data.education_program
         new_programs = {}
         # 遍历原始的 programs 字典
@@ -353,6 +357,7 @@ async def user_class_add(request: Request, class_data: class_interface, session=
             str = f'{username}于qpzm7913恢复一个曾删除的班级id为{clas[1]}的班级'
     else:  # 新建一个班级
         id = class_model.add_class(class_data)
+        permission_model.create_work_role(session['user_id'], '班级学生', 4)
         str = f'{username}于qpzm7913通过选择学校id为{class_data.school_id}的学校，选择学院id为{class_data.college_id}的学院,并通过输入班级名称{class_data.name}添加了一个班级'
     parameters = await make_parameters(request)
     add_operation.delay(4, id, '添加班级',str, parameters, session['user_id'])

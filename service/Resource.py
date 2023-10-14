@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func
-from model.db import dbSession,get_time_now
+from model.db import dbSession
 from model.financial import Bill
 from model.financial import Resource, Financial
 from model.permissions import *
@@ -11,7 +11,7 @@ from model.user import *
 from service.permissions import permissionModel
 from type.financial import Financial_ModelOpt, BillModelOpt, Resource_Basemodel
 from type.financial import ResourceAdd, ApplyBody, AmountAdd, FinancialAdd
-from type.functions import get_url_by_user_file_id
+from type.functions import get_url_by_user_file_id,get_time_now
 from type.page import dealDataList
 from utils.response import page
 
@@ -84,8 +84,7 @@ class ResourceModel(dbSession):
         # 返回成功或者失败
         with self.get_db() as session:
             role_model = permissionModel()
-            current_datetime = get_time_now()
-            current_datetime += datetime.timedelta(days=data.day)
+            current_datetime = get_time_now('days',data.day)
             time_range = {
                 "year": current_datetime.year,
                 "month": current_datetime.month,
@@ -113,7 +112,7 @@ class ResourceModel(dbSession):
                 Role.name == '资源使用'
             ).all()
             res = []
-            current_date_only = get_time_now().replace(hour=0, minute=0, second=0, microsecond=0)
+            current_date_only = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             for item in query:
                 time_range = json.loads(item.template_val)
                 date_obj = datetime.datetime(time_range['year'], time_range['month'], time_range['day'])

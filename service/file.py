@@ -3,6 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from model.db import dbSession
 from model.file import File, User_File, RSAKeys, ASEKey
 from type.file import file_interface, user_file_interface, RSA_interface, user_file_all_interface, ASE_interface
+from model.project import ProjectContentUserSubmission
 
 
 class FileModel(dbSession):
@@ -151,6 +152,12 @@ class UserFileModel(dbSession):
             session.commit()
             return type
 
+    def get_user_id_by_id(self, id: int):  # 根据id查询user_file的user_id
+        with self.get_db() as session:
+            id = session.query(User_File.user_id).filter(User_File.has_delete == 0, User_File.id == id).first()
+            session.commit()
+            return id
+
     def get_user_file_id_by_file_id(self, file_id: int):  # 根据file_id查询user_file的id
         with self.get_db() as session:
             id = session.query(User_File.id).filter(User_File.has_delete == 0, User_File.file_id == file_id).first()
@@ -170,6 +177,15 @@ class UserFileModel(dbSession):
                 page.offset()).limit(page.limit()).all()
             session.commit()
             return files
+
+    def judge_private_file(self, user_id: int, file_id: int):
+        with self.get_db() as session:
+            exist = session.query(ProjectContentUserSubmission).filter(ProjectContentUserSubmission.user_id == user_id,
+                                                                       ProjectContentUserSubmission.file_id == file_id,
+                                                                       ProjectContentUserSubmission.has_delete == 0).first()
+            if exist is None:
+                return 0
+            return 1
 
 
 class RSAModel(dbSession):

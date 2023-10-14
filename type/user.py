@@ -1,7 +1,7 @@
 import hashlib
 from datetime import datetime, date
 from typing import Any
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class login_interface(BaseModel):
@@ -39,7 +39,7 @@ class session_interface(BaseModel):
     use: int = 0
     token_s6: str = None
     use_limit: int = None
-    exp_dt: datetime
+    exp_dt: int
     ip: str
     user_agent: str
     func_type: int

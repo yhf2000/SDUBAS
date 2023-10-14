@@ -1,4 +1,6 @@
+import codecs
 import datetime
+import io
 import json
 import uuid
 from hashlib import sha256, md5
@@ -9,11 +11,12 @@ from fastapi import Request, Header, Depends
 from starlette.responses import JSONResponse, StreamingResponse
 from Celery.add_operation import add_operation
 from Celery.upload_file import upload_file
-from model.db import session_db,get_time_now
+from model.db import session_db
 from service.file import FileModel, UserFileModel, RSAModel, ASEModel
 from service.user import UserModel, SessionModel
 from type.file import file_interface, user_file_interface, RSA_interface, ASE_interface
-from type.functions import get_files, generate_rsa_key_pair, make_parameters, get_user_name
+from type.functions import get_files, generate_rsa_key_pair, make_parameters, get_user_name, get_time_now, \
+    judge_private_file,decrypt_aes_key_with_rsa,decrypt_file
 from type.page import page
 from type.user import session_interface
 from utils.auth_login import auth_login
@@ -57,11 +60,9 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
             user_file_id = user_file_model.get_user_file_id_by_file_id(id[0])[0]
         new_token = str(uuid.uuid4().hex)  # 生成token
         new_session = session_interface(user_id=user_id, file_id=user_file_id, token=new_token, ip=request.client.host,
-                                        func_type=3, user_agent=user_agent, use_limit=1, exp_dt=(
-                    get_time_now() + datetime.timedelta(hours=6)))  # 生成新session
+                                        func_type=3, user_agent=user_agent, use_limit=1, exp_dt=get_time_now('hours',6)) # 生成新session
         session_model.add_session(new_session)
         new_session = new_session.model_dump()
-        new_session['exp_dt'] = new_session['exp_dt'].strftime("%Y-%m-%d %H:%M:%S")
         user_session = json.dumps(new_session)
         session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
         return {'message': '文件不存在', 'data': {'file_id': None, 'public_key': public_key}, 'token_header': new_token,
@@ -130,14 +131,12 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     user_file = user_file_model.get_user_file_by_id(id)
     new_token = str(uuid.uuid4().hex)  # 生成token
     use_limit = 1
-    exp_dt = (get_time_now() + datetime.timedelta(hours=6))
     new_session = session_interface(user_id=user_file.user_id, file_id=id, token=new_token,
                                     ip=request.client.host,
                                     func_type=2, user_agent=user_agent, use_limit=use_limit,
-                                    exp_dt=exp_dt)  # 生成新session
+                                    exp_dt=get_time_now('hours',6))  # 生成新session
     session_model.add_session(new_session)
     new_session = new_session.model_dump()
-    new_session['exp_dt'] = new_session['exp_dt'].strftime("%Y-%m-%d %H:%M:%S")
     user_session = json.dumps(new_session)
     session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
     return {'message': '请前往下载', 'data': {'url': 'http://127.0.0.1:8000/files/download/' + new_token}, 'code': 0}
@@ -151,12 +150,8 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
         session_model.delete_session_by_token(token)
         return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
     old_session = json.loads(old_session)
-    '''
-    is_private = judge_private_file(old_session['file_id'],old_session['user_id'])
-    if is_private:
-        if session['user_id'] != old_session['user_id']:
-            return JSONResponse(content={'message': '您没有使用该链接的权限', 'code': 2, 'data': False})
-    '''
+    user_id = user_file_model.get_user_id_by_id(old_session['file_igit add'])[0]
+    is_private = judge_private_file(old_session['file_id'],user_id)
     if old_session['use'] != old_session['use_limit']:  # 查看下载链接是否还有下载次数
         if old_session['use'] + 1 == old_session['use_limit']:  # 在下一次就失效
             session_model.delete_session_by_token(token)
@@ -169,13 +164,20 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
         file = file_model.get_file_by_id(user_file.file_id)
         pre_folder =  file.hash_md5[:8] + '/' + file.hash_sha256[-8:]
         folder = pre_folder + '/' + user_file.name  # 先找到路径
-        # private_key = RSA_model.get_private_key_by_user_id(session['user_id'])
-        # decrypted_content = decrypt_file(folder,private_key[0].encode('utf-8'))
         filename = user_file.name
         parameters = await make_parameters(request)
         username = get_user_name(session['user_id'])
+        data = get_files(folder)
+        if is_private:
+            data = data.read()
+            encrypt_ase_key = str(ASE_model.get_ase_key_by_file_id(old_session['file_id'])[0]).encode('utf-8')
+            decoded_str, _ = codecs.unicode_escape_decode(encrypt_ase_key.decode('utf-8'))
+            encrypt_ase_key = decoded_str.encode('latin-1')
+            private_key = RSA_model.get_private_key_by_user_id(user_id)[0].encode('utf-8')
+            ase_key = decrypt_aes_key_with_rsa(encrypt_ase_key, private_key).encode('utf-8')
+            data = decrypt_file(data,encrypt_ase_key)
+            data = io.BytesIO(data)
         if old_session['use_limit'] == -1:
-            data = get_files(folder)
             encoded_filename = quote(filename)
             headers = {
                 "Content-Type":user_file.type,
@@ -184,10 +186,9 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
             add_operation.delay(8, old_session['file_id'], '预览文件',f'用户{username}于qpzm7913预览了一个名为{user_file.name}的文件', parameters, old_session['user_id'])
             return StreamingResponse(data, headers=headers)
         else:
-            content = get_files(folder)
             add_operation.delay(8, old_session['file_id'], '下载文件',f'用户{username}于qpzm791下载了一个名为{user_file.name}的文件', parameters, old_session['user_id'])
             encoded_filename = quote(user_file.name, safe='')
-            return StreamingResponse(content, media_type=user_file.type,headers={
+            return StreamingResponse(data, media_type=user_file.type,headers={
                     "Content-Disposition": f'attachment; filename="{encoded_filename}"'
                 })
     return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})

@@ -8,14 +8,16 @@ from io import BytesIO
 from captcha.image import ImageCaptcha
 from fastapi import APIRouter
 from fastapi import Request, Header, Depends
+from sqlalchemy import func
+
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
-from model.db import session_db, user_information_db,get_time_now
+from model.db import session_db, user_information_db
 from model.user import encrypted_password
 from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
 from type.functions import search_son_user, get_email_token, get_user_id, get_user_information, make_parameters, \
-    get_user_name, extract_word_between
+    get_user_name, extract_word_between, get_time_now
 from type.page import page
 from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
@@ -248,12 +250,9 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
     session = session_interface(user_id=int(id), ip=request.client.host,
                                 func_type=1,
                                 token=token, user_agent=user_agent, token_s6=email_token,
-                                use_limit=1, exp_dt=(
-                get_time_now() + datetime.timedelta(minutes=5)))  # 新建一个session
+                                use_limit=1, exp_dt=get_time_now('minutes',5))  # 新建一个session
     id = session_model.add_session(session)
     session = session.model_dump()
-    session['exp_dt'] = session['exp_dt'].strftime(
-        "%Y-%m-%d %H:%M:%S")
     user_session = json.dumps(session)
     session_db.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
     return {'data': True, 'token_header': token, 'message': '验证码已发送，请前往验证！', 'code': 0}
@@ -317,12 +316,10 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             token = str(uuid.uuid4().hex)
             session = session_interface(user_id=int(user_information.id), ip=request.client.host,
                                         func_type=0,
-                                        token=token, user_agent=user_agent, exp_dt=(
-                        get_time_now() + datetime.timedelta(days=14)))
+                                        token=token, user_agent=user_agent, exp_dt=
+                        get_time_now('days',14))
             id = session_model.add_session(session)
             session = session.model_dump()
-            session['exp_dt'] = session['exp_dt'].strftime(
-                "%Y-%m-%d %H:%M:%S")
             user_session = json.dumps(session)
             session_db.set(token, user_session, ex=1209600)  # 缓存有效session
             parameters = await make_parameters(request)
