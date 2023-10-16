@@ -1,13 +1,13 @@
 from fastapi import HTTPException, Request
 from sqlalchemy import and_
 from sqlalchemy import func, distinct, case
-from model.db import dbSession,get_time_now
+from model.db import dbSession
 from model.permissions import UserRole
 from model.project import Project, ProjectContent, ProjectCredit, ProjectContentSubmission, \
     ProjectContentUserSubmission, ProjectContentUserScore
 from model.user import User
 from service.permissions import permissionModel
-from type.functions import get_url_by_user_file_id, get_video_time, get_education_programs
+from type.functions import get_url_by_user_file_id, get_video_time, get_education_programs, get_time_now
 from type.page import page, dealDataList
 from type.project import ProjectUpdate, CreditCreate, ScoreCreate, ProjectBase_Opt, \
     ProjectContentBaseOpt, user_submission, user_submission_Opt, SubmissionListCreate, \
@@ -471,8 +471,7 @@ class ProjectService(dbSession):
 
     def video_content_progress_renew(self, content_renew: video_finish_progress, user_id: int):
         with self.get_db() as session:
-            time1 = get_time_now()
-            time = time1.timestamp()
+            time = get_time_now()
             content_user_score_check = session.query(ProjectContentUserScore). \
                 filter(ProjectContentUserScore.user_id == user_id,
                        ProjectContentUserScore.user_pcs_id == content_renew.content_id).first()
@@ -484,8 +483,8 @@ class ProjectService(dbSession):
                                                    user_pcs_id=content_renew.content_id, user_id=user_id,
                                                    judger=1, honesty='', honesty_weight=0,
                                                    is_pass=-1, score=None, comment='',
-                                                   judge_dt=time1, viewed_time=0,
-                                                   last_check_time=time1)
+                                                   judge_dt=func.from_unixtime(time), viewed_time=0,
+                                                   last_check_time=func.from_unixtime(time))
                 session.add(db_score)
                 session.commit()
                 session.refresh(db_score)
@@ -501,7 +500,7 @@ class ProjectService(dbSession):
                         filter(ProjectContentUserScore.user_id == user_id,
                                ProjectContentUserScore.user_pcs_id == content_renew.content_id).update(
                         {'viewed_time': has_view_time,
-                         'last_check_time': time1,
+                         'last_check_time': func.from_unixtime(time),
                          'is_pass': is_pass})
                     session.commit()
                     if is_pass == 1:
@@ -607,12 +606,3 @@ class ProjectService(dbSession):
             role_model = permissionModel()
             role_list = role_model.search_role_info_by_service(project_id, 3)
             return role_list
-
-    def judge_private_file(self, user_id: int, file_id: int):
-        with self.get_db() as session:
-            exist = session.query(ProjectContentUserSubmission).filter(ProjectContentUserSubmission.user_id == user_id,
-                                                                       ProjectContentUserSubmission.file_id == file_id,
-                                                                       ProjectContentUserSubmission.has_delete == 0).first()
-            if exist is None:
-                return 0
-            return 1
