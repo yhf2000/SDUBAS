@@ -1,3 +1,5 @@
+import json
+
 from fastapi import HTTPException, Request
 from sqlalchemy import and_
 from sqlalchemy import func, distinct, case
@@ -68,7 +70,7 @@ class ProjectService(dbSession):
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="查看项目")
-            service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            # service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
             query = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids))
             total_count = query.count()  # 总共
             # 执行分页查询
@@ -237,7 +239,8 @@ class ProjectService(dbSession):
 
             return total_score
 
-    def get_projects_by_type(self, request: Request, project_type: str, pg: page, tags: str, user_id: int):
+    def get_projects_by_type(self, request: Request, project_type: str, pg: page, tags: str, project_name: str,
+                             user_id: int):
         with self.get_db() as session:
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
@@ -250,6 +253,8 @@ class ProjectService(dbSession):
                 print(tag_list)
                 conditions = [Project.tag.like(f"%{tag}%") for tag in tag_list]
                 query = query.filter(and_(*conditions))
+            if project_name:
+                query = query.filter(Project.name.like(f"%{project_name}%"))
             total_count = query.count()  # 总共
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
@@ -509,12 +514,14 @@ class ProjectService(dbSession):
                         return 'renew_finish'
             return 'renew_failure'
 
-    def get_project_credits_all(self, project_id: int):
+    def get_project_credits_all(self, project_id: int, pg: page):
         with self.get_db() as session:
             query = session.query(ProjectCredit).filter(ProjectCredit.project_id == project_id)
-            results = query.all()
-            results = dealDataList(results, Credit_Opt, {})
-            return results
+            total_count = query.count()  # 总共
+            # 执行分页查询
+            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+            results = dealDataList(data, Credit_Opt, {})
+            return total_count, results
 
     def renew_project_content_special(self, project_id: int, content_id: int, user_id: int):
         with self.get_db() as session:
@@ -522,38 +529,48 @@ class ProjectService(dbSession):
                                                            ProjectContent.project_id == project_id,
                                                            ProjectContent.has_delete == 0).first()
             description = content.feature
-            result = {}
-            pairs = description.split(';')
-            for pair in pairs:
-                key_value = pair.split(':')
-                if len(key_value) == 2:
-                    key = key_value[0]
-                    values = [int(num) for num in key_value[1].split(',')]
-                    result[key] = values  # 对字符串进行处理
-            count = len(result['c'])
+            if description is None:
+                return "this content can not renew"
+            data = json.loads(description)
+            finish_list = data["set_list"]
+            # print(finish_list)
+            for item in finish_list:
+                project_id_list = item["project_id_list"]
+                query = session.query(Project.id). \
+                    select_from(Project). \
+                    join(ProjectContent,
+                         ProjectContent.project_id == Project.id). \
+                    outerjoin(ProjectContentUserScore,
+                              (ProjectContentUserScore.user_pcs_id == ProjectContent.id) &
+                              (ProjectContentUserScore.user_id == user_id)). \
+                    filter(ProjectContent.project_id.in_(project_id_list),
+                           Project.has_delete == 0). \
+                    group_by(Project.id). \
+                    having(func.sum(ProjectContentUserScore.is_pass) == func.count(ProjectContent.id)).count()
+                # print(query)
+                # print(item["project_id_list"])
+                # print(item["lower_limit"])
+                if query < item["lower_limit"]:
+                    return 1
+            db_score = ProjectContentUserScore(id=None,
+                                               user_pcs_id=content_id, user_id=user_id,
+                                               judger=1, honesty='', honesty_weight=0,
+                                               is_pass=1, score=None, comment='',
+                                               judge_dt=None, viewed_time=None,
+                                               last_check_time=None)
+            session.add(db_score)
+            session.commit()
+            session.refresh(db_score)
+            return 0
 
-            # 获取所有符合条件的 ProjectContentUserScore 的 is_pass 的和
-            total_pass = session.query(func.sum(ProjectContentUserScore.is_pass)).filter(
-                ProjectContentUserScore.user_pcs_id.in_(result['c']),
-                ProjectContentUserScore.user_id == user_id).scalar()
-            if total_pass == count:
-                query = session.query(ProjectContentUserScore).filter(ProjectContentUserScore.user_pcs_id == content_id,
-                                                                      ProjectContentUserScore.user_id == user_id)
-                check_score = query.first()
-                if check_score is None:
-                    db_score = ProjectContentUserScore(id=None,
-                                                       user_pcs_id=content_id, user_id=user_id,
-                                                       judger=1, honesty='', honesty_weight=0,
-                                                       is_pass=1, score=None, comment='')
-                    session.add(db_score)
-                    session.commit()
-                    session.refresh(db_score)
-                else:
-                    session.query(ProjectContentUserScore). \
-                        filter(ProjectContentUserScore.user_id == user_id,
-                               ProjectContentUserScore.user_pcs_id == content_id).update(
-                        {'is_pass': 1})
-                return 1
+    def renew_all_student_project_content_special(self, project_id: int, content_id: int, user_id: int):
+        with self.get_db() as session:
+            role_model = permissionModel()
+            query = role_model.search_user_id_by_service(service_type=7, service_id=project_id)
+            query = query.all()
+            for item in query:
+                result = self.renew_project_content_special(project_id=project_id, content_id=content_id,
+                                                            user_id=item[0])
             return 0
 
     def get_user_personal_file_by_user_id(self, user_id: int, pg: page):
