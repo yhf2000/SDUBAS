@@ -5,8 +5,8 @@ from email.mime.text import MIMEText
 
 from celery import Celery
 
-broker = 'redis://127.0.0.1:6379/12'
-backend = 'redis://127.0.0.1:6379/13'
+broker = 'redis://43.138.34.119:6379/12'
+backend = 'redis://43.138.34.119:6379/13'
 send_email_app = Celery(
     'tasks',
     broker=broker,
@@ -36,7 +36,7 @@ def send_email(Email, token, type):
                 <p>找回密码!</p>
                 <p><a href="http://{}/users/set_password/{}" target=blank>www.SDUBAS.com</a>，\
                 请点击该链接设置密码！</p>
-                '''.format('127.0.0.1:8000', token)
+                '''.format('43.138.34.119:8000', token)
         mail['Subject'] = '找回密码'
     mail.attach(MIMEText(mail_content, 'html', 'utf-8'))
     mail['To'] = email.utils.formataddr(('小帅比', Email))

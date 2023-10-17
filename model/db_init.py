@@ -11,7 +11,7 @@ from model.file import File, User_File,RSAKeys,Servers,ASEKey
 from model.permissions import UserRole, WorkRole, Role, RolePrivilege, Privilege
 
 create_table_list = [Role,
-                     Captcha, User, School, College, Major, Class, User_info, File, User_File, Operation, Session,
+                     Captcha, User, File, User_File,School, College, Major, Class, User_info,  Operation, Session,
                      Financial, Resource, Bill, UserRole, WorkRole, Privilege, RolePrivilege,
                      Project, ProjectCredit, ProjectContent, ProjectContentSubmission, ProjectContentUserScore,
                      ProjectContentUserSubmission,RSAKeys,ASEKey,Education_Program,Servers

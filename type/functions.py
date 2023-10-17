@@ -59,7 +59,7 @@ async def make_parameters(request: Request):  # 生成操作表里的parameters
                     body.update(path)
         except Exception as e:
             body = ''
-    parameters = parameters_interface(url='http://127.0.0.1:8000' + url, para=para, body=body)
+    parameters = parameters_interface(url='http://43.138.34.119:8000' + url, para=para, body=body)
     return json.dumps(parameters.__dict__, ensure_ascii=False)
 
 
@@ -91,7 +91,7 @@ def get_url(new_session, new_token):
     new_session.exp_dt = new_session.exp_dt.strftime("%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-    url = 'http://127.0.0.1:8000/files/download/' + new_token
+    url = 'http://43.138.34.119:8000/files/download/' + new_token
     return url
 
 

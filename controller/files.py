@@ -139,7 +139,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     new_session = new_session.model_dump()
     user_session = json.dumps(new_session)
     session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
-    return {'message': '请前往下载', 'data': {'url': 'http://127.0.0.1:8000/files/download/' + new_token}, 'code': 0}
+    return {'message': '请前往下载', 'data': {'url': 'http://43.138.34.119:8000/files/download/' + new_token}, 'code': 0}
 
 
 # 根据下载链接下载文件

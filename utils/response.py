@@ -67,19 +67,3 @@ def page_response(func: Callable):
         return response
 
     return decorator
-
-
-def status_response(func: Callable):
-    @functools.wraps(func)
-    async def decorator(*args, **kwargs):
-        result = await func(*args, **kwargs)
-        return JSONResponse({
-            "code": 0,
-            "message": result['message'],
-            "data": result['data'],
-            "login_status": result['login_status'],
-            "account_status": result['account_status'],
-            "timestamp": getMsTime(datetime.now())
-        }, status_code=200)
-
-    return decorator
