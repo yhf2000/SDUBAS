@@ -1,17 +1,14 @@
 from datetime import datetime
-
 import uvicorn
 from fastapi import FastAPI, Depends
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
-
 from controller import files, projects, permissions, resources, users, educations
 from utils.auth_login import auth_login
 from utils.response import standard_response
 from utils.times import getMsTime
-
 app = FastAPI()
 app.include_router(files.files_router, prefix="/files")
 app.include_router(permissions.permissions_router, prefix="/permissions")
@@ -21,7 +18,7 @@ app.include_router(users.users_router, prefix="/users")
 app.include_router(educations.users_router, prefix="/users")
 
 origins = [
-    "*",
+    "http://43.138.34.119",
 ]
 
 
@@ -92,7 +89,7 @@ async def say_hello(name: str):
 
 
 def main():
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
 if __name__ == "__main__":
