@@ -79,16 +79,14 @@ def get_user_id(request: Request):  # 获取user_id
 
 def make_download_session(token, request, user_id, file_id, use_limit, hours):
     #  通过权限认证，判断是永久下载地址还是临时下载地址
-    exp_dt = get_time_now('hours',hours)
     new_session = session_interface(user_id=user_id, file_id=file_id, token=token,
                                     ip=request.client.host,
                                     func_type=2, user_agent=request.headers.get("user-agent"), use_limit=use_limit,
-                                    exp_dt=func.from_unixtime(exp_dt))  # 生成新session
+                                    exp_dt=get_time_now('hours',hours))  # 生成新session
     return new_session
 
 
 def get_url(new_session, new_token):
-    new_session.exp_dt = new_session.exp_dt.strftime("%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
     url = 'http://43.138.34.119:8000/files/download/' + new_token

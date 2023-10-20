@@ -101,7 +101,7 @@ async def file_upload(request: Request, file: UploadFile = File(...), ase_key: s
     sha256_hexdigest = sha256_hash.hexdigest()
     if sha256_hexdigest != get_file.hash_sha256:
         return {'message': '文件sha256不正确', 'data': None, 'code': 5}
-    if ase_key is not None:
+    if ase_key  != ' ':
         new_ase = ASE_interface(file_id = old_session['file_id'],ase_key = ase_key)
         id = ASE_model.add_file_ASE(new_ase)
     folder = get_file.hash_md5[:8] + '/' + get_file.hash_sha256[-8:] + '/'  # 先创建路由
