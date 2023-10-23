@@ -29,7 +29,7 @@ Base = declarative_base()
 
 class dbSession:
     def __init__(self, db_url=SQLALCHEMY_DATABASE_URL):
-        self.engine = create_engine(db_url)
+        self.engine = create_engine(db_url, pool_pre_ping=True)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine, expire_on_commit=False)
         self.SessionThreadLocal = scoped_session(self.SessionLocal)
 
