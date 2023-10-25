@@ -14,7 +14,6 @@ from type.page import page, dealDataList
 from type.project import ProjectUpdate, CreditCreate, ScoreCreate, ProjectBase_Opt, \
     ProjectContentBaseOpt, user_submission, user_submission_Opt, SubmissionListCreate, \
     project_content_renew, User_Opt, ProjectCreate, video_finish_progress, Credit_Opt
-from service.permissions import permissionModel
 
 
 class ProjectService(dbSession):
