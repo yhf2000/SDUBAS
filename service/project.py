@@ -14,6 +14,7 @@ from type.page import page, dealDataList
 from type.project import ProjectUpdate, CreditCreate, ScoreCreate, ProjectBase_Opt, \
     ProjectContentBaseOpt, user_submission, user_submission_Opt, SubmissionListCreate, \
     project_content_renew, User_Opt, ProjectCreate, video_finish_progress, Credit_Opt
+from service.permissions import permissionModel
 
 
 class ProjectService(dbSession):
@@ -360,7 +361,7 @@ class ProjectService(dbSession):
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="提交项目内容")
-            credit_role_id = 1
+            credit_role_id = role_model.return_user_major_role(user_id=user_id)
             # service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
             subquery = session.query(Project). \
@@ -446,7 +447,8 @@ class ProjectService(dbSession):
 
     def get_user_credit_all(self, user_id: int, pg: page):
         with self.get_db() as session:
-            credit_role_id = 1
+            role_model = permissionModel()
+            credit_role_id = role_model.return_user_major_role(user_id=user_id)
             subquery = session.query(ProjectCredit).filter(
                 ProjectCredit.role_id == credit_role_id).subquery()
             query = session.query(Project, subquery.c.credit, subquery.c.type). \
@@ -590,7 +592,8 @@ class ProjectService(dbSession):
 
     def get_project_by_credit_type(self, user_id: int, credit_type: str, pg: page):
         with self.get_db() as session:
-            credit_role_id = 1
+            role_model = permissionModel()
+            credit_role_id = role_model.return_user_major_role(user_id=user_id)
             subquery = session.query(ProjectCredit).filter(
                 ProjectCredit.role_id == credit_role_id, ProjectCredit.type == credit_type).subquery()
             query = session.query(Project, subquery.c.credit, subquery.c.type). \
