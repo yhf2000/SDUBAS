@@ -604,7 +604,7 @@ class ProjectService(dbSession):
                           (ProjectContentUserScore.user_id == user_id)). \
                 filter(Project.has_delete == 0,
                        ProjectContent.has_delete == 0). \
-                group_by(Project.id)
+                group_by(Project.id, subquery.c.credit, subquery.c.type)
 
             query = query.add_columns(
                 case((func.sum(ProjectContentUserScore.is_pass) == func.count(ProjectContent.id), 1), else_=0).label(
