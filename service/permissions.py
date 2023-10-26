@@ -72,6 +72,22 @@ class permissionModel(dbSession):
             session.commit()
             return NewRole.id
 
+    def create_real_template_role(self, role_name: str, role_superiorId: int):  # 创建角色
+        with self.get_db() as session:
+            result = session.query(Role).filter(Role.id == role_superiorId).first()  # 处理父节点
+            if result is None:
+                raise HTTPException(detail="父节点无效",
+                                    status_code=408)
+            temp_dict = json.loads(result.superiorListId)
+            superiorListId = add_superiorId(temp_dict, role_superiorId)
+            NewRole = Role(name=role_name, description=role_name,
+                           superiorId=role_superiorId, superiorListId=superiorListId, template=1,
+                           status=0,has_delete=0)
+            session.add(NewRole)
+            session.commit()
+            return NewRole.id
+
+
     def add_user_role(self, obj: create_user_role_base):
         obj_dict = jsonable_encoder(obj)
         obj_add = UserRole(**obj_dict)
@@ -254,13 +270,8 @@ class permissionModel(dbSession):
                 WorkRole.service_type == service_type,
                 WorkRole.service_id == service_id,
                 UserRole.has_delete == 0
-            ).join(
-                RolePrivilege,
-                RolePrivilege.role_id == UserRole.role_id
-            ).filter(
-                RolePrivilege.privilege_id == 2
             )
-            return query.count()
+            return query
 
     def search_college_default_role_id(self, role_list: list):
         with self.get_db() as session:
@@ -499,9 +510,13 @@ class permissionModel(dbSession):
                 RolePrivilege.privilege_id == 2
             ).all()
             role_list = []
+            user_list = []
             for item in query:
                 role_list.append(item.role_id)
-            return  role_list
+            user = session.query(UserRole).filter(UserRole.role_id.in_(role_list)).all()
+            for item in user:
+                user_list.append(item.user_id)
+            return user_list
 
     def return_user_major_role(self, user_id: int):
         with self.get_db() as session:
