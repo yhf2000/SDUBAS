@@ -520,29 +520,29 @@ class permissionModel(dbSession):
 
     def return_user_major_role(self, user_id: int):
         with self.get_db() as session:
-            query = session.query(Role.id).join(
+            query = session.query(UserRole.role_id).join(
                 User,
-                User.role_id == Role.id
+                UserRole.user_id == User.id
             ).filter(
                 User.id == user_id
             ).all()
             for item in query:
-                role = session.query(Role).join(
-                    WorkRole,
+                work_role = session.query(WorkRole).join(
+                    Role,
                     WorkRole.role_id == Role.id
                 ).filter(
                     WorkRole.service_type == 3,
-                    Role.id == item
+                    WorkRole.role_id == item
                 ).first()
-                if role is not None:
-                    return role.id
+                if work_role is not None:
+                    return work_role.service_id
 
-    def create_work_role(self, user_id: int, role_name: str, service_type: int):
+    def create_work_role(self, user_id: int, role_name: str, service_type: int, service_id: int):
         with self.get_db() as session:
             superiorId = self.search_user_default_role(user_id)
             role_id = self.create_role(role_name, superiorId)
             self.attribute_user_role(user_id, role_id)
-            self.attribute_role_for_work(service_type, user_id, role_id)
+            self.attribute_role_for_work(service_type, service_id, role_id)
             return 'OK'
 
     def test(self, role_id: int):
