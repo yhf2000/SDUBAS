@@ -36,7 +36,6 @@ class UserModel(dbSession):
         obj_add = User(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
-            session.flush()
             session.commit()
             return obj_add.id
 
@@ -44,7 +43,6 @@ class UserModel(dbSession):
         objects = [User(**jsonable_encoder(user_list[i])) for i in range(len(user_list))]
         with self.get_db() as session:
             session.add_all(objects)
-            session.flush()
             session.commit()
             return objects
 
@@ -198,15 +196,17 @@ class SessionModel(dbSession):
         obj_add = Session(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
-            session.flush()
             session.commit()
             return obj_add.id
 
     def add_all_session(self, sessions):  # 批量添加session
-        objects = [Session(**jsonable_encoder(sessions[i])) for i in range(len(sessions))]
+        objects = []
+        for i in range(len(sessions)):
+            sessions[i] = jsonable_encoder(sessions[i])
+            sessions[i] ['exp_dt'] = func.from_unixtime(sessions[i] ['exp_dt'])
+            objects.append(Session(**sessions[i]))
         with self.get_db() as session:
             session.add_all(objects)
-            session.flush()
             session.commit()
             return 'ok'
 
@@ -261,7 +261,6 @@ class SessionModel(dbSession):
     def add_new_something(self, new):
         with self.get_db() as session:
             session.add(new)
-            session.flush()
             session.commit()
             return new.id
 
@@ -283,7 +282,6 @@ class UserinfoModel(dbSession):
             objects.append(User_info(**obj_dict))
         with self.get_db() as session:
             session.add_all(objects)
-            session.flush()
             session.commit()
             return 'ok'
 
@@ -345,7 +343,6 @@ class UserinfoModel(dbSession):
     def add_new_something(self, new):
         with self.get_db() as session:
             session.add(new)
-            session.flush()
             session.commit()
             return new.id
 
@@ -357,7 +354,6 @@ class OperationModel(dbSession):
         obj_add = Operation(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
-            session.flush()
             session.commit()
             return obj_add.id
 
@@ -415,7 +411,6 @@ class CaptchaModel(dbSession):
         obj_add = Captcha(value=value, has_delete=0)
         with self.get_db() as session:
             session.add(obj_add)
-            session.flush()
             session.commit()
             return obj_add.id
 
@@ -438,7 +433,6 @@ class EducationProgramModel(dbSession):
         obj_add = Education_Program(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
-            session.flush()
             session.commit()
             return obj_add.id
 

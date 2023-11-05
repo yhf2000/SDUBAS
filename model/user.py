@@ -1,4 +1,3 @@
-import hashlib
 from sqlalchemy import (
     Column,
     Integer,
@@ -8,13 +7,6 @@ from sqlalchemy import (
 )
 
 from model.db import Base
-
-
-def encrypted_password(password, salt):  # 对密码进行加密
-    res = hashlib.sha256()
-    password += salt
-    res.update(password.encode())
-    return res.hexdigest()
 
 
 class User(Base):  # 用户表
@@ -34,10 +26,6 @@ class User(Base):  # 用户表
                     comment='是否已经禁用:0 正常使用,1 账号未激活,2 账号已注销,3 账号被封禁,', default=1)  # 账号状态，非空
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
-
-@event.listens_for(User, 'before_insert')  # 再插入前自动加密
-def auto_encrypted_password(mapper, connection, target):
-    target.password = encrypted_password(target.password, target.username)
 
 
 class User_info(Base):  # 用户信息表

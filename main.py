@@ -18,9 +18,9 @@ app.include_router(users.users_router, prefix="/users")
 app.include_router(educations.users_router, prefix="/users")
 
 origins = [
-    "http://43.138.34.119",
+    "*"
 ]
-
+headers = {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Credentials":"true", "Access-Control-Allow-Methods": "POST,OPTIONS,GET,UPDATE,DELETE"}
 
 @app.exception_handler(HTTPException)  # 自定义HttpRequest 请求异常
 async def http_exception_handle(request, exc):
@@ -29,7 +29,7 @@ async def http_exception_handle(request, exc):
         "message": str(exc.detail),
         "data": None,
         "timestamp": getMsTime(datetime.now())
-    }, status_code=exc.status_code)
+    }, status_code=exc.status_code,headers = headers)
     return response
 
 
@@ -47,7 +47,7 @@ async def request_validatoion_error(request, exc):
         "message": message,
         "data": None,
         "timestamp": getMsTime(datetime.now())
-    }, status_code=400)
+    }, status_code=400,headers = headers)
     return response
 
 
@@ -62,7 +62,7 @@ async def request_validatoion_error(request, exc):
         "message": "内部错误",
         "data": message,
         "timestamp": getMsTime(datetime.now())
-    }, status_code=500)
+    }, status_code=500,headers = headers)
     return response
 
 
