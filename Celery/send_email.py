@@ -4,9 +4,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from celery import Celery
-
-broker = 'redis://43.138.34.119:6379/12'
-backend = 'redis://43.138.34.119:6379/13'
+from const import development_ip
+broker = f'redis://{development_ip}:6379/12'
+backend = f'redis://{development_ip}:6379/13'
 send_email_app = Celery(
     'tasks',
     broker=broker,
@@ -36,7 +36,7 @@ def send_email(Email, token, type):
                 <p>找回密码!</p>
                 <p><a href="http://{}/users/set_password/{}" target=blank>www.SDUBAS.com</a>，\
                 请点击该链接设置密码！</p>
-                '''.format('43.138.34.119:8000', token)
+                '''.format(f'{development_ip}:8000', token)
         mail['Subject'] = '找回密码'
     mail.attach(MIMEText(mail_content, 'html', 'utf-8'))
     mail['To'] = email.utils.formataddr(('小帅比', Email))

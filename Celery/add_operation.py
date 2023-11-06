@@ -6,9 +6,9 @@ from celery import Celery
 from fastapi import Request
 from service.user import OperationModel
 from type.user import operation_interface, parameters_interface
-
-broker = 'redis://43.138.34.119:6379/14'  # 消息队列
-backend = 'redis://43.138.34.119:6379/15'  # 存储结果
+from const import development_ip
+broker = f'redis://{development_ip}:6379/14'  # 消息队列
+backend = f'redis://{development_ip}:6379/15'  # 存储结果
 
 add_operation_app = Celery(
     'tasks',

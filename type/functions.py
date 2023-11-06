@@ -16,7 +16,7 @@ from fastapi import Request
 from minio import S3Error
 from sqlalchemy import func
 from starlette.responses import JSONResponse
-
+from const import development_ip
 from model.db import session_db, url_db, user_information_db, minio_client
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
@@ -59,7 +59,7 @@ async def make_parameters(request: Request):  # 生成操作表里的parameters
                     body.update(path)
         except Exception as e:
             body = ''
-    parameters = parameters_interface(url='http://43.138.34.119:8000' + url, para=para, body=body)
+    parameters = parameters_interface(url=f'http://{development_ip}:8000' + url, para=para, body=body)
     return json.dumps(parameters.__dict__, ensure_ascii=False)
 
 
@@ -89,7 +89,7 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
 def get_url(new_session, new_token):
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-    url = 'http://43.138.34.119:8000/files/download/' + new_token
+    url = f'http://{development_ip}:8000/files/download/' + new_token
     return url
 
 

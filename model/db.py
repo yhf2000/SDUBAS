@@ -5,9 +5,9 @@ from sqlalchemy.orm import declarative_base
 from const import SQLALCHEMY_DATABASE_URL
 import redis
 from minio import Minio, S3Error
-
+from const import development_ip
 minio_client = Minio(
-    "127.0.0.1:9000",  # 更新为MinIO服务器的地址和端口
+    "43.138.34.119:9000",  # 更新为MinIO服务器的地址和端口
     access_key="minioadmin",  # 你的MinIO访问密钥
     secret_key="minioadmin",  # 你的MinIO秘密密钥
     secure=False  # 是否使用安全连接（根据你的MinIO配置选择）
@@ -18,9 +18,9 @@ try:
 except S3Error as e:
     print(f'Error: {e}')
 
-pool1 = redis.ConnectionPool(host='43.138.34.119', port=6379, db=1, encoding='UTF-8')
-pool2 = redis.ConnectionPool(host='43.138.34.119', port=6379, db=2, encoding='UTF-8')
-pool3 = redis.ConnectionPool(host='43.138.34.119', port=6379, db=3, encoding='UTF-8')
+pool1 = redis.ConnectionPool(host=f'{development_ip}', port=6379, db=1, encoding='UTF-8')
+pool2 = redis.ConnectionPool(host=f'{development_ip}', port=6379, db=2, encoding='UTF-8')
+pool3 = redis.ConnectionPool(host=f'{development_ip}', port=6379, db=3, encoding='UTF-8')
 session_db = redis.Redis(connection_pool=pool1)  # 根据token缓存有效session
 user_information_db = redis.Redis(connection_pool=pool2)  # 根据user_id缓存用户基本信息
 url_db = redis.Redis(connection_pool=pool3)  # 根据user_file_id缓存下载链接
