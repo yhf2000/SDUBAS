@@ -21,7 +21,7 @@ from type.page import page
 from type.user import session_interface
 from utils.auth_login import auth_login
 from utils.response import user_standard_response, page_response, makePageResult
-
+from const import development_ip
 files_router = APIRouter()
 file_model = FileModel()
 user_file_model = UserFileModel()
@@ -85,27 +85,26 @@ async def file_upload(request: Request, file: UploadFile = File(...), ase_key: s
     id = user_file_model.get_user_file_by_file_name(file.filename)  # 查看文件名是否存在
     if id is not None:
         return {'message': '文件名已存在，请修改后重新上传', 'data': None, 'code': 2}
-    file_content = await file.read()
+    contents = await file.read()
     file_id = user_file_model.get_file_id_by_id(old_session['file_id'])[0]
     get_file = file_model.get_file_by_id(file_id)
     size = file.size
     if size != get_file.size:
         return {'message': '文件size不正确', 'data': None, 'code': 3}
     md5_hash = md5()
-    md5_hash.update(file_content)
+    md5_hash.update(contents)
     md5_hexdigest = md5_hash.hexdigest()
     if md5_hexdigest != get_file.hash_md5:
         return {'message': '文件MD5不正确', 'data': None, 'code': 4}
     sha256_hash = sha256()
-    sha256_hash.update(file_content)
+    sha256_hash.update(contents)
     sha256_hexdigest = sha256_hash.hexdigest()
     if sha256_hexdigest != get_file.hash_sha256:
         return {'message': '文件sha256不正确', 'data': None, 'code': 5}
-    if ase_key is not None:
+    if ase_key  != ' ':
         new_ase = ASE_interface(file_id = old_session['file_id'],ase_key = ase_key)
         id = ASE_model.add_file_ASE(new_ase)
     folder = get_file.hash_md5[:8] + '/' + get_file.hash_sha256[-8:] + '/'  # 先创建路由
-    contents = await file.read()
     upload_file.delay(folder,file.filename,contents)
     session_model.update_session_use_by_token(token, 1)  # 将该session使用次数设为1
     session_model.delete_session_by_token(token)  # 将该session设为已失效
@@ -139,7 +138,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     new_session = new_session.model_dump()
     user_session = json.dumps(new_session)
     session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
-    return {'message': '请前往下载', 'data': {'url': 'http://43.138.34.119:8000/files/download/' + new_token}, 'code': 0}
+    return {'message': '请前往下载', 'data': {'url': f'http://{development_ip}:8000/files/download/' + new_token}, 'code': 0}
 
 
 # 根据下载链接下载文件
@@ -150,7 +149,7 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
         session_model.delete_session_by_token(token)
         return JSONResponse(content={'message': '链接已失效', 'code': 1, 'data': False})
     old_session = json.loads(old_session)
-    user_id = user_file_model.get_user_id_by_id(old_session['file_igit add'])[0]
+    user_id = user_file_model.get_user_id_by_id(old_session['file_id'])[0]
     is_private = judge_private_file(old_session['file_id'],user_id)
     if old_session['use'] != old_session['use_limit']:  # 查看下载链接是否还有下载次数
         if old_session['use'] + 1 == old_session['use_limit']:  # 在下一次就失效
@@ -175,7 +174,7 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
             encrypt_ase_key = decoded_str.encode('latin-1')
             private_key = RSA_model.get_private_key_by_user_id(user_id)[0].encode('utf-8')
             ase_key = decrypt_aes_key_with_rsa(encrypt_ase_key, private_key).encode('utf-8')
-            data = decrypt_file(data,encrypt_ase_key)
+            data = decrypt_file(data,ase_key)
             data = io.BytesIO(data)
         if old_session['use_limit'] == -1:
             encoded_filename = quote(filename)
@@ -186,8 +185,8 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
             add_operation.delay(8, old_session['file_id'], '预览文件',f'用户{username}于qpzm7913预览了一个名为{user_file.name}的文件', parameters, old_session['user_id'])
             return StreamingResponse(data, headers=headers)
         else:
-            add_operation.delay(8, old_session['file_id'], '下载文件',f'用户{username}于qpzm791下载了一个名为{user_file.name}的文件', parameters, old_session['user_id'])
-            encoded_filename = quote(user_file.name, safe='')
+            add_operation.delay(8, old_session['file_id'], '下载文件',f'用户{username}于qpzm7913下载了一个名为{user_file.name}的文件', parameters, old_session['user_id'])
+            encoded_filename = quote(user_file.name)
             return StreamingResponse(data, media_type=user_file.type,headers={
                     "Content-Disposition": f'attachment; filename="{encoded_filename}"'
                 })

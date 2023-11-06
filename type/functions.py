@@ -16,7 +16,7 @@ from fastapi import Request
 from minio import S3Error
 from sqlalchemy import func
 from starlette.responses import JSONResponse
-
+from const import development_ip
 from model.db import session_db, url_db, user_information_db, minio_client
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
@@ -59,7 +59,7 @@ async def make_parameters(request: Request):  # 生成操作表里的parameters
                     body.update(path)
         except Exception as e:
             body = ''
-    parameters = parameters_interface(url='http://43.138.34.119:8000' + url, para=para, body=body)
+    parameters = parameters_interface(url=f'http://{development_ip}:8000' + url, para=para, body=body)
     return json.dumps(parameters.__dict__, ensure_ascii=False)
 
 
@@ -79,19 +79,17 @@ def get_user_id(request: Request):  # 获取user_id
 
 def make_download_session(token, request, user_id, file_id, use_limit, hours):
     #  通过权限认证，判断是永久下载地址还是临时下载地址
-    exp_dt = get_time_now('hours',hours)
     new_session = session_interface(user_id=user_id, file_id=file_id, token=token,
                                     ip=request.client.host,
                                     func_type=2, user_agent=request.headers.get("user-agent"), use_limit=use_limit,
-                                    exp_dt=func.from_unixtime(exp_dt))  # 生成新session
+                                    exp_dt=get_time_now('hours',hours))  # 生成新session
     return new_session
 
 
 def get_url(new_session, new_token):
-    new_session.exp_dt = new_session.exp_dt.strftime("%Y-%m-%d %H:%M:%S")  # 将datetime转化为字符串以便转为json
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-    url = 'http://43.138.34.119:8000/files/download/' + new_token
+    url = f'http://{development_ip}:8000/files/download/' + new_token
     return url
 
 
@@ -130,7 +128,7 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     url = get_url(new_session, new_token)
                     temp = dict({"url": url, "file_type": user_file[i][2]})
                     url_db.set(user_file[i][0], json.dumps(temp))
-                    urls.update({user_file[i][0]: json.dumps(temp)})
+                    urls[user_file[i][0]] =  temp
             if len(sessions) == 1:
                 session_model.add_session(sessions[0])
             else:
@@ -269,13 +267,6 @@ def judge_private_file(user_file_id,user_id):   # 判断某个文件是否是该
 
 
 
-def get_password(username, password):
-    res = hashlib.sha256()
-    password += username
-    res.update(password.encode())
-    print(res.hexdigest())
-
-
 def get_time_now(unit="seconds", value=0):
     current_timestamp = int(time.time())
     if unit == "seconds":
@@ -289,5 +280,3 @@ def get_time_now(unit="seconds", value=0):
     else:
         raise ValueError("Unsupported time unit")
     return new_timestamp
-
-# get_password('zyq','1')

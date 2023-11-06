@@ -34,5 +34,4 @@ def auth_not_login(request: Request):  # 用来判断用户是否没登录
             status_code=401,
             detail="用户已登录"
         )
-    session_model.delete_session_by_token(token)
-    return token  # 没登陆且账号状态无异常就返回用户的token
+    return token

@@ -384,14 +384,18 @@ async def get_all_content_user_personal(request: Request,
                                         credit_type: str,
                                         pageNow: int = Query(description="页码", gt=0),
                                         pageSize: int = Query(description="每页数量", gt=0),
+                                        user_id: Optional[int] = Query(description="用户ID", gt=-1, default=0),
                                         user=Depends(auth_permission)):
+    if user_id == 0:
+        user_id = user['user_id']
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, results = project_service.get_project_by_credit_type(user_id=user['user_id'], credit_type=credit_type, pg=Page)
+    tn, results = project_service.get_project_by_credit_type(user_id=user_id, credit_type=credit_type, pg=Page)
     parameters = await make_parameters(request)
     name = get_user_name(user['user_id'])
     add_operation.delay(0, 0, "查看用户个人学分项目", f"{name}于qpzm7913查看用户个人学分项目", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
+
 
 
 @projects_router.get("/{project_id}/credits/all")

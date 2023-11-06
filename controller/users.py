@@ -8,12 +8,9 @@ from io import BytesIO
 from captcha.image import ImageCaptcha
 from fastapi import APIRouter
 from fastapi import Request, Header, Depends
-from sqlalchemy import func
-
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
 from model.db import session_db, user_information_db
-from model.user import encrypted_password
 from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
 from type.functions import search_son_user, get_email_token, get_user_id, get_user_information, make_parameters, \
@@ -304,7 +301,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
     if user_information is None:  # 用户名不存在
         return {'message': '用户名或密码不正确', 'data': False, 'code': 1}
     else:  # 用户名存在
-        new_password = encrypted_password(log_data.password, user_information.username)  # 判定输入的密码是否正确
+        new_password = log_data.password
         if new_password == user_information.password:
             status = user_model.get_user_status_by_username(log_data.username)[0]  # 登陆时检查帐号状态
             if status == 1:
@@ -348,12 +345,11 @@ async def user_logout(request: Request, session=Depends(auth_login)):
 async def user_password_update(request: Request, password: password_interface, session=Depends(auth_login)):
     user_id = session['user_id']
     user = user_model.get_user_by_user_id(user_id)
-    if user.password != encrypted_password(password.old_password, user.username):  # 原密码输入错误
+    if user.password != password.old_password : # 原密码输入错误
         return {'message': '密码输入不正确', 'data': False, 'code': 1}
-    new_password = encrypted_password(password.new_password, user.username)
-    if user.password == new_password:  # 新密码与旧密码相同
+    if user.password == password.new_password:  # 新密码与旧密码相同
         return {'message': '新密码不能与旧密码相同', 'data': False, 'code': 2}
-    id = user_model.update_user_password(user_id, new_password)  # 更新新密码
+    id = user_model.update_user_password(user_id, password.new_password)  # 更新新密码
     parameters = await make_parameters(request)
     username = get_user_name(session['user_id'])
     add_operation.delay(0, id,'更改密码', f'用户{username}于qpzm7913通过输入原密码，新密码进行更改密码', parameters, id)
@@ -401,7 +397,6 @@ async def user_set_password(request: Request, new_password: str, token: str):
         return {'data': False, 'message': '无法找到该页面', 'code': 1}
     user_id = user_id[0]
     user_information = user_model.get_user_by_user_id(user_id)
-    new_password = encrypted_password(new_password, user_information.username)
     if user_information.password == new_password:
         return {'data': False, 'message': '新密码不能与原密码相同', 'code': 2}
     user_model.update_user_password(user_id, new_password)  # 设置密码
@@ -429,7 +424,7 @@ async def user_get_error(username: str, password: str, email: str):
         return {'message': '没有该用户', 'data': False, 'code': 1}
     if exist_user[0] != email:
         return {'message': '用户绑定邮箱不正确', 'data': False, 'code': 2}
-    if exist_user[1] != encrypted_password(password, exist_user[2]):
+    if exist_user[1] != password:
         return {'message': '密码不正确', 'data': False, 'code': 3}
     reasons = operation_model.get_operation_by_service_type(0, exist_user[3], '封禁用户')  # 查看被封禁原因
     reason = extract_word_between(reasons[0],'因为','而')[0]
