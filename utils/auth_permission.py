@@ -66,12 +66,12 @@ def find_common_role(list1, list2):
 
 
 def auth_permission(request: Request):
-    # session = auth_login(request)
-    user_id = int(request.headers.get("user_id"))
-    session = {
-        "user_id": user_id
-    }
-    # user_id = session['user_id']
+    session = auth_login(request)
+    # user_id = int(request.headers.get("user_id"))
+    # session = {
+    #     "user_id": user_id
+    # }
+    user_id = session['user_id']
     db = permissionModel()
     url = request.url.path
     permission_key = remove_numbers(url)
