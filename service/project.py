@@ -138,7 +138,8 @@ class ProjectService(dbSession):
     def create_credit(self, credit: CreditCreate, user_id: int) -> int:
         with self.get_db() as session:
             db_check = session.query(ProjectCredit).filter(ProjectCredit.project_id == credit.project_id,
-                                                           ProjectCredit.role_id == credit.role_id).first()
+                                                           ProjectCredit.role_id == credit.role_id,
+                                                           ProjectCredit.type == credit.type).first()
             if db_check is None:
                 db_credit = ProjectCredit(**credit.model_dump())
                 session.add(db_credit)
