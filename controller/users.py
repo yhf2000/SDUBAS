@@ -5,8 +5,10 @@ import random
 import string
 import uuid
 from io import BytesIO
+from typing import List
+
 from captcha.image import ImageCaptcha
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi import Request, Header, Depends
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
@@ -24,7 +26,7 @@ from type.user import user_info_interface, \
 from utils.auth_login import auth_login, auth_not_login
 from utils.auth_permission import auth_permission_default
 from utils.response import user_standard_response, page_response, makePageResult
-
+from type.functions import block_chains_login,block_chains_get
 users_router = APIRouter()
 user_model = UserModel()
 session_model = SessionModel()
@@ -433,15 +435,20 @@ async def user_get_error(username: str, password: str, email: str):
     return {'message': '用户异常状态原因', 'data': {'封禁原因': reason, '封禁人': username}, 'code': 0}
 
 
-@users_router.get("/verify_hash/{id}")  # 验证区块链传的hash是否正确并返回给前端
+@users_router.get("/verify_hash")  # 验证区块链传的hash是否正确并返回给前端
 @user_standard_response
-async def user_verify_hash(id: int, permission=Depends(auth_login)):
-    hash = operation_model.get_operation_hash_by_id(id)
-    bashash = 1  # 从区块链api中获取hash
-    if hash[0] == bashash:
-        return {'message': '验证成功', 'data': True, 'code': 0}
-    else:
-        return {'message': '验证失败', 'data': False, 'code': 1}
+async def user_verify_hash(request: Request,permission=Depends(auth_login)):
+    id_list = json.loads(request.query_params.getlist('id_list')[0])
+    hashs = operation_model.get_operation_hash_by_id_list(id_list)
+    headers = block_chains_login()
+    results = []
+    for hash in hashs:
+        bashash = block_chains_get(hash[1],headers)
+        if bashash is not None:
+            results.append({'id':hash[0],'verify':True,'block_number':bashash['block_number']})
+        else:
+            results.append({'id': hash[0], 'verify': False})
+    return {'message': '验证结果如下', 'data': results, 'code': 0}
 
 
 @users_router.get("/get_operation/{user_id}")  # 获取用户的所有操作

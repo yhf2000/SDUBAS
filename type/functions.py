@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import hashlib
 import io
@@ -6,18 +7,20 @@ import random
 import re
 import time
 import uuid
+
+import requests
 from Crypto.Cipher import AES
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import Request
+from fastapi import Request, HTTPException
 from minio import S3Error
 from sqlalchemy import func
 from starlette.responses import JSONResponse
-from const import development_ip
-from model.db import session_db, url_db, user_information_db, minio_client
+from const import development_ip, base_url
+from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
 from service.user import SessionModel, UserModel, UserinfoModel, EducationProgramModel
@@ -82,7 +85,7 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
     new_session = session_interface(user_id=user_id, file_id=file_id, token=token,
                                     ip=request.client.host,
                                     func_type=2, user_agent=request.headers.get("user-agent"), use_limit=use_limit,
-                                    exp_dt=get_time_now('hours',hours))  # 生成新session
+                                    exp_dt=get_time_now('hours', hours))  # 生成新session
     return new_session
 
 
@@ -128,7 +131,7 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     url = get_url(new_session, new_token)
                     temp = dict({"url": url, "file_type": user_file[i][2]})
                     url_db.set(user_file[i][0], json.dumps(temp))
-                    urls[user_file[i][0]] =  temp
+                    urls[user_file[i][0]] = temp
             if len(sessions) == 1:
                 session_model.add_session(sessions[0])
             else:
@@ -261,10 +264,8 @@ def extract_word_between(text, word1, word2):  # 提取出两单词间的单词
     return matches
 
 
-
-def judge_private_file(user_file_id,user_id):   # 判断某个文件是否是该用户的私有文件
-    return user_file_model.judge_private_file(user_id,user_file_id)
-
+def judge_private_file(user_file_id, user_id):  # 判断某个文件是否是该用户的私有文件
+    return user_file_model.judge_private_file(user_id, user_file_id)
 
 
 def get_time_now(unit="seconds", value=0):
@@ -280,3 +281,95 @@ def get_time_now(unit="seconds", value=0):
     else:
         raise ValueError("Unsupported time unit")
     return new_timestamp
+
+
+def block_chains_login():
+    username = 'admin'
+    password = 'admin'
+    token = block_chain_db.get(username)  # 从缓存中得到token
+    if token is None:
+        user_info = {
+            "username": username,
+            "password": password
+        }
+        response = requests.post(f"{base_url}/api/auth/login/token/", json=user_info)
+        if response.status_code == 200:
+            data = response.json()
+            token = data['data']['token']
+            block_chain_db.set(username, token, ex=1209600)  # 缓存有效session
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="登录失败",
+            )
+    else:
+        token = token.decode('utf-8')  # 使用指定的编码（通常是UTF-8）
+    headers = {
+        "Authorization": f"Token {token}"
+    }
+    return headers
+
+
+def block_chains_upload(tx_hash, optional_message, headers):
+    data = {
+        "tx_hash": tx_hash,
+        "optional_message": optional_message
+    }
+    response = requests.post(f"{base_url}/api/chain/logmanager/create/", json=data, headers=headers)  # 执行上链操作
+    if response.status_code == 200:
+        data = response.json()
+        if data['data'] is None:
+            raise HTTPException(
+                status_code=404,
+                detail="数据已在链上",
+            )
+        receipt = data['data']['receipt']
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="上链失败",
+        )
+    return receipt
+
+
+async def block_chains_judge_complete(receipt, headers):
+    receipts = {
+        "receipt": receipt
+    }
+    while True:
+        response = requests.post(f"{base_url}/api/chain/smartcontract/receipt/", json=receipts, headers=headers)
+        if response.status_code == 200:
+            data = response.json().get('data')
+            if data is not None:
+                break
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="上链失败",
+            )
+        await asyncio.sleep(0.2)  # 等待0.2秒后再继续检查
+
+
+def block_chains_get(tx_hash, headers):
+    txhash = {
+        "tx_hash": tx_hash
+    }
+    response = requests.post(f"{base_url}/api/chain/logmanager/get/", json=txhash, headers=headers)  # 查询在链上的数据
+    if response.status_code == 200:
+        data = response.json()
+        on_chain = data['data']
+        return on_chain
+
+
+def block_chains_information(headers):
+    response = requests.get(f"{base_url}/api/chain/tendermint/status/", headers=headers)  # 查询区块链基本信息
+    if response.status_code == 200:
+        data = response.json()
+        chain_information = data['data']
+        if chain_information:
+            return chain_information
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="获取区块链信息失败",
+        )
