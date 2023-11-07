@@ -368,8 +368,9 @@ class permissionModel(dbSession):
             role_list = list(role_set)
             role = session.query(Role).filter(
                 Role.id.in_(role_list)
-            ).all()
-            for item in role:
+            )
+            data = role.offset(pg.offset()).limit(pg.limit())
+            for item in data:
                 temp = {
                     "role_id": item.id,
                     "role_name": item.name
