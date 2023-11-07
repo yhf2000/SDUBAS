@@ -1,8 +1,5 @@
-import datetime
-
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func
-
 import model.user
 from model.db import dbSession
 from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College, Education_Program
@@ -355,13 +352,13 @@ class OperationModel(dbSession):
         with self.get_db() as session:
             session.add(obj_add)
             session.commit()
-            return obj_add.id
+            return obj_add.oper_hash
 
-    def get_operation_hash_by_id(self, id):  # 根据id查询operation的hash
+    def get_operation_hash_by_id_list(self, id_list):  # 根据id_list查询operation的hash
         with self.get_db() as session:
-            hash = session.query(Operation.oper_hash).filter(Operation.id == id).first()
+            hash_list = session.query(Operation.id,Operation.oper_hash).filter(Operation.id.in_(id_list)).all()
             session.commit()
-            return hash
+            return hash_list
 
     def get_func_and_time_by_admin(self, page, user_id):  # 查找某操作人的所有操作和时间
         with self.get_db() as session:
