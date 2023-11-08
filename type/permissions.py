@@ -84,6 +84,10 @@ class create_default_role_base(BaseModel):  # 创建角色信息
 class create_default_role_Base(BaseModel):
     roles: List[create_default_role_base]
 
+class create_role_Base(BaseModel):
+    roles: List[create_default_role_base]
+    id: int
+
 
 class create_default_work_role_base(BaseModel):  # 创建角色信息
     role_id: int
