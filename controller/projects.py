@@ -53,15 +53,13 @@ async def delete_project(request: Request, project_id: int, user=Depends(auth_pe
 @projects_router.get("/list")
 @standard_response
 async def list_projects(request: Request,
-                        pageNow: int = Query(description="页码", gt=0),
-                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+                        user=Depends(auth_login)):
     user_id = user['user_id']
-    Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = project_service.list_projects(request=request, pg=Page, user_id=user_id)  # 返回总额，分页数据
+    res = project_service.list_projects(request=request, user_id=user_id)  # 返回总额，分页数据
     parameters = await make_parameters(request)
     name = get_user_name(user['user_id'])
     add_operation.delay(7, 0, "查看项目列表", f"{name}于qpzm7913查看项目列表", parameters, user['user_id'])
-    return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
+    return res
     # 实现查询项目列表的逻辑
 
 

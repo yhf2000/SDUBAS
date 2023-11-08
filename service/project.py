@@ -65,23 +65,20 @@ class ProjectService(dbSession):
             # session.query(ProjectContent).filter_by(ProjectContent.project_id == project_id).update({'has_delete': 1})
             return project_id
 
-    def list_projects(self, request: Request, pg: page, user_id: int):
+    def list_projects(self, request: Request, user_id: int):
         with self.get_db() as session:
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user_id)
             service_ids = role_model.search_service_id(role_list, service_type=7, name="查看项目")
             # service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-            query = session.query(Project).filter(Project.has_delete == 0, Project.id.in_(service_ids))
-            total_count = query.count()  # 总共
+            query = session.query(Project).filter(Project.has_delete == 0, Project.type == '课程',
+                                                  Project.id.in_(service_ids))
             # 执行分页查询
-            data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+            data = query.all()  # .all()
             # 序列化结
-            results = dealDataList(data, ProjectBase_Opt, {'has_delete'})
-            for result in results:
-                urls = get_url_by_user_file_id(request, result['img_id'])
-                result['url'] = urls[result['img_id']]['url']
-                result['file_type'] = urls[result['img_id']]['file_type']
-            return total_count, results
+            results = dealDataList(data, ProjectBase_Opt,
+                                   {'has_delete', 'img_id', 'type', 'tag', 'active', 'create_dt'})
+            return results
 
     def get_project(self, request: Request, project_id: int, user_id: int):
         with self.get_db() as session:
