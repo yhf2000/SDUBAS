@@ -84,7 +84,8 @@ class ResourceModel(dbSession):
         # 返回成功或者失败
         with self.get_db() as session:
             role_model = permissionModel()
-            current_datetime = get_time_now('days',data.day)
+            current_datetime = datetime.datetime.now()
+            current_datetime += datetime.timedelta(days=data.day)
             time_range = {
                 "year": current_datetime.year,
                 "month": current_datetime.month,

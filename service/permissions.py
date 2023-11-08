@@ -340,6 +340,13 @@ class permissionModel(dbSession):
             session.commit()
             return 'OK'
 
+    def add_work_role(self, id: int, role_id: int):
+        with self.get_db() as session:
+            work_role = WorkRole(role_id=role_id, service_type=0, service_id=id, has_delete=0)
+            session.add(work_role)
+            session.commit()
+            return 'OK'
+
     def search_created_user_id(self, user_id: int, pg: page): #改userrole的hasdelete
         with self.get_db() as session:
             user = session.query(distinct(UserRole.user_id)).join(
@@ -368,14 +375,15 @@ class permissionModel(dbSession):
             role_list = list(role_set)
             role = session.query(Role).filter(
                 Role.id.in_(role_list)
-            ).all()
-            for item in role:
+            )
+            data = role.offset(pg.offset()).limit(pg.limit())
+            for item in data:
                 temp = {
                     "role_id": item.id,
                     "role_name": item.name
                 }
                 res_list.append(temp)
-            total_count = user_role.count()
+            total_count = role.count()
             return total_count, res_list
 
     def get_user_info_by_role(self, role_id: int):
@@ -443,7 +451,7 @@ class permissionModel(dbSession):
             return 'OK'
 
 
-    def search_created_user_info(self, user_id: int):
+    def search_created_user_info(self, user_id: int, pg: page):
         with self.get_db() as session:
             role_list = []
             res_list = []
@@ -457,14 +465,15 @@ class permissionModel(dbSession):
             user = session.query(UserRole, User).select_from(join_tables).filter(
                 UserRole.role_id.in_(role_list),
                 UserRole.has_delete == 0
-            ).all()
-            for item in user:
+            )
+            data = user.offset(pg.offset()).limit(pg.limit())
+            for item in data:
                 temp = {
                     "user_id": item[1].id,
                     "user_name": item[1].username
                 }
                 res_list.append(temp)
-            total_count = len(res_list)
+            total_count = user.count()
             return total_count, res_list
 
     def search_specific_role(self, role_list: list, privilege_name: str):
