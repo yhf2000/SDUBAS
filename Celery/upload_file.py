@@ -1,9 +1,7 @@
 import io
-
 from celery import Celery
 from fastapi import HTTPException
 from minio import S3Error
-
 from model.db import minio_client
 from const import development_ip
 broker = f'redis://{development_ip}:6379/10'  # 消息队列

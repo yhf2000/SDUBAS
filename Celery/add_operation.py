@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 from celery import Celery
 from const import development_ip
@@ -26,7 +25,8 @@ def add_operation(service_type, service_id, operation_type, func, parameters, op
                                     func=func,
                                     parameters=parameters,
                                     oper_user_id=oper_user_id, oper_dt=time)
-    oper_hash = operation_model.add_operation(operation)
+    oper_hash = operation.oper_hash
     headers = block_chains_login()
     receipt = block_chains_upload(oper_hash,func,headers)
     block_chains_judge_complete(receipt,headers)
+    operation_model.add_operation(operation)

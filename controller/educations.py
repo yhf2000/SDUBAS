@@ -1,15 +1,12 @@
-import datetime
 import json
-
 from fastapi import APIRouter
 from fastapi import Request, Depends
-
 from Celery.add_operation import add_operation
 from service.education import SchoolModel, CollegeModel, MajorModel, ClassModel
 from service.user import SessionModel, OperationModel, UserinfoModel, EducationProgramModel,UserModel
 from service.file import UserFileModel
 from service.permissions import permissionModel
-from type.functions import  programs_translation,get_user_name,make_parameters
+from type.functions import  programs_translation,get_user_name,make_parameters,get_url_by_user_file_id
 from type.page import page
 from type.user import school_interface, class_interface, college_interface, major_interface, education_program_interface
 from utils.auth_login import auth_login
@@ -85,17 +82,19 @@ async def user_school_add(request: Request, school_data: school_interface, sessi
 @page_response
 async def user_school_view(pageNow: int, pageSize: int,request:Request, permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_school = school_model.get_school_by_admin(Page)  # 以分页形式返回
+    all_school,counts = school_model.get_school_by_admin(Page)  # 以分页形式返回
     result = {'rows': None}
     if all_school != []:
         school_data = []
         for school in all_school:  # 对每个学校的数据进行处理
             temp = school_interface()
             temp_dict = temp.model_validate(school).model_dump()
+            url = get_url_by_user_file_id(request,temp_dict['school_logo_id'])
+            temp_dict['image'] = url[temp_dict['school_logo_id']]['url']
             id = school_model.get_school_id_by_name(temp_dict['name'])[0]
             temp_dict['id'] = id
             school_data.append(temp_dict)
-        result = makePageResult(Page, len(all_school), school_data)
+        result = makePageResult(Page, counts, school_data)
     parameters = await make_parameters(request)
     name = get_user_name(permission['user_id'])
     add_operation.delay(1, None, '查看学校',f"{name}于qpzm7913查看所有学校" , parameters, permission['user_id'])
@@ -183,7 +182,7 @@ async def user_college_delete(request: Request, college_id: int, session=Depends
 @page_response
 async def user_college_view(school_id: int, pageNow: int, pageSize: int,request:Request,permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_college = college_model.get_college_by_school_id(school_id, Page)  # 以分页形式返回
+    all_college,counts = college_model.get_college_by_school_id(school_id, Page)  # 以分页形式返回
     result = {'rows': None}
     if all_college != []:
         college_data = []
@@ -192,10 +191,12 @@ async def user_college_view(school_id: int, pageNow: int, pageSize: int,request:
             temp_dict = temp.model_validate(college).model_dump()
             ttt = college_interface(name=temp_dict['name'], school_id=temp_dict['school_id'])
             id = college_model.get_college_by_name(ttt)[0]
+            url = get_url_by_user_file_id(request, temp_dict['college_logo_id'])
+            temp_dict['image'] = url[temp_dict['college_logo_id']]['url']
             temp_dict['id'] = id
             temp_dict.pop('school_id')
             college_data.append(temp_dict)
-        result = makePageResult(Page, len(all_college), college_data)
+        result = makePageResult(Page, counts, college_data)
     parameters = await make_parameters(request)
     name = get_user_name(permission['user_id'])
     add_operation.delay(2, None, '查看学院', f"{name}于qpzm7913查看所有学院", parameters, permission['user_id'])
@@ -287,7 +288,7 @@ async def user_major_delete(request: Request, major_id: int, session=Depends(aut
 @page_response
 async def user_major_view(college_id: int, pageNow: int, pageSize: int,request:Request,permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_major = major_model.get_major_by_college_id(college_id, Page)  # 以分页形式返回
+    all_major,counts = major_model.get_major_by_college_id(college_id, Page)  # 以分页形式返回
     result = {'rows': None}
     if all_major != []:
         major_data = []
@@ -408,7 +409,7 @@ async def user_class_update(request: Request, class_id: int, class_data: class_i
 @page_response
 async def user_class_view(college_id: int, pageNow: int, pageSize: int,request:Request,permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_class = class_model.get_class_by_college_id(college_id, Page)  # 以分页形式返回
+    all_class,counts = class_model.get_class_by_college_id(college_id, Page)  # 以分页形式返回
     result = {'rows': None}
     if all_class != []:
         class_data = []
