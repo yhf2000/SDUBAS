@@ -172,11 +172,13 @@ class UserFileModel(dbSession):
 
     def get_user_file_by_admin(self, page, user_id):  # 查找某用户能操作的所有文件
         with self.get_db() as session:
-            files = session.query(User_File).filter(User_File.has_delete == 0, User_File.user_id == user_id).order_by(
+            query = session.query(User_File).filter(User_File.has_delete == 0, User_File.user_id == user_id)
+            counts = query.count()
+            files = query.order_by(
                 User_File.id).offset(
                 page.offset()).limit(page.limit()).all()
             session.commit()
-            return files
+            return files,counts
 
     def judge_private_file(self, user_id: int, file_id: int):
         with self.get_db() as session:

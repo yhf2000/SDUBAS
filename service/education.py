@@ -75,12 +75,14 @@ class SchoolModel(dbSession):  # 学校model
             return id
 
     def get_school_by_admin(self, page):  # 查找管理员能操作的所有学校
-        with self.get_db() as session:
-            school = session.query(School).filter(School.has_delete == 0).order_by(
+        with (self.get_db() as session):
+            query = session.query(School).filter(School.has_delete == 0)
+            counts = query.count()
+            school = query.order_by(
                 School.id).offset(
                 page.offset()).limit(page.limit()).all()
             session.commit()
-            return school
+            return school,counts
 
     def update_school_information(self, id, name, abbreviation):  # 更改school中的name与abbreviation
         with self.get_db() as session:
@@ -157,12 +159,14 @@ class CollegeModel(dbSession):
             return college
 
     def get_college_by_school_id(self, school_id, page):  # 根据college的school_id查询college的基本信息
-        with self.get_db() as session:
-            college = session.query(College).filter(College.has_delete == 0, College.school_id == school_id).order_by(
+        with (self.get_db() as session):
+            query = session.query(College).filter(College.has_delete == 0, College.school_id == school_id)
+            counts = query.count()
+            college = query.order_by(
                 College.id).offset(
                 page.offset()).limit(page.limit()).all()
             session.commit()
-            return college
+            return college,counts
 
     def get_school_id_by_college_id(self, college_id):  # 根据college_id查询school_id
         with self.get_db() as session:
@@ -230,12 +234,14 @@ class MajorModel(dbSession):
             return id
 
     def get_major_by_college_id(self, college_id, page):  # 根据college_id查询major的基本信息
-        with self.get_db() as session:
-            major = session.query(Major).filter(Major.has_delete == 0, Major.college_id == college_id).order_by(
+        with (self.get_db() as session):
+            query = session.query(Major).filter(Major.has_delete == 0, Major.college_id == college_id)
+            counts = query.count()
+            major = query.order_by(
                 Major.id).offset(
                 page.offset()).limit(page.limit()).all()
             session.commit()
-            return major
+            return major,counts
 
     def get_major_status_by_name(self, obj: major_interface):  # 根据专业名和学院id和学校id查询专业
         with self.get_db() as session:
@@ -289,6 +295,7 @@ class ClassModel(dbSession):
     def add_class(self, obj: class_interface):  # 添加一个class
         obj_dict = jsonable_encoder(obj)
         obj_dict.pop('school_id')
+        obj_dict.pop('college_logo_id')
         obj_add = Class(**obj_dict)
         with self.get_db() as session:
             session.add(obj_add)
@@ -316,11 +323,13 @@ class ClassModel(dbSession):
 
     def get_class_by_college_id(self, college_id, page):  # 根据college_id查询class的基本信息
         with self.get_db() as session:
-            clas = session.query(Class).filter(Class.has_delete == 0, Class.college_id == college_id).order_by(
+            query = session.query(Class).filter(Class.has_delete == 0, Class.college_id == college_id)
+            counts =  query.count()
+            clas =  query.order_by(
                 Class.id).offset(
                 page.offset()).limit(page.limit()).all()
             session.commit()
-            return clas
+            return clas,counts
 
     def get_class_by_name(self, obj: class_interface):  # 根据班级名和学院id和学校id查询班级的id
         with self.get_db() as session:

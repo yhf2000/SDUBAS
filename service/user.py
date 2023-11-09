@@ -352,7 +352,7 @@ class OperationModel(dbSession):
         with self.get_db() as session:
             session.add(obj_add)
             session.commit()
-            return obj_add.oper_hash
+            return 'ok'
 
     def get_operation_hash_by_id_list(self, id_list):  # 根据id_list查询operation的hash
         with self.get_db() as session:
@@ -362,12 +362,14 @@ class OperationModel(dbSession):
 
     def get_func_and_time_by_admin(self, page, user_id):  # 查找某操作人的所有操作和时间
         with self.get_db() as session:
-            operations = session.query(Operation.func,Operation.oper_dt).filter(
-                Operation.oper_user_id == user_id).order_by(
+            query = session.query(Operation.func,Operation.oper_dt,Operation.id).filter(
+                Operation.oper_user_id == user_id)
+            counts = query.count()
+            operations = query.order_by(
                 Operation.id).offset(
                 page.offset()).limit(page.limit()).all()
             session.commit()
-            return operations
+            return operations,counts
 
     def get_operation_by_service(self, service_type, service_id):  # 根据service查询operation的基本信息
         with self.get_db() as session:

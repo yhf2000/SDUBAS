@@ -5,16 +5,15 @@ import random
 import string
 import uuid
 from io import BytesIO
-from typing import List
-
 from captcha.image import ImageCaptcha
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from fastapi import Request, Header, Depends
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
 from model.db import session_db, user_information_db
 from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
+from type.functions import block_chains_login, block_chains_get
 from type.functions import search_son_user, get_email_token, get_user_id, get_user_information, make_parameters, \
     get_user_name, extract_word_between, get_time_now
 from type.page import page
@@ -26,7 +25,7 @@ from type.user import user_info_interface, \
 from utils.auth_login import auth_login, auth_not_login
 from utils.auth_permission import auth_permission_default
 from utils.response import user_standard_response, page_response, makePageResult
-from type.functions import block_chains_login,block_chains_get
+
 users_router = APIRouter()
 user_model = UserModel()
 session_model = SessionModel()
@@ -438,7 +437,7 @@ async def user_get_error(username: str, password: str, email: str):
 @users_router.get("/verify_hash")  # 验证区块链传的hash是否正确并返回给前端
 @user_standard_response
 async def user_verify_hash(request: Request,permission=Depends(auth_login)):
-    id_list = json.loads(request.query_params.getlist('id_list')[0])
+    id_list = request.query_params.getlist('id_list[]')
     hashs = operation_model.get_operation_hash_by_id_list(id_list)
     headers = block_chains_login()
     results = []
@@ -451,19 +450,21 @@ async def user_verify_hash(request: Request,permission=Depends(auth_login)):
     return {'message': '验证结果如下', 'data': results, 'code': 0}
 
 
-@users_router.get("/get_operation/{user_id}")  # 获取用户的所有操作
+@users_router.get("/get_operation")  # 获取用户的所有操作
 @page_response
-async def user_get_operation(user_id: int, pageNow: int, pageSize: int,request:Request, permission=Depends(auth_login)):
+async def user_get_operation(pageNow: int, pageSize: int,request:Request, user_id: int = None,permission=Depends(auth_login)):
+    if user_id is None:
+        user_id = permission['user_id']
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_operations = operation_model.get_func_and_time_by_admin(Page, user_id)
+    all_operations,counts = operation_model.get_func_and_time_by_admin(Page, user_id)
     result = {'rows': None}
     if all_operations:
         operation_data = []
         for operation in all_operations:  # 对每个操作的数据进行处理
             dict = {'func': operation[0], 'oper_dt': operation[1].strftime(
-                "%Y-%m-%d %H:%M:%S")}
+                "%Y-%m-%d %H:%M:%S"),'id':operation[2]}
             operation_data.append(dict)
-        result = makePageResult(Page, len(all_operations), operation_data)
+        result = makePageResult(Page, counts, operation_data)
     parameters = await make_parameters(request)
     name = get_user_name(permission['user_id'])
     name1 = get_user_name(user_id)

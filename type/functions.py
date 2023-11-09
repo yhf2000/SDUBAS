@@ -1,13 +1,11 @@
 import asyncio
 import copy
-import hashlib
 import io
 import json
 import random
 import re
 import time
 import uuid
-
 import requests
 from Crypto.Cipher import AES
 from cryptography.hazmat.backends import default_backend
@@ -17,8 +15,8 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import Request, HTTPException
 from minio import S3Error
-from sqlalchemy import func
 from starlette.responses import JSONResponse
+
 from const import development_ip, base_url
 from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db
 from service.file import UserFileModel, FileModel
@@ -32,7 +30,16 @@ file_model = FileModel()
 user_model = UserModel()
 user_info_model = UserinfoModel()
 education_program_model = EducationProgramModel()
-
+mimetype_to_format = {
+    'image/jpeg': 'image',
+    'image/png': 'image',
+    'audio/mpeg': 'MP3',
+    'application/msword': 'office_word',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'office_word',
+    'application/vnd.ms-powerpoint': 'office_ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'office_ppt',
+    'video/mp4': 'video',
+}
 
 async def make_parameters(request: Request):  # 生成操作表里的parameters
     url = request.url.path
