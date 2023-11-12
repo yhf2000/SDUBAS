@@ -11,7 +11,7 @@ class file_interface(BaseModel):
     hash_sha256: str
     is_save: int = 0
     time: int = None
-    type : int = 0
+    type: int = 0
 
 
 class user_file_interface(BaseModel):
@@ -33,6 +33,7 @@ class RSA_interface(BaseModel):
     user_id: int
     private_key_pem: bytes
     public_key_pem: bytes
+
 
 class ASE_interface(BaseModel):
     file_id: int

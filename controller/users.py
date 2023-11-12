@@ -15,7 +15,7 @@ from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
 from type.functions import block_chains_login, block_chains_get
 from type.functions import search_son_user, get_email_token, get_user_id, get_user_information, make_parameters, \
-    get_user_name, extract_word_between, get_time_now
+    get_user_name, extract_word_between, get_time_now,block_chains_information
 from type.page import page
 from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
@@ -470,3 +470,11 @@ async def user_get_operation(pageNow: int, pageSize: int,request:Request, user_i
     name1 = get_user_name(user_id)
     add_operation.delay(1, user_id, '获取用户操作', f"{name}于qpzm7913获取用户{name1}的所有操作", parameters, permission['user_id'])
     return {'message': '操作如下', "data": result, "code": 0}
+
+
+@users_router.get("/block_chain_information")  # 获取区块链信息
+@user_standard_response
+async def get_block_chain_information(request: Request,permission=Depends(auth_login)):
+    headers = block_chains_login()
+    result = block_chains_information(headers)
+    return {'message': '区块链信息结果如下', 'data': result, 'code': 0}
