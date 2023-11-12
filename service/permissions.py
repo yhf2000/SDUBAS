@@ -340,9 +340,9 @@ class permissionModel(dbSession):
             session.commit()
             return 'OK'
 
-    def add_work_role(self, id: int, role_id: int):
+    def add_work_role(self, id: int, role_id: int, service_type: int):
         with self.get_db() as session:
-            work_role = WorkRole(role_id=role_id, service_type=0, service_id=id, has_delete=0)
+            work_role = WorkRole(role_id=role_id, service_type=service_type, service_id=id, has_delete=0)
             session.add(work_role)
             session.commit()
             return 'OK'
@@ -386,7 +386,7 @@ class permissionModel(dbSession):
             total_count = role.count()
             return total_count, res_list
 
-    def get_user_info_by_role(self, role_id: int):
+    def get_user_info_by_role(self, role_id: int, pg: page):
         with self.get_db() as session:
             res_list = []
             join_tables = join(UserRole, User, UserRole.user_id == User.id)
@@ -394,36 +394,35 @@ class permissionModel(dbSession):
                 UserRole.role_id == role_id,
                 UserRole.has_delete == 0
             )
-            query = query.all()
-            for item in query:
+            data = query.offset(pg.offset()).limit(pg.limit())
+            for item in data:
                 temp = {
                     "user_id": item[1].id,
                     "user_name": item[1].username
                 }
                 res_list.append(temp)
-            total_count = len(res_list)
+            total_count = query.count()
             return total_count, res_list
 
-    def get_role_by_work(self, service_type: int, service_id: int):
+    def get_role_by_work(self, service_type: int, service_id: int, pg: page):
         with self.get_db() as session:
             role_list = []
             res_list = []
-            query = session.query(WorkRole).filter(
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).filter(
                 WorkRole.service_type == service_type,
                 WorkRole.service_id == service_id
-            ).all()
-            for item in query:
-                role_list.append(item.role_id)
-            role = session.query(Role).filter(
-                Role.id.in_(role_list)
-            ).all()
-            for item in role:
+            )
+            data = query.offset(pg.offset()).limit(pg.limit())
+            for item in data:
                 temp = {
                     "role_id": item.id,
                     "role_name": item.name
                 }
                 res_list.append(temp)
-            total_count = len(res_list)
+            total_count = query.count()
             return total_count, res_list
 
     def delete_work_user(self, user_id: int, role_id: int):

@@ -160,7 +160,7 @@ async def add_role(request: Request, data: type.permissions.create_role_Base, us
     superiorId = db.search_user_default_role(user['user_id'])
     for item in res:
         role_id = db.create_role(item.role_name, superiorId)
-        db.add_work_role(data.id, role_id)
+        db.add_work_role(data.id, role_id, 1)
         db.attribute_privilege_for_role(item.privilege_list, role_id)
     return 'OK'
 
@@ -172,11 +172,11 @@ async def add_role(request: Request, data: type.permissions.create_role_Base, us
     superiorId = db.search_user_default_role(user['user_id'])
     for item in res:
         role_id = db.create_role(item.role_name, superiorId)
-        db.add_work_role(data.id, role_id)
+        db.add_work_role(data.id, role_id, 2)
         db.attribute_privilege_for_role(item.privilege_list, role_id)
     return 'OK'
 
-@permissions_router.post("/add_class_role")  # 创建角色(使用)(无权限）
+@permissions_router.post("/add_major_role")  # 创建角色(使用)(无权限）
 @standard_response
 async def add_role(request: Request, data: type.permissions.create_role_Base, user=Depends(auth_login)):
     db = permissionModel()
@@ -184,7 +184,7 @@ async def add_role(request: Request, data: type.permissions.create_role_Base, us
     superiorId = db.search_user_default_role(user['user_id'])
     for item in res:
         role_id = db.create_role(item.role_name, superiorId)
-        db.add_work_role(data.id, role_id)
+        db.add_work_role(data.id, role_id, 3)
         db.attribute_privilege_for_role(item.privilege_list, role_id)
     return 'OK'
 
@@ -207,7 +207,7 @@ async def get_user_info(role_id: int = Query(),
     # user_id = int(request.headers.get("user_id"))
     db = permissionModel()
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = db.get_user_info_by_role(role_id=role_id)
+    tn, res = db.get_user_info_by_role(role_id=role_id, pg=Page)
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
@@ -230,7 +230,7 @@ async def get_work_role(request: Request, service_id: int = Query(), service_typ
     db = permissionModel()
     # user_id = int(request.headers.get("user_id"))
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = db.get_role_by_work(service_type, service_id)
+    tn, res = db.get_role_by_work(service_type, service_id, Page)
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
@@ -241,7 +241,7 @@ async def search_created_user(request: Request, pageNow: int = Query(description
     db = permissionModel()
     user_id = user['user_id']
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = db.search_created_user_info(user_id=user_id)
+    tn, res = db.search_created_user_info(user_id=user_id, pg=Page)
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
