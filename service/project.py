@@ -86,7 +86,8 @@ class ProjectService(dbSession):
             project = ProjectBase_Opt.model_validate(project)
             date = project.model_dump(exclude={'has_delete'})
             file_urls = get_url_by_user_file_id(request, date['img_id'])
-            date['url'] = file_urls[date['img_id']]['url']
+            date['file_id'] = {'file_id': date['img_id'], 'url': file_urls[date['img_id']]['url'],
+                               'file_name': file_urls[date['img_id']]['file_name']}  # file_urls[date['img_id']]['url']
             date['file_type'] = file_urls[date['img_id']]['file_type']
             date['contents'] = self.list_projects_content(request=request, project_id=project_id, user_id=user_id)
 
@@ -116,7 +117,9 @@ class ProjectService(dbSession):
             file_url_lists = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 if result['file_id'] is not None:
-                    result['url'] = file_url_lists[result['file_id']]['url']
+                    result['file_id'] = {'file_id': result['file_id'], 'url': file_url_lists[result['file_id']]['url'],
+                                         'file_name': file_url_lists[result['file_id']][
+                                             'file_name']}  # file_url_lists[result['file_id']]['url']
                     result['file_type'] = file_url_lists[result['file_id']]['file_type']
             return results
 
@@ -202,7 +205,7 @@ class ProjectService(dbSession):
                 if result['file_id'] is not None:
                     result['url'] = file_url_lists[result['file_id']]['url']
                     result['file_type'] = file_url_lists[result['file_id']]['file_type']
-            return results
+            return {'rows': results}
 
     def get_project_progress(self, project_id: int, user_id: int):
         with self.get_db() as session:

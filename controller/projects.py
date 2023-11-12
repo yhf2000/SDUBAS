@@ -153,11 +153,15 @@ async def score_project_content(request: Request, project_id: int, content_id: i
 
 @projects_router.get("/submissions/{project_id}/contents/{content_id}")
 @standard_response
-async def view_user_submission(request: Request, project_id: int, content_id: int, user=Depends(auth_permission)):
+async def view_user_submission(request: Request, project_id: int, content_id: int,
+                               user_id: Optional[int] = Query(description="用户ID", default=0),
+                               user=Depends(auth_permission)):
+    if user_id == 0:
+        user_id = user['user_id']
     project_service.check_project_exist(project_id=project_id)
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     results = project_service.get_user_submission_list(request=request, project_id=project_id, content_id=content_id,
-                                                       user_id=user['user_id'])
+                                                       user_id=user_id)
     parameters = await make_parameters(request)
     name = get_user_name(user['user_id'])
     add_operation.delay(7, project_id, "查看用户提交", f"{name}于qpzm7913查看用户提交{project_id}内容{content_id}",
@@ -340,7 +344,8 @@ async def get_all_content_user_score(request: Request,
     tn, results = project_service.get_user_credit_all(user_id=user_id, pg=Page)
     parameters = await make_parameters(request)
     name = get_user_name(user['user_id'])
-    add_operation.delay(0, 0, "查看用户学分明细", f"{name}于qpzm7913查看用户{user_id}学分明细", parameters, user['user_id'])
+    add_operation.delay(0, 0, "查看用户学分明细", f"{name}于qpzm7913查看用户{user_id}学分明细", parameters,
+                        user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
 
 
@@ -393,7 +398,6 @@ async def get_all_content_user_personal(request: Request,
     add_operation.delay(0, 0, "查看用户个人学分项目", f"{name}于qpzm7913查看用户个人学分项目", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
-
 
 
 @projects_router.get("/{project_id}/credits/all")
