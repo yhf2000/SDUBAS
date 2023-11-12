@@ -248,7 +248,7 @@ async def search_created_user(request: Request, pageNow: int = Query(description
 @permissions_router.post("/add_template_role/{service_id}/{service_type}")  # 创建模板角色
 @standard_response
 async def add_template_role(request: Request, data: type.permissions.create_default_role_Base, service_id: int, service_type: int,
-                            user=Depends(test_permission)):
+                            user=Depends(auth_login)):
     db = permissionModel()
     res = data.roles
     superiorId = db.search_user_default_role(user['user_id'])
