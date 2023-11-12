@@ -17,7 +17,7 @@ from fastapi import Request, HTTPException
 from minio import S3Error
 from starlette.responses import JSONResponse
 
-from const import development_ip, base_url
+from const import development_ip, base_url, server_ip
 from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
@@ -36,10 +36,11 @@ mimetype_to_format = {
     'audio/mpeg': 'MP3',
     'application/msword': 'office_word',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'office_word',
-    'application/vnd.ms-powerpoint': 'office_ppt',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'office_ppt',
-    'video/mp4': 'video',
+    'application/vnd.ms-powerpoint': 'office_word',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'office_word',
+    'video/mp4': 'video'
 }
+
 
 async def make_parameters(request: Request):  # 生成操作表里的parameters
     url = request.url.path
@@ -99,7 +100,7 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
 def get_url(new_session, new_token):
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-    url = f'http://{development_ip}:8000/files/download/' + new_token
+    url = f'http://{server_ip}/c/download/' + new_token
     return url
 
 
@@ -121,7 +122,10 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     new_session = make_download_session(new_token, request, user_file[1], id_list, -1, 72)
                     session_model.add_session(new_session)
                     url = get_url(new_session, new_token)
-                    temp = dict({"url": url, "file_type": user_file[2]})
+                    types = user_file[2]
+                    if user_file[2] in mimetype_to_format:
+                        types = mimetype_to_format[user_file[2]]
+                    temp = dict({"url": url, "file_type": types, "file_name": user_file[3]})
                     url_db.set(id_list, json.dumps(temp))
                     urls.update({id_list: temp})
         else:
@@ -136,7 +140,10 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     temp = copy.deepcopy(new_session)
                     sessions.append(temp)
                     url = get_url(new_session, new_token)
-                    temp = dict({"url": url, "file_type": user_file[i][2]})
+                    types = user_file[i][2]
+                    if user_file[i][2] in mimetype_to_format:
+                        types = mimetype_to_format[user_file[i][2]]
+                    temp = dict({"url": url, "file_type": types, "file_name": user_file[3]})
                     url_db.set(user_file[i][0], json.dumps(temp))
                     urls[user_file[i][0]] = temp
             if len(sessions) == 1:
@@ -373,8 +380,15 @@ def block_chains_information(headers):
     if response.status_code == 200:
         data = response.json()
         chain_information = data['data']
+        results = {}
         if chain_information:
-            return chain_information
+            results['protocol_version'] = chain_information['status']['node_info']['protocol_version']
+            results['id'] = chain_information['status']['node_info']['id']
+            results['moniker'] = chain_information['status']['node_info']['moniker']
+            results['latest_block_height'] = chain_information['status']['sync_info']['latest_block_height']
+            results['latest_block_time'] = chain_information['status']['sync_info']['latest_block_time']
+            results['address'] = chain_information['status']['validator_info']['address']
+            return results
     else:
         raise HTTPException(
             status_code=404,

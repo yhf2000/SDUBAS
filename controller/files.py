@@ -1,3 +1,4 @@
+import base64
 import codecs
 import io
 import json
@@ -11,14 +12,13 @@ from fastapi import Request, Header, Depends
 from starlette.responses import JSONResponse, StreamingResponse
 from Celery.add_operation import add_operation
 from Celery.upload_file import upload_file
-from const import development_ip
+from const import development_ip,server_ip
 from model.db import session_db
 from service.file import FileModel, UserFileModel, RSAModel, ASEModel
 from service.user import UserModel, SessionModel
 from type.file import file_interface, user_file_interface, RSA_interface, ASE_interface
 from type.functions import get_files, generate_rsa_key_pair, make_parameters, get_user_name, get_time_now, \
     judge_private_file, decrypt_aes_key_with_rsa, decrypt_file
-from type.functions import mimetype_to_format
 from type.page import page
 from type.user import session_interface
 from utils.auth_login import auth_login
@@ -109,20 +109,21 @@ async def file_upload(request: Request, file: UploadFile = File(...), ase_key: s
     if ase_key != ' ':
         new_ase = ASE_interface(file_id=old_session['file_id'], ase_key=ase_key)
         id = ASE_model.add_file_ASE(new_ase)
-    if file.content_type.startswith('image/'):  # 仅对图像文件进行压缩
-        try:
-            # 读取上传的图像文件
-            image = Image.open(io.BytesIO(contents))
-            # 压缩图像
-            quality = 70  # 根据需要调整压缩质量
-            image = image.convert("RGB")
-            output_buffer = io.BytesIO()
-            image.save(output_buffer, format="JPEG", quality=quality)
-            output_buffer.seek(0)
-            # 更新 contents 以保存压缩后的图像内容
-            contents = output_buffer.read()
-        except Exception as e:
-            return {'message': '图像压缩失败', 'data': None, 'code': 6}
+    else:
+        if file.content_type.startswith('image/'):  # 仅对图像文件进行压缩
+            try:
+                # 读取上传的图像文件
+                image = Image.open(io.BytesIO(contents))
+                # 压缩图像
+                quality = 60  # 根据需要调整压缩质量
+                image = image.convert("RGB")
+                output_buffer = io.BytesIO()
+                image.save(output_buffer, format="JPEG", quality=quality)
+                output_buffer.seek(0)
+                # 更新 contents 以保存压缩后的图像内容
+                contents = output_buffer.read()
+            except Exception as e:
+                return {'message': '图像压缩失败', 'data': None, 'code': 6}
     folder = get_file.hash_md5[:8] + '/' + get_file.hash_sha256[-8:] + '/'  # 先创建路由
     upload_file.delay(folder, file.filename, contents)
     session_model.update_session_use_by_token(token, 1)  # 将该session使用次数设为1
@@ -159,7 +160,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     new_session = new_session.model_dump()
     user_session = json.dumps(new_session)
     session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
-    return {'message': '请前往下载', 'data': {'url': f'http://{development_ip}:8000/files/download/' + new_token},
+    return {'message': '请前往下载', 'data': {'url': f'http://{server_ip}/c/download/' + new_token},
             'code': 0}
 
 
@@ -191,17 +192,13 @@ async def file_download_files(request: Request, token: str, session=Depends(auth
         data = get_files(folder)
         if is_private:
             data = data.read()
-            encrypt_ase_key = str(ASE_model.get_ase_key_by_file_id(old_session['file_id'])[0]).encode('utf-8')
-            decoded_str, _ = codecs.unicode_escape_decode(encrypt_ase_key.decode('utf-8'))
-            encrypt_ase_key = decoded_str.encode('latin-1')
+            encrypt_ase_key = bytes(base64.b64decode(ASE_model.get_ase_key_by_file_id(old_session['file_id'])[0]))
             private_key = RSA_model.get_private_key_by_user_id(user_id)[0].encode('utf-8')
             ase_key = decrypt_aes_key_with_rsa(encrypt_ase_key, private_key).encode('utf-8')
             data = decrypt_file(data, ase_key)
             data = io.BytesIO(data)
         if old_session['use_limit'] == -1:
             encoded_filename = quote(filename)
-            if user_file.type in mimetype_to_format:
-                user_file.type = mimetype_to_format[user_file.type]
             headers = {
                 "Content-Type": user_file.type,
                 "Content-Disposition": f"inline; filename={encoded_filename}",

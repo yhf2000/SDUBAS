@@ -117,12 +117,12 @@ class UserFileModel(dbSession):
     def get_user_file_id_by_id_list(self, id_list):  # 根据id_list查询user_file的file_id
         with self.get_db() as session:
             if type(id_list) is list:
-                user_file = session.query(User_File.id, User_File.user_id, User_File.type).filter(
+                user_file = session.query(User_File.id, User_File.user_id, User_File.type,User_File.name).filter(
                     User_File.id.in_(id_list),
                     User_File.has_delete == 0).all()
                 session.commit()
             else:
-                user_file = session.query(User_File.id, User_File.user_id, User_File.type).filter(
+                user_file = session.query(User_File.id, User_File.user_id, User_File.type,User_File.name).filter(
                     User_File.id == id_list,
                     User_File.has_delete == 0).first()
                 session.commit()

@@ -441,6 +441,12 @@ class EducationProgramModel(dbSession):
             session.commit()
             return id
 
+    def delete_education_program_by_major_id(self, major_id: int):  # 删除一个education_program
+        with self.get_db() as session:
+            session.query(Education_Program).filter(Education_Program.major_id == major_id).update({"has_delete": 1})
+            session.commit()
+            return 'ok'
+
     def get_education_program_by_user_id(self, user_id):  # 根据user_id查询education_program
         with self.get_db() as session:
             user_info = UserinfoModel()

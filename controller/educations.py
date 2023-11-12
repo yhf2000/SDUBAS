@@ -329,6 +329,20 @@ async def user_major_update(request: Request, major_data: major_interface, major
         return {'message': '该学校的该学院的该专业已存在', 'data': False, 'code': 4}
     major_model.update_major_information(major_id, major_data.name)  # 修改专业名
     username = get_user_name(session['user_id'])
+    if major_data.education_program is not None:
+        education_program_model.delete_education_program_by_major_id(major_id)
+        programs = major_data.education_program
+        new_programs = {}
+        # 遍历原始的 programs 字典
+        for old_key, value in programs.items():
+            # 使用 programs_translation 字典来映射中英文课程名称
+            new_key = programs_translation.get(old_key, old_key)
+            new_programs[new_key] = value
+        # 现在，new_programs 字典包含了映射后的数据
+        programs = new_programs
+        programs['major_id'] = id
+        new_program = education_program_interface(**programs)
+        id1 = education_program_model.add_education_program(new_program)
     parameters = await make_parameters(request)
     add_operation.delay(3, major_id, '修改专业信息',
                         f'{username}于qpzm7913通过选择学校id为{major_data.school_id}的学校并选择学院id为{major_data.college_id}的学院并选择专业id为{major_id}的专业并输入专业名称{major_data.name}来修改专业信息',
