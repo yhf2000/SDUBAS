@@ -117,10 +117,11 @@ class ProjectService(dbSession):
             file_url_lists = get_url_by_user_file_id(request, file_id_list)
             for result in results:
                 if result['file_id'] is not None:
+                    tem_id = result['file_id']
                     result['file_id'] = {'file_id': result['file_id'], 'url': file_url_lists[result['file_id']]['url'],
                                          'file_name': file_url_lists[result['file_id']][
                                              'file_name']}  # file_url_lists[result['file_id']]['url']
-                    result['file_type'] = file_url_lists[result['file_id']]['file_type']
+                    result['file_type'] = file_url_lists[tem_id]['file_type']
             return results
 
     def get_projects_content(self, request: Request, content_id: int, project_id: int, user_id: int):
@@ -198,6 +199,10 @@ class ProjectService(dbSession):
                         ProjectContentUserSubmission.user_id == user_id).all()
             results = dealDataList(list_user_submission, user_submission_Opt)
             file_id_list = []
+            for item in results:
+                content_submission = session.query(ProjectContentSubmission.name).filter(
+                    ProjectContentSubmission.id == item['pc_submit_id']).first()
+                item['name'] = content_submission[0]
             for result in results:
                 file_id_list.append(result['file_id'])
             file_url_lists = get_url_by_user_file_id(request, file_id_list)
