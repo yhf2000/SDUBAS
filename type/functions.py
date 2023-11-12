@@ -143,7 +143,7 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     types = user_file[i][2]
                     if user_file[i][2] in mimetype_to_format:
                         types = mimetype_to_format[user_file[i][2]]
-                    temp = dict({"url": url, "file_type": types, "file_name": user_file[3]})
+                    temp = dict({"url": url, "file_type": types, "file_name": user_file[i][3]})
                     url_db.set(user_file[i][0], json.dumps(temp))
                     urls[user_file[i][0]] = temp
             if len(sessions) == 1:
