@@ -86,9 +86,10 @@ class ProjectService(dbSession):
             project = ProjectBase_Opt.model_validate(project)
             date = project.model_dump(exclude={'has_delete'})
             file_urls = get_url_by_user_file_id(request, date['img_id'])
-            date['file_id'] = {'file_id': date['img_id'], 'url': file_urls[date['img_id']]['url'],
-                               'file_name': file_urls[date['img_id']]['file_name']}  # file_urls[date['img_id']]['url']
-            date['file_type'] = file_urls[date['img_id']]['file_type']
+            tem_id = date['img_id']
+            date['img_id'] = {'file_id': tem_id, 'url': file_urls[tem_id]['url'],
+                              'file_name': file_urls[tem_id]['file_name']}  # file_urls[date['img_id']]['url']
+            date['file_type'] = file_urls[tem_id]['file_type']
             date['contents'] = self.list_projects_content(request=request, project_id=project_id, user_id=user_id)
 
             return date
