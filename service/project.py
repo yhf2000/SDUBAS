@@ -276,11 +276,13 @@ class ProjectService(dbSession):
                 result['file_type'] = file_url_lists[result['img_id']]['file_type']
             return total_count, results
 
-    def get_content_by_projectcontentid_userid(self, user_id: int, content_id: int, pg: page, project_id: int):
+    def get_content_by_projectcontentid_userid(self, request: Request, user_id: int, content_id: int, pg: page,
+                                               project_id: int):
         with self.get_db() as session:
-            subquery = session.query(distinct(ProjectContentUserSubmission.pc_submit_id).label('pc_submit_id')). \
+            subquery = session.query(distinct(ProjectContentUserSubmission.pc_submit_id).label('pc_submit_id'),
+                                     ProjectContentUserSubmission.file_id, ProjectContentUserSubmission.content). \
                 filter(ProjectContentUserSubmission.user_id == user_id).subquery()
-            query = session.query(ProjectContentSubmission, subquery.c.pc_submit_id). \
+            query = session.query(ProjectContentSubmission, subquery.c). \
                 filter(ProjectContentSubmission.pro_content_id == content_id). \
                 outerjoin(subquery, ProjectContentSubmission.id == subquery.c.pc_submit_id). \
                 add_columns(case((subquery.c.pc_submit_id.is_(None), 0), else_=1).label('commit'))
@@ -288,8 +290,15 @@ class ProjectService(dbSession):
             total_count = query.count()  # 总共
             # 执行分页查询
             datas = query.offset(pg.offset()).limit(pg.limit()).all()
+            file_id_list = []
+            for result in datas:
+                file_id_list.append(result.file_id)
             finial_dates = []
-            for data, pc_submit_id, commit in datas:
+            file_url_lists = get_url_by_user_file_id(request, file_id_list)
+            for data, pc_submit_id, file_id, content, commit in datas:
+                urll = None
+                if file_id is not None:
+                    urll = file_url_lists[file_id]['url']
                 finial_date = {
                     "name": data.name,
                     "pro_content_id": data.pro_content_id,
@@ -298,7 +307,9 @@ class ProjectService(dbSession):
                     "size_limit": data.size_limit,
                     "type_limit": data.type_limit,
                     "id": data.id,
-                    "commit": commit
+                    "commit": commit,
+                    "url": urll,
+                    "content": content
                 }
                 finial_dates.append(finial_date)
             return total_count, finial_dates
@@ -429,12 +440,14 @@ class ProjectService(dbSession):
                 lis.append(now_score)
             return total_num, lis
 
-    def get_content_user_score_all(self, project_id: int, content_id: int, pg: page, user_id: int):
+    def get_content_user_score_all(self, user_name: str, project_id: int, content_id: int, pg: page, user_id: int):
         with self.get_db() as session:
             role_model = permissionModel()
             query = role_model.search_user_id_by_service(service_type=7, service_id=project_id)
             query = query.join(User, User.id == UserRole.user_id)
             query = query.add_entity(User)
+            if user_name is not None:
+                query = query.filter(User.username.like(f"%{user_name}%"))
             subquery = session.query(ProjectContentUserScore).filter(ProjectContentUserScore.user_pcs_id == content_id) \
                 .subquery()
             query = query.outerjoin(subquery, subquery.c.user_id == User.id)
@@ -443,12 +456,29 @@ class ProjectService(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             lis = []
+            total_count = session.query(func.count()).select_from(ProjectContentSubmission) \
+                .join(ProjectContent,
+                      ProjectContentSubmission.pro_content_id == ProjectContent.id) \
+                .filter(ProjectContent.project_id == project_id) \
+                .scalar()
             for d in data:
                 user = d[1]
                 score = d[9]
+                is_pass = d[8]
+                if d[8] is None:
+                    is_pass = 0
                 user_name = user.username
                 user_id = user.id
-                lis.append({'user_id': user_id, 'user_name': user_name, 'score': score})
+                finish_count = session.query(func.count(distinct(ProjectContentSubmission.id))) \
+                    .join(ProjectContent,
+                          ProjectContentSubmission.pro_content_id == ProjectContent.id) \
+                    .join(ProjectContentUserSubmission,
+                          ProjectContentUserSubmission.pc_submit_id == ProjectContentSubmission.id) \
+                    .filter(ProjectContent.project_id == project_id,
+                            ProjectContentUserSubmission.user_id == user_id) \
+                    .scalar()
+                lis.append({'user_id': user_id, 'user_name': user_name, 'score': score, 'is_pass': is_pass,
+                            'total_count': total_count, 'finish_count': finish_count})
             return total_count, lis
 
     def get_user_credit_all(self, user_id: int, pg: page):

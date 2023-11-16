@@ -257,7 +257,8 @@ async def list_projects(request: Request, project_id: int,
                         pageSize: int = Query(description="每页数量", gt=0),
                         user=Depends(auth_permission)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = project_service.get_content_by_projectcontentid_userid(user_id=user['user_id'],
+    tn, res = project_service.get_content_by_projectcontentid_userid(request=request,
+                                                                     user_id=user['user_id'],
                                                                      content_id=contentId,
                                                                      pg=Page, project_id=project_id)  # 返回总额，分页数据
     parameters = await make_parameters(request)
@@ -317,11 +318,14 @@ async def get_all_projects_score(request: Request, project_id: int,
 async def get_all_content_user_score(request: Request, project_id: int, content_id: int,
                                      pageNow: int = Query(description="页码", gt=0),
                                      pageSize: int = Query(description="每页数量", gt=0),
+                                     user_name: Optional[str] = Query(description="用户name", default=None),
                                      user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = project_service.get_content_user_score_all(project_id=project_id, content_id=content_id, pg=Page,
+    # print(user_name)
+    tn, res = project_service.get_content_user_score_all(user_name=user_name, project_id=project_id,
+                                                         content_id=content_id, pg=Page,
                                                          user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = get_user_name(user['user_id'])
