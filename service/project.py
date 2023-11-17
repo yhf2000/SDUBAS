@@ -279,13 +279,32 @@ class ProjectService(dbSession):
     def get_content_by_projectcontentid_userid(self, request: Request, user_id: int, content_id: int, pg: page,
                                                project_id: int):
         with self.get_db() as session:
-            subquery = session.query(distinct(ProjectContentUserSubmission.pc_submit_id).label('pc_submit_id'),
-                                     ProjectContentUserSubmission.file_id, ProjectContentUserSubmission.content). \
-                filter(ProjectContentUserSubmission.user_id == user_id).subquery()
-            query = session.query(ProjectContentSubmission, subquery.c). \
+            # subquery = session.query(distinct(ProjectContentUserSubmission.pc_submit_id).label('pc_submit_id'),
+            #                         ProjectContentUserSubmission.file_id, ProjectContentUserSubmission.content). \
+            #    filter(ProjectContentUserSubmission.user_id == user_id).subquery()
+            subquery = session.query(
+                ProjectContentUserSubmission.pc_submit_id,
+                func.max(ProjectContentUserSubmission.submit_dt).label('max_submit_dt')
+            ).filter(
+                ProjectContentUserSubmission.user_id == user_id
+            ).group_by(
+                ProjectContentUserSubmission.pc_submit_id
+            ).subquery()
+            subquery2 = session.query(
+                ProjectContentUserSubmission.pc_submit_id,
+                ProjectContentUserSubmission.file_id,
+                ProjectContentUserSubmission.content
+            ).select_from(ProjectContentUserSubmission). \
+                join(
+                subquery,
+                and_(ProjectContentUserSubmission.pc_submit_id == subquery.c.pc_submit_id,
+                     ProjectContentUserSubmission.submit_dt == subquery.c.max_submit_dt)
+            ).subquery()
+            query = session.query(ProjectContentSubmission, subquery2.c.pc_submit_id, subquery2.c.file_id,
+                                  subquery2.c.content). \
                 filter(ProjectContentSubmission.pro_content_id == content_id). \
-                outerjoin(subquery, ProjectContentSubmission.id == subquery.c.pc_submit_id). \
-                add_columns(case((subquery.c.pc_submit_id.is_(None), 0), else_=1).label('commit'))
+                outerjoin(subquery2, ProjectContentSubmission.id == subquery2.c.pc_submit_id). \
+                add_columns(case((subquery2.c.pc_submit_id.is_(None), 0), else_=1).label('commit'))
 
             total_count = query.count()  # 总共
             # 执行分页查询
