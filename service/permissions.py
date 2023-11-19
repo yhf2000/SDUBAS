@@ -6,7 +6,7 @@ from sqlalchemy import distinct, join
 from sqlalchemy.sql import select
 
 from model.permissions import Role, RolePrivilege, UserRole, Privilege, WorkRole
-from model.user import User
+from model.user import User ,User_info, School, Major, Class, College
 from model.db import dbSession
 from type.permissions import *
 from type.page import page
@@ -546,15 +546,32 @@ class permissionModel(dbSession):
             for item in query:
                 role_list.append(item.role_id)
             join_tables = join(UserRole, User, UserRole.user_id == User.id)
-            user = session.query(UserRole, User).select_from(join_tables).filter(
+            join_tables = join(join_tables, User_info, User.id == User_info.user_id)
+            join_tables = join(join_tables, Class, User_info.class_id == Class.id)
+            join_tables = join(join_tables, Major, User_info.major_id == Major.id)
+            join_tables = join(join_tables, College, Major.college_id == College.id)
+            join_tables = join(join_tables, School, College.school_id == School.id)
+            user = session.query(User.id, User.username, User.card_id, User_info.realname, School.name, Major.name,
+                                 Class.name).select_from(join_tables).filter(
                 UserRole.role_id.in_(role_list),
-                UserRole.has_delete == 0
+                UserRole.has_delete == 0,
+                User.has_delete == 0,
+                User_info.has_delete == 0,
+                School.has_delete == 0,
+                College.has_delete == 0,
+                Major.has_delete == 0,
+                Class.has_delete == 0
             )
             data = user.offset(pg.offset()).limit(pg.limit())
             for item in data:
                 temp = {
-                    "user_id": item[1].id,
-                    "user_name": item[1].username
+                    "user_id": item[0],
+                    "user_name": item[1],
+                    "card_id": item[2],
+                    "real_name": item[3],
+                    "school": item[4],
+                    "major": item[5],
+                    "class": item[6],
                 }
                 res_list.append(temp)
             total_count = user.count()
