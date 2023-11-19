@@ -8,7 +8,7 @@ from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
     ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress, \
     User_Name
 from utils.auth_login import auth_login
-from utils.auth_permission import auth_permission, auth_permission_default
+from utils.auth_permission import auth_permission, auth_permission_default, test_permission
 from utils.response import standard_response, makePageResult
 from type.page import page
 from Celery.add_operation import add_operation
@@ -458,14 +458,6 @@ async def delete_user_in_project(request: Request, project_id: int, delete_user:
                                  user=Depends(auth_permission)):
     db = permissionModel()
     db.delete_work_user(delete_user, project_id)
-    return 'OK'
-
-
-@projects_router.post("/add_user_in_project/{project_id}")  # 添加项目用户
-@standard_response
-async def add_user_in_project(request: Request, project_id: int, data: User_Name):
-    db = permissionModel()
-    db.add_work_user(delete_user, project_id)
     return 'OK'
 
 
