@@ -6,7 +6,7 @@ from sqlalchemy import distinct, join
 from sqlalchemy.sql import select
 
 from model.permissions import Role, RolePrivilege, UserRole, Privilege, WorkRole
-from model.user import User ,User_info, School, Major, Class, College
+from model.user import User
 from model.db import dbSession
 from type.permissions import *
 from type.page import page
@@ -423,17 +423,18 @@ class permissionModel(dbSession):
                     Privilege.service_type == 0
                 ).all()
                 for j in privilege:
-                    privilege_list.append(j.name)
+                    privilege_list.append(j.id)
                 temp = {
                     "role_name": item.name,
                     "privilege_list": privilege_list,
-                    "新建资源": 1 if "新建资源" in privilege_list else 0,
-                    "新建用户": 1 if "新建用户" in privilege_list else 0,
-                    "添加资金": 1 if "添加资金" in privilege_list else 0,
-                    "添加学校": 1 if "添加学校" in privilege_list else 0,
-                    "添加学院": 1 if "添加学院" in privilege_list else 0,
-                    "添加班级": 1 if "添加班级" in privilege_list else 0,
-                    "新建项目": 1 if "新建项目" in privilege_list else 0,
+                    "role_id": item.id,
+                    # "新建资源": 1 if "新建资源" in privilege_list else 0,
+                    # "新建用户": 1 if "新建用户" in privilege_list else 0,
+                    # "添加资金": 1 if "添加资金" in privilege_list else 0,
+                    # "添加学校": 1 if "添加学校" in privilege_list else 0,
+                    # "添加学院": 1 if "添加学院" in privilege_list else 0,
+                    # "添加班级": 1 if "添加班级" in privilege_list else 0,
+                    # "新建项目": 1 if "新建项目" in privilege_list else 0,
                 }
                 res_list.append(temp)
             total_count = role.count()
@@ -442,16 +443,18 @@ class permissionModel(dbSession):
     def get_user_info_by_role(self, role_id: int, pg: page):
         with self.get_db() as session:
             res_list = []
-            join_tables = join(UserRole, User, UserRole.user_id == User.id)
-            query = session.query(UserRole, User).select_from(join_tables).filter(
+            query = session.query(User).join(
+                UserRole,
+                UserRole.user_id == User.id
+            ).filter(
                 UserRole.role_id == role_id,
                 UserRole.has_delete == 0
             )
             data = query.offset(pg.offset()).limit(pg.limit())
             for item in data:
                 temp = {
-                    "user_id": item[1].id,
-                    "user_name": item[1].username
+                    "user_id": item.id,
+                    "user_name": item.username
                 }
                 res_list.append(temp)
             total_count = query.count()
@@ -477,30 +480,6 @@ class permissionModel(dbSession):
             total_count = query.count()
             return total_count, res_list
 
-    def get_role_by_work2(self, service_type: int, service_id: int):
-        with self.get_db() as session:
-            res_list = []
-            query = session.query(Role).join(
-                WorkRole,
-                WorkRole.role_id == Role.id
-            ).filter(
-                WorkRole.service_type == service_type,
-                WorkRole.service_id == service_id
-            ).all()
-            for item in query:
-                privilege_list = []
-                privilege = session.query(RolePrivilege).filter(
-                    RolePrivilege.role_id == item.id
-                ).all()
-                for j in privilege:
-                    privilege_list.append(j.privilege_id)
-                temp = {
-                    "role_name": item.name,
-                    "privilege_list": privilege_list
-                }
-                res_list.append(temp)
-            return res_list
-
     def get_template_role_by_work(self, service_type: int, service_id: int, pg: page):
         with self.get_db() as session:
             res_list = []
@@ -514,9 +493,19 @@ class permissionModel(dbSession):
             )
             data = query.offset(pg.offset()).limit(pg.limit())
             for item in data:
+                privilege_list = []
+                privilege = session.query(Privilege).join(
+                    RolePrivilege,
+                    RolePrivilege.privilege_id == Privilege.id
+                ).filter(
+                    RolePrivilege.role_id == item.id
+                ).all()
+                for j in privilege:
+                    privilege_list.append(j.name)
                 temp = {
                     "role_id": item.id,
-                    "role_name": item.name
+                    "role_name": item.name,
+                    "privilege_list": privilege_list
                 }
                 res_list.append(temp)
             total_count = query.count()
@@ -557,31 +546,15 @@ class permissionModel(dbSession):
             for item in query:
                 role_list.append(item.role_id)
             join_tables = join(UserRole, User, UserRole.user_id == User.id)
-            join_tables = join(join_tables, User_info, User.id == User_info.user_id)
-            join_tables = join(join_tables, Class, User_info.class_id == Class.id)
-            join_tables = join(join_tables, Major, User_info.major_id == Major.id)
-            join_tables = join(join_tables, College, Major.college_id == College.id)
-            join_tables = join(join_tables, School, College.school_id == School.id)
-            user = session.query(User.id, User.username, User.card_id, User_info.realname, School.name, Major.name, Class.name).select_from(join_tables).filter(
+            user = session.query(UserRole, User).select_from(join_tables).filter(
                 UserRole.role_id.in_(role_list),
-                UserRole.has_delete == 0,
-                User.has_delete == 0,
-                User_info.has_delete == 0,
-                School.has_delete == 0,
-                College.has_delete == 0,
-                Major.has_delete == 0,
-                Class.has_delete == 0
+                UserRole.has_delete == 0
             )
             data = user.offset(pg.offset()).limit(pg.limit())
             for item in data:
                 temp = {
-                    "user_id": item[0],
-                    "user_name": item[1],
-                    "card_id":item[2],
-                    "real_name":item[3],
-                    "school": item[4],
-                    "major":item[5],
-                    "class":item[6],
+                    "user_id": item[1].id,
+                    "user_name": item[1].username
                 }
                 res_list.append(temp)
             total_count = user.count()
@@ -671,6 +644,34 @@ class permissionModel(dbSession):
             self.attribute_user_role(user_id, role_id)
             self.attribute_role_for_work(service_type, service_id, role_id)
             return 'OK'
+
+    def search_work_role(self, service_type: int, service_id: int):
+        with self.get_db() as session:
+            roles = []
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).filter(
+                WorkRole.service_type == service_type,
+                WorkRole.service_id == service_id
+            )
+            for item in query:
+                privilege_list = []
+                privilege = session.query(RolePrivilege).join(
+                    Role,
+                    RolePrivilege.role_id == Role.id
+                ).filter(
+                    Role.id == item.id
+                )
+                for j in privilege:
+                    privilege_list.append(j.privilege_id)
+                temp = {
+                    "role_id": item.id,
+                    "role_name": item.name,
+                    "privilege_list": privilege_list
+                }
+                roles.append(temp)
+            return roles
 
     def test(self, role_id: int):
         with self.get_db() as session:
