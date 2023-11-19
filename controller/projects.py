@@ -8,7 +8,7 @@ from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
     ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress, \
     User_Name
 from utils.auth_login import auth_login
-from utils.auth_permission import auth_permission, auth_permission_default
+from utils.auth_permission import auth_permission, auth_permission_default, test_permission
 from utils.response import standard_response, makePageResult
 from type.page import page
 from Celery.add_operation import add_operation
@@ -23,7 +23,8 @@ project_service = ProjectService()
 async def create_project(request: Request, project: ProjectCreate, user=Depends(auth_permission_default)) -> int:
     results = project_service.create_project(project, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(7, results, "添加项目", f"用户{user['user_id']}于xxx添加{project.name}项目", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, results, "添加项目", f"{name}于qpzm7913添加{results}项目", parameters, user['user_id'])
     return results
 
 
@@ -33,7 +34,8 @@ async def update_project(request: Request, project_id: int, project: ProjectUpda
     project_service.check_project_exist(project_id=project_id)
     results = project_service.update_project(project_id=project_id, newproject=project, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(7, project_id, "更新项目", f"用户{user['user_id']}于xxx更新{project.name}项目", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "更新项目", f"{name}于qpzm7913更新{results}项目", parameters, user['user_id'])
     return results
 
 
@@ -41,10 +43,10 @@ async def update_project(request: Request, project_id: int, project: ProjectUpda
 @standard_response
 async def delete_project(request: Request, project_id: int, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
-    name = project_service.get_project_by_id(project_id)[0]
     results = project_service.delete_project(project_id=project_id, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(7, project_id, "删除项目", f"用户{user['user_id']}于xxx删除{name}项目", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "删除项目", f"{name}于qpzm7913删除{results}项目", parameters, user['user_id'])
     return results
 
 
@@ -55,7 +57,8 @@ async def list_projects(request: Request,
     user_id = user['user_id']
     res = project_service.list_projects(request=request, user_id=user_id)  # 返回总额，分页数据
     parameters = await make_parameters(request)
-    add_operation.delay(7, 0, "查看项目列表", f"用户{user['user_id']}于xxx查看项目列表", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, 0, "查看项目列表", f"{name}于qpzm7913查看项目列表", parameters, user['user_id'])
     return res
     # 实现查询项目列表的逻辑
 
@@ -66,8 +69,8 @@ async def get_project(request: Request, project_id: int, user=Depends(auth_permi
     project_service.check_project_exist(project_id=project_id)
     results = project_service.get_project(request=request, project_id=project_id, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看某一项目", f"用户{user['user_id']}于xxx查看{name}项目", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看某一项目", f"{name}于qpzm7913查看{project_id}项目", parameters,
                         user['user_id'])
     return results
     # 实现查询某一项目
@@ -79,8 +82,8 @@ async def get_project_content(request: Request, project_id: int, user=Depends(au
     project_service.check_project_exist(project_id=project_id)
     results = project_service.list_projects_content(request=request, project_id=project_id, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看项目内容列表", f"用户{user['user_id']}于xxx查看{name}项目内容列表", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看项目内容列表", f"{name}于qpzm7913查看{project_id}项目内容列表", parameters,
                         user['user_id'])
     return results
     # 实现查询项目内容结构表的逻辑
@@ -95,8 +98,8 @@ async def get_specific_project_content(request: Request, project_id: int, conten
     results = project_service.get_projects_content(request=request, content_id=content_id, project_id=project_id,
                                                    user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看某一项目内容", f"用户{user['user_id']}于xxx查看{name}项目{results['content']}内容",
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看某一项目内容", f"{name}于qpzm7913查看{project_id}项目{content_id}内容",
                         parameters, user['user_id'])
     return results
     # 查看某一项目内容
@@ -108,8 +111,8 @@ async def add_project_credit(request: Request, project_id: int, credit: CreditCr
     project_service.check_project_exist(project_id=project_id)
     results = project_service.create_credit(credit=credit, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "添加项目学分认定", f"用户{user['user_id']}于xxx添加{name}项目学分认定", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "添加项目学分认定", f"{name}于qpzm7913添加{results}项目学分认定", parameters,
                         user['user_id'])
     return results
     # 实现添加项目学分认定的逻辑
@@ -124,8 +127,8 @@ async def submit_project_content(request: Request, project_id: int, content_id: 
     project_service.check_projectContent_exist(project_id=project_id, content_id=content_id)
     results = project_service.create_submission(submission=submission, user_id=user['user_id'], project_id=project_id)
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "增加项目提交要求", f"用户{user['user_id']}于xxx增加{name}项目提交要求", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "增加项目提交要求", f"{name}于qpzm7913增加项目提交要求{results}", parameters,
                         user['user_id'])
     return results
     # 实现提交项目要求内容的逻辑
@@ -141,9 +144,8 @@ async def score_project_content(request: Request, project_id: int, content_id: i
     score.user_pcs_id = content_id
     results = project_service.create_score(scoremodel=score, user_id=user['user_id'], project_id=project_id)
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
-    add_operation.delay(7, project_id, "对项目内容打分", f"用户{user['user_id']}于xxx对{name}项目{content}内容打分",
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "对项目内容打分", f"{name}于qpzm7913对{project_id}项目{content_id}内容打分",
                         parameters, user['user_id'])
     return results
     # 实现对项目内容打分的逻辑
@@ -161,9 +163,8 @@ async def view_user_submission(request: Request, project_id: int, content_id: in
     results = project_service.get_user_submission_list(request=request, project_id=project_id, content_id=content_id,
                                                        user_id=user_id)
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
-    add_operation.delay(7, project_id, "查看用户提交", f"用户{user['user_id']}于xxx查看用户提交{name}项目{content}内容",
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看用户提交", f"{name}于qpzm7913查看用户提交{project_id}内容{content_id}",
                         parameters, user['user_id'])
     return results
     # 实现查看用户在一个内容下的提交内容的逻辑
@@ -178,8 +179,8 @@ async def list_project_members(request: Request, project_id: int,
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, res = project_service.get_user_by_project_id(project_id=project_id, pg=Page, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看参加项目学生", f"用户{user['user_id']}于xxx查看参加项目{name}学生", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看参加项目学生", f"{name}于qpzm7913查看参加项目{project_id}学生", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)
     # 查询参加项目学生
@@ -195,9 +196,8 @@ async def create_user_submission(request: Request, project_id: int, content_id: 
     results = project_service.create_user_submission(uer_submission=User_submission, user_id=user['user_id'],
                                                      project_id=project_id)
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
-    add_operation.delay(7, project_id, "用户提交", f"用户{user['user_id']}于xxx提交{name}项目{content}内容", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "用户提交", f"{name}于qpzm7913用户提交{project_id}内容{content_id}", parameters,
                         user['user_id'])
     return results
     # 实现用户提交的逻辑
@@ -210,8 +210,8 @@ async def create_user_submission(request: Request, project_id: int,
     project_service.check_project_exist(project_id=project_id)
     results = project_service.get_project_progress(project_id=project_id, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看项目进度", f"用户{user['user_id']}于xxx查看{name}项目进度", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看项目进度", f"{name}于qpzm7913查看{project_id}项目进度", parameters,
                         user['user_id'])
     return results
     # 实现查询项目进度的逻辑
@@ -224,8 +224,8 @@ async def create_user_submission(request: Request, project_id: int,
     project_service.check_project_exist(project_id=project_id)
     results = project_service.get_user_project_score(project_id=project_id, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看项目成绩", f"用户{user['user_id']}于xxx查看{name}项目成绩", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看项目成绩", f"{name}于qpzm7913查看{project_id}项目成绩", parameters,
                         user['user_id'])
     return results
     # 实现查询项目成绩的逻辑
@@ -243,7 +243,8 @@ async def list_projects(request: Request, projectType: str = Query(),
                                                    project_name=project_name,
                                                    user_id=user['user_id'])  # 返回总额，分页数据
     parameters = await make_parameters(request)
-    add_operation.delay(7, 0, "查看某类项目", f"用户{user['user_id']}于xxx查看{projectType}类项目", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, 0, "查看某类项目", f"{name}于qpzm7913查看{projectType}某类项目", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
     # 实现分类查询项目列表的逻辑
 
@@ -261,10 +262,9 @@ async def list_projects(request: Request, project_id: int,
                                                                      content_id=contentId,
                                                                      pg=Page, project_id=project_id)  # 返回总额，分页数据
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(contentId)[0]
+    name = get_user_name(user['user_id'])
     add_operation.delay(7, project_id, "查看项目内容提交项",
-                        f"用户{user['user_id']}于xxx查看{name}项目内容{content}提交项", parameters, user['user_id'])
+                        f"{name}于qpzm7913查看{project_id}项目内容{contentId}提交项", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
     # 查看项目内容提交项
 
@@ -277,8 +277,8 @@ async def renew_project(request: Request, project_id: int, project_content: proj
     results = project_service.renew_project_content(project_id=project_id, project_contents=project_content,
                                                     user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "更新项目内容", f"用户{user['user_id']}于xxx更新{name}项目内容", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "更新项目内容", f"{name}于qpzm7913更新{project_id}项目内容", parameters,
                         user['user_id'])
     return results
 
@@ -291,8 +291,8 @@ async def get_user_credits(request: Request, user_id: Optional[int] = Query(desc
         user_id = user['user_id']
     results = project_service.get_credits_user_get(user_id=user_id)
     parameters = await make_parameters(request)
-    name = get_user_name(user_id)
-    add_operation.delay(7, 0, "查询学分", f"用户{user['user_id']}于xxx查询{name}学分", parameters, user_id)
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, 0, "查询学分", f"{name}于qpzm7913查询{user_id}学分", parameters, user_id)
     return results
     # 查询学分
 
@@ -307,7 +307,8 @@ async def get_all_projects_score(request: Request, project_id: int,
     project_service.check_project_exist(project_id=project_id)
     tn, results = project_service.get_all_project_score(project_id=project_id, user_id=user['user_id'], pg=Page)
     parameters = await make_parameters(request)
-    add_operation.delay(7, project_id, "查看用户项目内容成绩", f"用户{user['user_id']}于xxx查看用户项目内容成绩", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看用户项目内容成绩", f"{name}于qpzm7913查看用户项目内容成绩", parameters,
                         user['user_id'])
     return makePageResult(Page, tn, results)
 
@@ -327,10 +328,9 @@ async def get_all_content_user_score(request: Request, project_id: int, content_
                                                          content_id=content_id, pg=Page,
                                                          user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
+    name = get_user_name(user['user_id'])
     add_operation.delay(7, project_id, "查看某项目内容所有用户成绩",
-                        f"用户{user['user_id']}于xxx查看{name}项目{content}内容所有用户成绩", parameters,
+                        f"{name}于qpzm7913查看某{project_id}项目{content_id}内容所有用户成绩", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
 
@@ -347,8 +347,8 @@ async def get_all_content_user_score(request: Request,
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, results = project_service.get_user_credit_all(user_id=user_id, pg=Page)
     parameters = await make_parameters(request)
-    name = get_user_name(user_id)
-    add_operation.delay(0, 0, "查看用户学分明细", f"用户{user['user_id']}于xxx查看用户{name}学分明细", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(0, 0, "查看用户学分明细", f"{name}于qpzm7913查看用户{user_id}学分明细", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
 
@@ -361,7 +361,8 @@ async def renew_video(request: Request,
                       user=Depends(auth_login)):
     result = project_service.video_content_progress_renew(content_renew=content_renew, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(7, project_id, "视频观看进度更新", f"用户{user['user_id']}于xxx视频观看进度更新", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "视频观看进度更新", f"{name}于qpzm7913视频观看进度更新", parameters,
                         user['user_id'])
     return result
 
@@ -378,8 +379,8 @@ async def get_all_content_user_personal(request: Request,
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, results = project_service.get_user_personal_file_by_user_id(user_id=user_id, pg=Page)
     parameters = await make_parameters(request)
-    name = get_user_name(user_id)
-    add_operation.delay(0, 0, "查看用户个人档案", f"用户{user['user_id']}于xxx查看用户{name}个人档案", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(0, 0, "查看用户个人档案", f"{name}于qpzm7913查看用户{user_id}个人档案", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
 
@@ -397,7 +398,8 @@ async def get_all_content_user_personal(request: Request,
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, results = project_service.get_project_by_credit_type(user_id=user_id, credit_type=credit_type, pg=Page)
     parameters = await make_parameters(request)
-    add_operation.delay(0, 0, "查看用户个人学分项目", f"用户{user['user_id']}于xxx查看用户个人学分项目", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(0, 0, "查看用户个人学分项目", f"{name}于qpzm7913查看用户个人学分项目", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
 
@@ -412,8 +414,8 @@ async def get_project_credits_all(request: Request,
     Page = page(pageNow=pageNow, pageSize=pageSize)
     tn, results = project_service.get_project_credits_all(project_id=project_id, pg=Page)
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看项目学分认定", f"用户{user['user_id']}于xxx查看{name}学分认定", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "查看项目学分认定", f"{name}于qpzm7913查看{project_id}学分认定", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=results)
 
@@ -426,9 +428,8 @@ async def renew_content_finish(request: Request,
     results = project_service.renew_project_content_special(project_id=project_id, content_id=content_id,
                                                             user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
-    add_operation.delay(7, project_id, "更新项目完成情况", f"用户{user['user_id']}于xxx更新{name}项目{content}完成情况",
+    name = get_user_name(user['user_id'])
+    add_operation.delay(7, project_id, "更新项目完成情况", f"{name}于qpzm7913更新{project_id}项目{content_id}完成情况",
                         parameters,
                         user['user_id'])
     return results
@@ -442,10 +443,9 @@ async def renew_all_student_content(request: Request,
     results = project_service.renew_all_student_project_content_special(project_id=project_id, content_id=content_id,
                                                                         user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
+    name = get_user_name(user['user_id'])
     add_operation.delay(7, project_id, "更新项目完成情况",
-                        f"用户{user['user_id']}于xxx更新所有学生{name}项目{content}完成情况",
+                        f"{name}于qpzm7913更新所有学生{project_id}项目{content_id}完成情况",
                         parameters,
                         user['user_id'])
     return results
@@ -457,14 +457,6 @@ async def delete_user_in_project(request: Request, project_id: int, delete_user:
                                  user=Depends(auth_permission)):
     db = permissionModel()
     db.delete_work_user(delete_user, project_id)
-    return 'OK'
-
-
-@projects_router.post("/add_user_in_project/{project_id}")  # 添加项目用户
-@standard_response
-async def add_user_in_project(request: Request, project_id: int, data: User_Name):
-    db = permissionModel()
-    db.add_work_user(delete_user, project_id)
     return 'OK'
 
 
