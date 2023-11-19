@@ -189,6 +189,18 @@ async def add_role(request: Request, data: type.permissions.create_role_Base, us
         db.attribute_privilege_for_role(item.privilege_list, role_id)
     return 'OK'
 
+@permissions_router.post("/add_class_role")  # 创建角色(使用)(无权限）
+@standard_response
+async def add_role(request: Request, data: type.permissions.create_role_Base, user=Depends(auth_login)):
+    db = permissionModel()
+    res = data.roles
+    superiorId = db.search_user_default_role(user['user_id'])
+    for item in res:
+        role_id = db.create_role(item.role_name, superiorId)
+        db.add_work_role(data.id, role_id, 4)
+        db.attribute_privilege_for_role(item.privilege_list, role_id)
+    return 'OK'
+
 
 # @permissions_router.post("/add_default_work_role")  # 业务角色表里添加默认角色
 # @standard_response
@@ -248,16 +260,14 @@ async def search_created_user(request: Request, pageNow: int = Query(description
 
 @permissions_router.post("/projects/add_template_role/{service_type}/{service_id}")  # 创建模板角色
 @standard_response
-async def add_template_role(request: Request, data: type.permissions.create_default_role_Base, service_id: int,
+async def add_template_role(request: Request, data: type.permissions.create_default_role_base, service_id: int,
                             service_type: int,
                             user=Depends(auth_login)):
     db = permissionModel()
-    res = data.roles
     superiorId = db.search_user_default_role(user['user_id'])
-    for item in res:
-        role_id = db.create_real_template_role(item.role_name, superiorId)
-        db.attribute_role_for_work(service_type, service_id, role_id)
-        db.attribute_privilege_for_role(item.privilege_list, role_id)
+    role_id = db.create_real_template_role(data.role_name, superiorId)
+    db.attribute_role_for_work(service_type, service_id, role_id)
+    db.attribute_privilege_for_role(data.privilege_list, role_id)
     return 'OK'
 
 @permissions_router.get("/projects/get_template_role")  # 请求项目模板角色
