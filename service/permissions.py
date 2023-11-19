@@ -72,7 +72,7 @@ class permissionModel(dbSession):
             session.commit()
             return NewRole.id
 
-    def create_real_template_role(self, role_name: str, role_superiorId: int):  # 创建角色
+    def create_real_template_role(self, role_name: str, role_superiorId: int):  # 创建真正模板角色
         with self.get_db() as session:
             result = session.query(Role).filter(Role.id == role_superiorId).first()  # 处理父节点
             if result is None:
@@ -82,11 +82,25 @@ class permissionModel(dbSession):
             superiorListId = add_superiorId(temp_dict, role_superiorId)
             NewRole = Role(name=role_name, description=role_name,
                            superiorId=role_superiorId, superiorListId=superiorListId, template=1,
-                           status=0,has_delete=0)
+                           status=0, has_delete=0)
             session.add(NewRole)
             session.commit()
             return NewRole.id
 
+    def create_apply_template_role(self, role_superiorId: int, role_id: int):  # 创建申请角色
+        with self.get_db() as session:
+            result = session.query(Role).filter(Role.id == role_superiorId).first()  # 处理父节点
+            if result is None:
+                raise HTTPException(detail="父节点无效",
+                                    status_code=408)
+            temp_dict = json.loads(result.superiorListId)
+            superiorListId = add_superiorId(temp_dict, role_superiorId)
+            NewRole = Role(name='申请', description='申请',
+                           superiorId=role_superiorId, superiorListId=superiorListId, template=0,
+                           tplt_id=role_id, status='1', has_delete=0)
+            session.add(NewRole)
+            session.commit()
+            return NewRole.id
 
     def add_user_role(self, obj: create_user_role_base):
         obj_dict = jsonable_encoder(obj)
@@ -260,7 +274,7 @@ class permissionModel(dbSession):
                     service_ids.append(item.service_id)
             return service_ids
 
-    def search_user_id_by_service(self, service_type: int, service_id: int): #userrolehasdelete有改动
+    def search_user_id_by_service(self, service_type: int, service_id: int):  # userrolehasdelete有改动
         with self.get_db() as session:
             user_list = []
             query = session.query(distinct(UserRole.user_id)).join(
@@ -323,6 +337,28 @@ class permissionModel(dbSession):
                 privilege_list.append(temp)
             return privilege_list
 
+    def search_user_privilege_list(self, service_type: int, user_id: int):
+        with self.get_db() as session:
+            privilege_list = []
+            query = session.query(Privilege).join(
+                RolePrivilege,
+                RolePrivilege.privilege_id == Privilege.id
+            ).filter(
+                Privilege.service_type == service_type
+            ).join(
+                UserRole,
+                UserRole.role_id == RolePrivilege.role_id
+            ).filter(
+                UserRole.user_id == user_id
+            ).all()
+            for item in query:
+                temp = {
+                    'value': item.id,
+                    'label': item.name
+                }
+                privilege_list.append(temp)
+            return privilege_list
+
     def search_privilege_id_list(self, service_type: int):
         with self.get_db() as session:
             privilege_list = []
@@ -347,7 +383,7 @@ class permissionModel(dbSession):
             session.commit()
             return 'OK'
 
-    def search_created_user_id(self, user_id: int, pg: page): #改userrole的hasdelete
+    def search_created_user_id(self, user_id: int, pg: page):  # 改userrole的hasdelete
         with self.get_db() as session:
             user = session.query(distinct(UserRole.user_id)).join(
                 WorkRole,
@@ -378,9 +414,26 @@ class permissionModel(dbSession):
             )
             data = role.offset(pg.offset()).limit(pg.limit())
             for item in data:
+                privilege_list = []
+                privilege = session.query(Privilege).join(
+                    RolePrivilege,
+                    RolePrivilege.privilege_id == Privilege.id
+                ).filter(
+                    RolePrivilege.role_id == item.id,
+                    Privilege.service_type == 0
+                ).all()
+                for j in privilege:
+                    privilege_list.append(j.name)
                 temp = {
-                    "role_id": item.id,
-                    "role_name": item.name
+                    "role_name": item.name,
+                    "privilege_list": privilege_list,
+                    "新建资源": 1 if "新建资源" in privilege_list else 0,
+                    "新建用户": 1 if "新建用户" in privilege_list else 0,
+                    "添加资金": 1 if "添加资金" in privilege_list else 0,
+                    "添加学校": 1 if "添加学校" in privilege_list else 0,
+                    "添加学院": 1 if "添加学院" in privilege_list else 0,
+                    "添加班级": 1 if "添加班级" in privilege_list else 0,
+                    "新建项目": 1 if "新建项目" in privilege_list else 0,
                 }
                 res_list.append(temp)
             total_count = role.count()
@@ -406,7 +459,6 @@ class permissionModel(dbSession):
 
     def get_role_by_work(self, service_type: int, service_id: int, pg: page):
         with self.get_db() as session:
-            role_list = []
             res_list = []
             query = session.query(Role).join(
                 WorkRole,
@@ -414,6 +466,51 @@ class permissionModel(dbSession):
             ).filter(
                 WorkRole.service_type == service_type,
                 WorkRole.service_id == service_id
+            )
+            data = query.offset(pg.offset()).limit(pg.limit())
+            for item in data:
+                temp = {
+                    "role_id": item.id,
+                    "role_name": item.name
+                }
+                res_list.append(temp)
+            total_count = query.count()
+            return total_count, res_list
+
+    def get_role_by_work2(self, service_type: int, service_id: int):
+        with self.get_db() as session:
+            res_list = []
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).filter(
+                WorkRole.service_type == service_type,
+                WorkRole.service_id == service_id
+            ).all()
+            for item in query:
+                privilege_list = []
+                privilege = session.query(RolePrivilege).filter(
+                    RolePrivilege.role_id == item.id
+                ).all()
+                for j in privilege:
+                    privilege_list.append(j.privilege_id)
+                temp = {
+                    "role_name": item.name,
+                    "privilege_list": privilege_list
+                }
+                res_list.append(temp)
+            return res_list
+
+    def get_template_role_by_work(self, service_type: int, service_id: int, pg: page):
+        with self.get_db() as session:
+            res_list = []
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).filter(
+                WorkRole.service_type == service_type,
+                WorkRole.service_id == service_id,
+                Role.template == 1
             )
             data = query.offset(pg.offset()).limit(pg.limit())
             for item in data:
@@ -448,7 +545,6 @@ class permissionModel(dbSession):
             for item in user_ids:
                 self.attribute_user_role(item, role_id)
             return 'OK'
-
 
     def search_created_user_info(self, user_id: int, pg: page):
         with self.get_db() as session:
@@ -545,8 +641,12 @@ class permissionModel(dbSession):
                 ).first()
                 if work_role is not None:
                     test_list.append(work_role.service_id)
+            if not test_list:
+                raise HTTPException(
+                    status_code=408,
+                    detail="无有效数据",
+                )
             return test_list[0]
-
 
     def create_work_role(self, user_id: int, role_name: str, service_type: int, service_id: int):
         with self.get_db() as session:
@@ -569,7 +669,4 @@ class permissionModel(dbSession):
                 Role.id == 69
             ).all()
             print(query[0].id)
-            return'OK'
-
-
-
+            return 'OK'

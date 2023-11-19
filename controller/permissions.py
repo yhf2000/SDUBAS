@@ -41,13 +41,12 @@ async def attribute_role(data: type.permissions.attribute_role_base):
     db = permissionModel()
     return db.attribute_user_role(data.user_id, data.role_id)
 
+
 @permissions_router.post("/attribute_privilege")  # 为角色添加权限
 @standard_response
 async def attribute_privilege_for_role(data: type.permissions.attribute_privilege_base):
     db = permissionModel()
     return {'message': '状态如下', "status": db.attribute_privilege_for_role(data.privilege_list, data.role_id)}
-
-
 
 
 @permissions_router.post("/add_role_for_work")  # 为业务添加角色
@@ -164,6 +163,7 @@ async def add_role(request: Request, data: type.permissions.create_role_Base, us
         db.attribute_privilege_for_role(item.privilege_list, role_id)
     return 'OK'
 
+
 @permissions_router.post("/add_college_role")  # 创建角色(使用)(无权限）
 @standard_response
 async def add_role(request: Request, data: type.permissions.create_role_Base, user=Depends(auth_login)):
@@ -175,6 +175,7 @@ async def add_role(request: Request, data: type.permissions.create_role_Base, us
         db.add_work_role(data.id, role_id, 2)
         db.attribute_privilege_for_role(item.privilege_list, role_id)
     return 'OK'
+
 
 @permissions_router.post("/add_major_role")  # 创建角色(使用)(无权限）
 @standard_response
@@ -214,7 +215,7 @@ async def get_user_info(role_id: int = Query(),
 @permissions_router.get("/search_created_role")  # 查找创建的角色(使用)
 @standard_response
 async def search_created_role(request: Request, pageNow: int = Query(description="页码", gt=0),
-                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+                              pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     db = permissionModel()
     user_id = user['user_id']
     Page = page(pageNow=pageNow, pageSize=pageSize)
@@ -234,10 +235,10 @@ async def get_work_role(request: Request, service_id: int = Query(), service_typ
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
-@permissions_router.get("/search_created_user")  # 查找创建的用户
+@permissions_router.get("/search_created_user")  # 查找创建的用户(使用)
 @standard_response
 async def search_created_user(request: Request, pageNow: int = Query(description="页码", gt=0),
-                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+                              pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     db = permissionModel()
     user_id = user['user_id']
     Page = page(pageNow=pageNow, pageSize=pageSize)
@@ -245,9 +246,10 @@ async def search_created_user(request: Request, pageNow: int = Query(description
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
-@permissions_router.post("/add_template_role/{service_id}/{service_type}")  # 创建模板角色
+@permissions_router.post("/add_template_role/{service_type}/{service_id}")  # 创建模板角色
 @standard_response
-async def add_template_role(request: Request, data: type.permissions.create_default_role_Base, service_id: int, service_type: int,
+async def add_template_role(request: Request, data: type.permissions.create_default_role_Base, service_id: int,
+                            service_type: int,
                             user=Depends(auth_login)):
     db = permissionModel()
     res = data.roles
@@ -257,3 +259,34 @@ async def add_template_role(request: Request, data: type.permissions.create_defa
         db.attribute_role_for_work(service_type, service_id, role_id)
         db.attribute_privilege_for_role(item.privilege_list, role_id)
     return 'OK'
+
+@permissions_router.get("/get_template_role")  # 请求项目模板角色
+@standard_response
+async def get_template_role(request: Request, service_id: int = Query(), service_type: int = Query(),
+                        pageNow: int = Query(description="页码", gt=0),
+                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+    db = permissionModel()
+    # user_id = int(request.headers.get("user_id"))
+    Page = page(pageNow=pageNow, pageSize=pageSize)
+    tn, res = db.get_template_role_by_work(service_type, service_id, Page)
+    return makePageResult(pg=Page, tn=tn, data=res)
+
+
+@permissions_router.post("/apply_template_role/{role_id}")  # 申请模板角色
+@standard_response
+async def add_template_role(request: Request, role_id: int,
+                            user=Depends(test_permission)):
+    db = permissionModel()
+    superiorId = db.search_user_default_role(user['user_id'])
+    db.create_apply_template_role(superiorId, role_id)
+    return 'OK'
+
+
+@permissions_router.get("/return_user_privilege_list")  # 返回用户权限
+@standard_response
+async def return_user_privilege_list(request: Request, service_type: int = Query(),
+                                     user=Depends(auth_login)):
+    db = permissionModel()
+    user_id = user['user_id']
+    privilege_list = db.search_user_privilege_list(service_type, user_id)
+    return privilege_list
