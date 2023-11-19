@@ -360,3 +360,9 @@ class FinancialModel(dbSession):
                 }
                 res_list.append(temp)
             return total_count, res_list
+
+    def get_financial_by_id(self, id: int):  # 获取资金名
+        with self.get_db() as session:
+            name = session.query(Financial.name).filter(Financial.has_delete == 0, Financial.Id == id)
+            session.commit()
+            return name
