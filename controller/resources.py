@@ -1,5 +1,6 @@
 from type.financial import User_Name_Add
-from utils.auth_permission import auth_permission, auth_permission_default
+from utils.auth_login import auth_login
+from utils.auth_permission import auth_permission, auth_permission_default, test_permission
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from utils.response import standard_response, makePageResult
 from service.Resource import ResourceModel, FinancialModel, BillModel
@@ -18,7 +19,8 @@ async def save_api(request: Request, apiSchema: financial_Basemodel.ResourceAdd,
     db = ResourceModel()  # 判断后直接添加
     results = db.save_resource(obj_in=apiSchema, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(5, results, "添加资源", f"用户{user['user_id']}于xxx添加资源{apiSchema.name}", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(5, results, "添加资源", f"{name}于qpzm7913添加了什么资源", parameters, user['user_id'])
     return results
 
 
@@ -31,7 +33,8 @@ async def get_resource_by_user(request: Request, pageNow: int = Query(descriptio
     db = ResourceModel()
     tn, res = db.get_view_resource_by_user(user=user['user_id'], pg=Page, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(5, 0, "查看所有资源", f"用户{user['user_id']}于xxx查看所有资源", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(5, 0, "查看所有资源", f"{name}于qpzm7913查看了所有资源", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
@@ -45,8 +48,8 @@ async def Update_resource_by_count(request: Request, resource_id: int,
     if Resource is not None:
         results = db.count_Update(Id=resource_id, count=apiSchema.count, user_id=user['user_id'])
         parameters = await make_parameters(request)
-        name = db.get_resource_by_id(resource_id)[0]
-        add_operation.delay(5, resource_id, "修改资源数目", f"用户{user['user_id']}于xxx修改资源{name}", parameters,
+        name = get_user_name(user['user_id'])
+        add_operation.delay(5, resource_id, "修改资源数目", f"{name}于qpzm7913修改了什么资源", parameters,
                             user['user_id'])
         return results
     else:
@@ -60,8 +63,8 @@ async def Update_resource_by_count(request: Request, resource_id: int,
     db = ResourceModel()
     results = db.check_by_id(Id=resource_id, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    name = db.get_resource_by_id(resource_id)[0]
-    add_operation.delay(5, resource_id, "查看一个具体资源", f"用户{user['user_id']}于xxx查看资源{name}", parameters,
+    name = get_user_name(user['user_id'])
+    add_operation.delay(5, resource_id, "查看一个具体资源", f"{name}于qpzm7913查看一个具体资源", parameters,
                         user['user_id'])
     return results
 
@@ -91,7 +94,8 @@ async def get_applied_resource(request: Request, pageNow: int = Query(descriptio
     db = ResourceModel()
     tn, res = db.get_applied_resource_by_user(user=user['user_id'], pg=Page, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(5, 0, "查看可审批资源", f"用户{user['user_id']}于xxx查看所有可审批资源", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(5, 0, "可审批所有资源", f"{name}于qpzm7913可审批所有资源", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
@@ -104,9 +108,9 @@ async def get_specific_applied_resource(request: Request, resource_id: int,
     Page = page(pageNow=pageNow, pageSize=pageSize)
     db = ResourceModel()
     tn, res = db.get_ifapply_resources(user['user_id'], resource_id, Page)
-    name = db.get_resource_by_id(resource_id)[0]
     parameters = await make_parameters(request)
-    add_operation.delay(5, 0, "查看资源申请记录", f"用户{user['user_id']}于xxx查看资源{name}申请记录", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(5, 0, "查看资源的申请记录", f"{name}于qpzm7913查看资源的申请记录", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
@@ -134,10 +138,10 @@ async def delete(request: Request, resource_id: int, user=Depends(auth_permissio
     db = ResourceModel()
     check_result = db.check_by_id(Id=resource_id, user_id=user['user_id'])  # 判断有无资源，是否被删除
     if check_result is not None:  # 有，删除
-        name = db.get_resource_by_id(resource_id)[0]
         return_id = db.delete(Id=resource_id, user_id=user['user_id'])
         parameters = await make_parameters(request)
-        add_operation.delay(5, return_id, "删除资源", f"用户{user['user_id']}于xxx删除资源{name}", parameters, user['user_id'])
+        name = get_user_name(user['user_id'])
+        add_operation.delay(5, return_id, "删除资源项目", f"{name}于qpzm7913删除资源项目", parameters, user['user_id'])
         return return_id
     else:  # 无，项目找不到
         raise HTTPException(status_code=404, detail="Item not found")
@@ -166,7 +170,8 @@ async def save_financial(request: Request, apiSchema: financial_Basemodel.Financ
     db = FinancialModel()
     results = db.save_financial(obj_in=apiSchema, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(6, results, "添加资金", f"用户{user['user_id']}于xxx添加资金{apiSchema.name}", parameters, user['user_id'])
+    name = get_user_name(user['user_id'])
+    add_operation.delay(6, results, "添加资金", f"{name}于qpzm7913添加资金", parameters, user['user_id'])
     return results
 
 
@@ -183,8 +188,8 @@ async def save_financial(request: Request, financial_id: int, apiSchema: financi
         apiSchema.finance_id = financial_id
         results = db.save_amount(obj_in=apiSchema, user_id=user['user_id'])
         parameters = await make_parameters(request)
-        name = FinancialModel_db.get_financial_by_id(financial_id)[0]
-        add_operation.delay(6, financial_id, "添加资金收支", f"用户{user['user_id']}于xxx添加资金收支{name}", parameters,
+        name = get_user_name(user['user_id'])
+        add_operation.delay(6, financial_id, "添加资金收支", f"{name}于qpzm7913添加资金收支", parameters,
                             user['user_id'])
         return results
 
@@ -202,8 +207,8 @@ async def query_total(request: Request, financial_id: int, user=Depends(auth_per
         num['count'] = str(float(summ))
         # 或许可增加创建人信息
         parameters = await make_parameters(request)
-        name = FinancialModel_db.get_financial_by_id(financial_id)[0]
-        add_operation.delay(6, financial_id, "计算资金总额", f"用户{user['user_id']}于xxx计算资金{name}总额", parameters,
+        name = get_user_name(user['user_id'])
+        add_operation.delay(6, financial_id, "计算资金总额", f"{name}于qpzm7913计算资金总额", parameters,
                             user['user_id'])
         return num
 
@@ -222,7 +227,8 @@ async def query_page(request: Request, financial_id: int, pageNow: int = Query(d
         tn, res = BillModel_db.query_amount(request=request, ID=financial_id, pg=Page,
                                             user_id=user['user_id'])  # 返回总额，分页数据
         parameters = await make_parameters(request)
-        add_operation.delay(6, financial_id, "查看账单", f"用户{user['user_id']}于xxx查看账单", parameters, user['user_id'])
+        name = get_user_name(user['user_id'])
+        add_operation.delay(6, financial_id, "查看账单", f"{name}于qpzm7913查看账单", parameters, user['user_id'])
         return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
 
 
@@ -233,11 +239,11 @@ async def delete_financial(request: Request, financial_id: int, user=Depends(aut
     BillModel_db = BillModel()
     check_result = FinancialModel_db.check_by_id(Id=financial_id, user_id=user['user_id'])
     if check_result is not None:
-        name = FinancialModel_db.get_financial_by_id(financial_id)[0]
         return_id = FinancialModel_db.delete(Id=financial_id, user_id=user['user_id'])
         BillModel_db.delete_by_financial(Id=financial_id, user_id=user['user_id'])  # 同步删除所有资金流水
         parameters = await make_parameters(request)
-        add_operation.delay(6, return_id, "删除资金", f"用户{user['user_id']}于xxx删除资金{name}", parameters, user['user_id'])
+        name = get_user_name(user['user_id'])
+        add_operation.delay(6, return_id, "删除资金", f"{name}于qpzm7913删除资金", parameters, user['user_id'])
         # 此处应该删除权限
         return return_id
     else:
@@ -252,7 +258,8 @@ async def delete_account(request: Request, financial_id: int, account_id: int, u
     if check_result is not None:
         return_id = BillModel_db.delete_by_id(Id=account_id, user_id=user['user_id'], financial_id=financial_id)
         parameters = await make_parameters(request)
-        add_operation.delay(6, return_id, "删除资金流水", f"用户{user['user_id']}于xxx删除资金流水", parameters, user['user_id'])
+        name = get_user_name(user['user_id'])
+        add_operation.delay(6, return_id, "删除资金流水", f"{name}于qpzm7913删除资金流水", parameters, user['user_id'])
         return return_id
     else:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -266,9 +273,9 @@ async def delete_financial(request: Request, financial_id: int, apiSchme: financ
     check_result = FinancialModel_db.check_by_id(Id=financial_id, user_id=user['user_id'])
     if check_result is not None:
         returnId = FinancialModel_db.note_Update(Id=financial_id, note=apiSchme.note, user_id=user['user_id'])
-        name = FinancialModel_db.get_financial_by_id(financial_id)[0]
         parameters = await make_parameters(request)
-        add_operation.delay(6, financial_id, "修改资金项目", f"用户{user['user_id']}于xxx修改资金项目{name}", parameters,
+        name = get_user_name(user['user_id'])
+        add_operation.delay(6, financial_id, "修改资金项目", f"{name}于qpzm7913修改资金项目", parameters,
                             user['user_id'])
         return returnId
     else:
@@ -278,12 +285,12 @@ async def delete_financial(request: Request, financial_id: int, apiSchme: financ
 @resources_router.get("/financial/search")  # 查询资金，需要权限，不可用
 @standard_response
 async def get_financial_by_user(request: Request, pageNow: int = Query(description="页码", gt=0),
-                                pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission)):
+                                pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
     db = FinancialModel()
     # 调用函数
     tn, result = db.get_financial_by_user(user=user['user_id'], pg=Page, user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = get_user_name(user['user_id'])
-    add_operation.delay(6, 0, "查询资金列表", f"用户{name}于xxx查询资金列表", parameters, user['user_id'])
+    add_operation.delay(6, 0, "查询资金列表", f"{name}于qpzm7913查询资金列表", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=result)
