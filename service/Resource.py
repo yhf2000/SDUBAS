@@ -11,7 +11,7 @@ from model.user import *
 from service.permissions import permissionModel
 from type.financial import Financial_ModelOpt, BillModelOpt, Resource_Basemodel
 from type.financial import ResourceAdd, ApplyBody, AmountAdd, FinancialAdd
-from type.functions import get_url_by_user_file_id,get_time_now
+from type.functions import get_url_by_user_file_id, get_time_now
 from type.page import dealDataList
 from utils.response import page
 
@@ -42,6 +42,12 @@ class ResourceModel(dbSession):
             session.query(Resource).filter(Resource.Id == Id).update({"has_delete": 1})
             session.commit()
             return Id
+
+    def get_resource_by_id(self, id: int):
+        with self.get_db() as session:
+            name = session.query(Resource.name).filter(Resource.Id == id, Resource.has_delete == 0).first()
+            session.commit()
+            return name
 
     def check_by_id(self, Id: int, user_id: int):  # 通过主键获取
         with self.get_db() as session:
@@ -126,8 +132,6 @@ class ResourceModel(dbSession):
                     res.append(temp_list)
             return res
 
-
-
     def get_specific_applied_resources(self, user_id: int, resource_id: int):
         with self.get_db() as session:
             result = []
@@ -189,7 +193,8 @@ class ResourceModel(dbSession):
                         ).filter(
                             UserRole.role_id == role_id
                         ).first()
-                        apply_time = str(time_range['year']) + '-' + str(time_range['month']) + '-' + str(time_range['day'])
+                        apply_time = str(time_range['year']) + '-' + str(time_range['month']) + '-' + str(
+                            time_range['day'])
                         temp_res = {
                             "user_name": user.username,
                             "time": apply_time,
@@ -199,10 +204,6 @@ class ResourceModel(dbSession):
                         result.append(temp_res)
                 total_count = len(result)
                 return total_count, result
-
-
-
-
 
     def count_Update(self, Id: int, count: int, user_id: int):  # 修改Note
         with self.get_db() as session:
@@ -334,3 +335,11 @@ class FinancialModel(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             return total_count, dealDataList(data, Financial_ModelOpt, {'has_delete'})
+
+
+
+    def get_financial_by_id(self, id: int):  # 获取资金名
+        with self.get_db() as session:
+            name = session.query(Financial.name).filter(Financial.has_delete == 0, Financial.Id==id)
+            session.commit()
+            return name

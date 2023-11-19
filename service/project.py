@@ -94,6 +94,17 @@ class ProjectService(dbSession):
 
             return date
 
+    def get_project_by_id(self, id: int):
+        with self.get_db() as session:
+            project = session.query(Project.name).filter(Project.id == id, Project.has_delete == 0).first()
+            return project
+
+    def get_project_content_submission_by_id(self, id: int):
+        with self.get_db() as session:
+            project = session.query(ProjectContentSubmission.name).filter(ProjectContentSubmission.pro_content_id == id,
+                                                                          ProjectContentSubmission.has_delete == 0).first()
+            return project
+
     def list_projects_content(self, request: Request, project_id: int, user_id: int):
         with self.get_db() as session:
             subquery = session.query(ProjectContentUserScore). \

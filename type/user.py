@@ -1,6 +1,6 @@
 import hashlib
 from datetime import datetime, date
-from typing import Any
+from typing import Any, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -71,9 +71,9 @@ class major_interface(BaseModel):
         from_attributes=True,
     )
     name: str = None
-    school_id: int= None
+    school_id: int = None
     college_id: int = None
-    education_program: dict = None
+    education_program: Union[dict, None] = None
 
 
 class class_interface(college_interface):
@@ -97,19 +97,20 @@ class email_interface(register_interface):
 
 class operation_interface(BaseModel):
     service_type: int
-    service_id: int = None
-    operation_type :str
+    service_id: Union[int, None] = None
+    operation_type: str
     func: str
     parameters: str
     oper_user_id: int
     oper_hash: str = None
-    oper_dt : datetime
+    oper_dt: datetime
 
     def get_oper_hash(self):
         hash_object = hashlib.sha256()
         hash_object.update(self.func.encode('utf-8'))
         hash_hex = hash_object.hexdigest()
         return hash_hex
+
 
 class user_info_interface(BaseModel):
     card_id: str = None

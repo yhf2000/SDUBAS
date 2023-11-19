@@ -18,6 +18,7 @@ class File(Base):  # 文件表
     is_save = Column(Boolean, nullable=False, default=0)  # 文件是否已上传
     hash_md5 = Column(VARCHAR(128), nullable=False)  # 文件哈希md5
     hash_sha256 = Column(VARCHAR(128), nullable=False)  # 文件哈希sha256
+    time = Column(Integer, nullable=True)  # 视频类型的文件的播放时长
     create_dt = Column(DateTime,default=func.now(), nullable=False)  # 文件创建时间
     has_delete = Column(Boolean, nullable=False, default=0)  # 是否已经删除
 
@@ -29,7 +30,6 @@ class User_File(Base):  # 文件用户表
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)  # 用户id，外键
     name = Column(VARCHAR(128), nullable=True)  # 文件名
     type = Column(VARCHAR(128), nullable=True)  # 文件类型
-    video_time = Column(Integer, nullable=True)  # 视频类型的文件的播放时长
     has_delete = Column(Boolean, nullable=False, index=True, default=0)  # 是否已经删除
 
 
