@@ -43,6 +43,12 @@ class ResourceModel(dbSession):
             session.commit()
             return Id
 
+    def get_resource_by_id(self, id: int):
+        with self.get_db() as session:
+            name = session.query(Resource.name).filter(Resource.Id == id, Resource.has_delete == 0).first()
+            session.commit()
+            return name
+
     def check_by_id(self, Id: int, user_id: int):  # 通过主键获取
         with self.get_db() as session:
             Resource_template = session.query(Resource).filter(Resource.Id == Id, Resource.has_delete == 0).first()
