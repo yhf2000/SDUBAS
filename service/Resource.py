@@ -11,7 +11,7 @@ from model.user import *
 from service.permissions import permissionModel
 from type.financial import Financial_ModelOpt, BillModelOpt, Resource_Basemodel
 from type.financial import ResourceAdd, ApplyBody, AmountAdd, FinancialAdd
-from type.functions import get_url_by_user_file_id, get_time_now
+from type.functions import get_url_by_user_file_id,get_time_now
 from type.page import dealDataList
 from utils.response import page
 
@@ -68,8 +68,19 @@ class ResourceModel(dbSession):
             total_count = query.count()  # 总共
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
+            res_list = []
+            for item in data:
+                roles = role_model.search_work_role(service_type=5, service_id=item.Id)
+                temp = {
+                    "Id": item.Id,
+                    "name": item.name,
+                    "count": item.count,
+                    "state": item.state,
+                    "roles": roles
+                }
+                res_list.append(temp)
             # 序列化结
-            return total_count, dealDataList(data, Resource_Basemodel, {'has_delete'})
+            return total_count, res_list
 
     def get_applied_resource_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可审批资源
         with self.get_db() as session:
@@ -132,6 +143,8 @@ class ResourceModel(dbSession):
                     res.append(temp_list)
             return res
 
+
+
     def get_specific_applied_resources(self, user_id: int, resource_id: int):
         with self.get_db() as session:
             result = []
@@ -193,8 +206,7 @@ class ResourceModel(dbSession):
                         ).filter(
                             UserRole.role_id == role_id
                         ).first()
-                        apply_time = str(time_range['year']) + '-' + str(time_range['month']) + '-' + str(
-                            time_range['day'])
+                        apply_time = str(time_range['year']) + '-' + str(time_range['month']) + '-' + str(time_range['day'])
                         temp_res = {
                             "user_name": user.username,
                             "time": apply_time,
@@ -204,6 +216,10 @@ class ResourceModel(dbSession):
                         result.append(temp_res)
                 total_count = len(result)
                 return total_count, result
+
+
+
+
 
     def count_Update(self, Id: int, count: int, user_id: int):  # 修改Note
         with self.get_db() as session:
@@ -301,8 +317,14 @@ class FinancialModel(dbSession):
             session.commit()
             role_model = permissionModel()
             for role in obj_in.roles:
-                role_model.add_role_for_work(service_type=6, service_id=obj_add.Id, user_id=user_id,
+                role_id = role_model.add_role_for_work(service_type=6, service_id=obj_add.Id, user_id=user_id,
                                              role_name=role.role_name)
+                role_model.attribute_privilege_for_role(role.privilege_list, role_id)
+            self_role = role_model.add_role_for_work(service_id=obj_add.Id,
+                                                    service_type=6, user_id=user_id, role_name=obj_add.name)
+            all_privilege = role_model.search_privilege_id_list(6)
+            role_model.attribute_privilege_for_role(all_privilege, self_role)
+            role_model.attribute_user_role(user_id, self_role)
             return obj_add.Id
 
     def check_by_id(self, Id: int, user_id: int):  # 获取，通过主键
@@ -327,6 +349,7 @@ class FinancialModel(dbSession):
 
     def get_financial_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可用资金
         with self.get_db() as session:
+            res_list = []
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user)
             service_id = role_model.search_service_id(role_list, service_type=6, name="查看资金")
@@ -334,12 +357,18 @@ class FinancialModel(dbSession):
             total_count = query.count()  # 总共
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
-            return total_count, dealDataList(data, Financial_ModelOpt, {'has_delete'})
-
-
+            for item in data:
+                roles = role_model.search_work_role(service_type=6, service_id=item.Id)
+                temp = {
+                    "name": item.name,
+                    "note": item.note,
+                    "roles": roles
+                }
+                res_list.append(temp)
+            return total_count, res_list
 
     def get_financial_by_id(self, id: int):  # 获取资金名
         with self.get_db() as session:
-            name = session.query(Financial.name).filter(Financial.has_delete == 0, Financial.Id==id)
+            name = session.query(Financial.name).filter(Financial.has_delete == 0, Financial.Id == id)
             session.commit()
             return name

@@ -82,6 +82,7 @@ class ProjectService(dbSession):
 
     def get_project(self, request: Request, project_id: int, user_id: int):
         with self.get_db() as session:
+            role_model = permissionModel()
             project = session.query(Project).filter(Project.id == project_id).first()
             project = ProjectBase_Opt.model_validate(project)
             date = project.model_dump(exclude={'has_delete'})
@@ -91,7 +92,7 @@ class ProjectService(dbSession):
                               'file_name': file_urls[tem_id]['file_name']}  # file_urls[date['img_id']]['url']
             date['file_type'] = file_urls[tem_id]['file_type']
             date['contents'] = self.list_projects_content(request=request, project_id=project_id, user_id=user_id)
-
+            date['roles'] = role_model.search_work_role(service_type=7, service_id=project_id)
             return date
 
     def get_project_by_id(self, id: int):
