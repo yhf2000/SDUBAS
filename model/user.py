@@ -120,8 +120,8 @@ class Session(Base):  # session表
     )
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True, comment='外键，用户id')  # 外键，用户id，非空，索引
-    file_id = Column(Integer, ForeignKey('user_file.id'), nullable=True, index=True,
-                     comment='外键，文件id')  # 外键，文件id，可空，索引
+    file_id = Column(Integer,  nullable=True, index=True,
+                     comment='文件id')  # 外键，文件id，可空，索引
     token = Column(VARCHAR(32), unique=True, nullable=False, comment='session唯一识别串')  # token，非空，唯一
     token_s6 = Column(VARCHAR(16), nullable=True, comment='8位短token')  # 邮箱验证码，非空
     use = Column(Integer, nullable=False, comment='使用次数')  # 使用次数，非空

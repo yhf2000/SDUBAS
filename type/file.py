@@ -21,7 +21,6 @@ class user_file_interface(BaseModel):
     )
     file_id: int
     user_id: int
-    video_time: int = None
 
 
 class user_file_all_interface(user_file_interface):

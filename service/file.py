@@ -26,7 +26,7 @@ class FileModel(dbSession):
 
     def get_file_by_hash(self, obj: file_interface):  # 根据size与两个hash查询file的id
         with self.get_db() as session:
-            id = session.query(File.id, File.is_save).filter(
+            id = session.query(File.id,File.is_save).filter(
                 File.has_delete == 0,
                 File.size == obj.size,
                 File.hash_md5 == obj.hash_md5,
@@ -66,14 +66,6 @@ class FileModel(dbSession):
 
 
 class UserFileModel(dbSession):
-    def add_user_file(self, obj: user_file_interface):  # 用户上传文件(在user_file表中添加一个记录)（不完全版）
-        obj_dict = jsonable_encoder(obj)
-        obj_add = User_File(**obj_dict)
-        with self.get_db() as session:
-            session.add(obj_add)
-            session.flush()
-            session.commit()
-            return obj_add.id
 
     def add_user_file_all(self, obj: user_file_all_interface):  # 用户上传文件(在user_file表中添加一个记录)(完全版)
         obj_dict = jsonable_encoder(obj)
@@ -117,12 +109,12 @@ class UserFileModel(dbSession):
     def get_user_file_id_by_id_list(self, id_list):  # 根据id_list查询user_file的file_id
         with self.get_db() as session:
             if type(id_list) is list:
-                user_file = session.query(User_File.id, User_File.user_id, User_File.type,User_File.name).filter(
+                user_file = session.query(User_File.id, User_File.user_id, User_File.type, User_File.name).filter(
                     User_File.id.in_(id_list),
                     User_File.has_delete == 0).all()
                 session.commit()
             else:
-                user_file = session.query(User_File.id, User_File.user_id, User_File.type,User_File.name).filter(
+                user_file = session.query(User_File.id, User_File.user_id, User_File.type, User_File.name).filter(
                     User_File.id == id_list,
                     User_File.has_delete == 0).first()
                 session.commit()
@@ -142,7 +134,7 @@ class UserFileModel(dbSession):
 
     def get_video_time_by_id(self, id: int):  # 根据id查询user_file的time
         with self.get_db() as session:
-            time = session.query(User_File.video_time).filter(User_File.has_delete == 0, User_File.id == id).first()
+            time = session.query(File.time).outerjoin(User_File,User_File.file_id == File.id).filter(User_File.has_delete == 0, User_File.id == id).first()
             session.commit()
             return time
 
@@ -160,7 +152,7 @@ class UserFileModel(dbSession):
 
     def get_user_file_id_by_file_id(self, file_id: int):  # 根据file_id查询user_file的id
         with self.get_db() as session:
-            id = session.query(User_File.id).filter(User_File.has_delete == 0, User_File.file_id == file_id).first()
+            id = session.query(User_File.id,User_File.name,User_File.type).filter(User_File.has_delete == 0, User_File.file_id == file_id).first()
             session.commit()
             return id
 
@@ -178,7 +170,7 @@ class UserFileModel(dbSession):
                 User_File.id).offset(
                 page.offset()).limit(page.limit()).all()
             session.commit()
-            return files,counts
+            return files, counts
 
     def judge_private_file(self, user_id: int, file_id: int):
         with self.get_db() as session:

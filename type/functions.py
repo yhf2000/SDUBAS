@@ -1,18 +1,24 @@
 import asyncio
+import base64
 import copy
+import hashlib
 import io
 import json
 import random
 import re
 import time
 import uuid
+from binascii import b2a_hex, a2b_hex
 import requests
+from Crypto import Random
 from Crypto.Cipher import AES
+from Crypto.Cipher import PKCS1_v1_5 as Cipher_pkcs1_v1_5
+from Crypto.PublicKey import RSA
+from Crypto.Util.Padding import unpad
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from fastapi import Request, HTTPException
 from minio import S3Error
 from starlette.responses import JSONResponse
@@ -70,8 +76,8 @@ async def make_parameters(request: Request):  # 生成操作表里的parameters
                     body.update(path)
         except Exception as e:
             body = ''
-    parameters = parameters_interface(url=f'http://{development_ip}:8000' + url, para=para, body=body)
-    return json.dumps(parameters.__dict__, ensure_ascii=False)
+    parameters = parameters_interface(url=f'http://{server_ip}' + url, para=para, body=body)
+    return parameters.__dict__
 
 
 def get_user_name(user_id):
@@ -100,7 +106,7 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
 def get_url(new_session, new_token):
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-    url = f'http://{server_ip}/c/download/' + new_token
+    url = f'http://{development_ip}/api/files/download/' + new_token
     return url
 
 
@@ -172,7 +178,8 @@ def get_email_token():  # 生成email的验证码
 
 
 def get_video_time(user_file_id):  # 获取视频时间
-    return user_file_model.get_video_time_by_id(user_file_id)[0]
+    time = user_file_model.get_video_time_by_id(user_file_id)
+    return time[0] if time is not None else None
 
 
 def generate_rsa_key_pair():  # 获得一对公钥和私钥
@@ -198,23 +205,47 @@ def generate_rsa_key_pair():  # 获得一对公钥和私钥
     return private_pem, public_pem
 
 
-def decrypt_aes_key_with_rsa(encrypted_aes_key: bytes, private_key_pem: bytes):  # 使用私钥解密AES密钥
-    private_key = serialization.load_pem_private_key(private_key_pem, password=None, backend=default_backend())
-    decrypted_aes_key = private_key.decrypt(
-        encrypted_aes_key,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    return decrypted_aes_key
+def decrypt_aes_key_with_rsa(encrypted_aes_key, private_key):  # 使用私钥解密AES密钥
+    rsakey = RSA.importKey(private_key)  # 导入私钥
+    cipher = Cipher_pkcs1_v1_5.new(rsakey)
+    text = cipher.decrypt(base64.b64decode(encrypted_aes_key), None)
+    return text
 
 
-def decrypt_file(encrypted_data: bytes, aes_key: bytes) -> bytes:
-    aes_cipher = AES.new(aes_key, AES.MODE_EAX, nonce=encrypted_data[:16])
-    decrypted_data = aes_cipher.decrypt(encrypted_data[32:])
-    return decrypted_data
+class DeAesCrypt:
+    """
+    AES-128-CBC解密
+    """
+
+    def __init__(self, data, key, pad='zero'):
+        """
+        :param data: 加密后的字符串
+        :param key: 随机的16位字符
+        :param pad: 填充方式
+        """
+        self.key = key
+        self.data = data
+        self.pad = pad.lower()
+
+    def decrypt_aes(self):
+        """AES-128-CBC解密"""
+        real_data = base64.b64decode(self.data)
+        my_aes = AES.new(self.key, AES.MODE_ECB)
+        decrypt_data = my_aes.decrypt(real_data)
+        decrypted_data = unpad(decrypt_data,16)
+        return decrypt_data
+
+
+    def get_str(self, bd):
+        """解密后的数据去除加密前添加的数据"""
+        if self.pad == "zero":  # 去掉数据在转化前不足16位长度时添加的ASCII码为0编号的二进制字符
+            return ''.join([chr(i) for i in bd if i != 0])
+
+        elif self.pad == "pkcs7":  # 去掉pkcs7模式中添加后面的字符
+            return ''.join([chr(i) for i in bd if i > 32])
+
+        else:
+            return "不存在此种数据填充方式"
 
 
 def get_user_information(user_id):  # 根据user_id查询用户基本信息
@@ -276,10 +307,6 @@ def extract_word_between(text, word1, word2):  # 提取出两单词间的单词
     pattern = r'{}(.*?){}'.format(re.escape(word1), re.escape(word2))
     matches = re.findall(pattern, text)
     return matches
-
-
-def judge_private_file(user_file_id, user_id):  # 判断某个文件是否是该用户的私有文件
-    return user_file_model.judge_private_file(user_id, user_file_id)
 
 
 def get_time_now(unit="seconds", value=0):
