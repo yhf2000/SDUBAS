@@ -246,7 +246,7 @@ async def search_created_user(request: Request, pageNow: int = Query(description
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
-@permissions_router.post("/add_template_role/{service_type}/{service_id}")  # 创建模板角色
+@permissions_router.post("/projects/add_template_role/{service_type}/{service_id}")  # 创建模板角色
 @standard_response
 async def add_template_role(request: Request, data: type.permissions.create_default_role_Base, service_id: int,
                             service_type: int,
@@ -260,7 +260,7 @@ async def add_template_role(request: Request, data: type.permissions.create_defa
         db.attribute_privilege_for_role(item.privilege_list, role_id)
     return 'OK'
 
-@permissions_router.get("/get_template_role")  # 请求项目模板角色
+@permissions_router.get("/projects/get_template_role")  # 请求项目模板角色
 @standard_response
 async def get_template_role(request: Request, service_id: int = Query(), service_type: int = Query(),
                         pageNow: int = Query(description="页码", gt=0),
@@ -272,7 +272,7 @@ async def get_template_role(request: Request, service_id: int = Query(), service
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
-@permissions_router.post("/apply_template_role/{role_id}")  # 申请模板角色
+@permissions_router.post("/projects/apply_template_role/{role_id}")  # 申请模板角色
 @standard_response
 async def add_template_role(request: Request, role_id: int,
                             user=Depends(test_permission)):
