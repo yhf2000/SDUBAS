@@ -330,9 +330,8 @@ async def get_all_content_user_score(request: Request, project_id: int, content_
                                                          user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
     add_operation.delay(7, project_id, "查看某项目内容所有用户成绩",
-                        f"用户{user['user_id']}于xxx查看{name}项目{content}内容所有用户成绩", parameters,
+                        f"用户{user['user_id']}于xxx查看{name}项目{content_id}内容所有用户成绩", parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
 

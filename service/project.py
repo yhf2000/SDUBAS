@@ -361,6 +361,7 @@ class ProjectService(dbSession):
             data = dealDataList(data, ProjectContentBaseOpt, {})
             contents = []
             for da in project_contents.contents:
+                da.project_id = project_id
                 da = da.model_dump()
                 contents.append(da)
             delete_list = []
