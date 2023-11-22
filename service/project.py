@@ -53,7 +53,9 @@ class ProjectService(dbSession):
         with self.get_db() as session:
             session.query(Project).filter(Project.id == project_id).update({"name": newproject.name,
                                                                             "tag": newproject.tag,
-                                                                            "active": newproject.active})
+                                                                            "active": newproject.active,
+                                                                            "type": newproject.type,
+                                                                            "img_id": newproject.img_id})
             session.commit()
             return project_id
 
@@ -244,8 +246,15 @@ class ProjectService(dbSession):
 
     def get_user_project_score(self, project_id: int, user_id: int):
         with self.get_db() as session:
+            total_weight = session.query(func.sum(ProjectContent.weight)).filter(
+                ProjectContent.project_id == project_id,
+                ProjectContent.has_delete == 0
+            ).scalar()
+
             total_score = session.query(
-                func.sum(func.coalesce(ProjectContentUserScore.score, 0) * ProjectContent.weight)
+                func.sum(
+                    func.coalesce(ProjectContentUserScore.score, 0) * (ProjectContent.weight / total_weight)
+                )
             ).outerjoin(ProjectContentUserScore,
                         ProjectContentUserScore.user_pcs_id == ProjectContent.id) \
                 .filter(ProjectContent.project_id == project_id,
@@ -345,7 +354,7 @@ class ProjectService(dbSession):
                 finial_dates.append(finial_date)
             return total_count, finial_dates
 
-    def renew_project_content(self, project_id: int, project_contents: project_content_renew, user_id: int):
+    def renew_project_content(self, project_id: int, project_contents: ProjectUpdate, user_id: int):
         with self.get_db() as session:
             data = session.query(ProjectContent).filter(ProjectContent.project_id == project_id,
                                                         ProjectContent.has_delete == 0).all()
@@ -487,11 +496,13 @@ class ProjectService(dbSession):
             # 执行分页查询
             data = query.offset(pg.offset()).limit(pg.limit())  # .all()
             lis = []
-            total_count = session.query(func.count()).select_from(ProjectContentSubmission) \
+            total_count3 = session.query(func.count()).select_from(ProjectContentSubmission) \
                 .join(ProjectContent,
                       ProjectContentSubmission.pro_content_id == ProjectContent.id) \
                 .filter(ProjectContent.project_id == project_id) \
                 .scalar()
+            if total_count3 is None:
+                total_count3 = 0
             for d in data:
                 user = d[1]
                 score = d[9]
@@ -508,8 +519,10 @@ class ProjectService(dbSession):
                     .filter(ProjectContent.project_id == project_id,
                             ProjectContentUserSubmission.user_id == user_id) \
                     .scalar()
+                if finish_count is None:
+                    finish_count = 0
                 lis.append({'user_id': user_id, 'user_name': user_name, 'score': score, 'is_pass': is_pass,
-                            'total_count': total_count, 'finish_count': finish_count})
+                            'total_count': total_count3, 'finish_count': finish_count})
             return total_count, lis
 
     def get_user_credit_all(self, user_id: int, pg: page):

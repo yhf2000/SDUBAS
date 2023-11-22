@@ -32,6 +32,8 @@ async def create_project(request: Request, project: ProjectCreate, user=Depends(
 async def update_project(request: Request, project_id: int, project: ProjectUpdate, user=Depends(auth_permission)):
     project_service.check_project_exist(project_id=project_id)
     results = project_service.update_project(project_id=project_id, newproject=project, user_id=user['user_id'])
+    results = project_service.renew_project_content(project_id=project_id, project_contents=project,
+                                                    user_id=user['user_id'])
     parameters = await make_parameters(request)
     add_operation.delay(7, project_id, "更新项目", f"用户{user['user_id']}于xxx更新{project.name}项目", parameters, user['user_id'])
     return results
