@@ -54,9 +54,12 @@ class ProjectCreate(ProjectBase):
 
 
 class ProjectUpdate(BaseModel):
+    type: str = Field(..., strip_whitespace=True, min_length=1)
+    img_id: int = Field(..., gt=0)
     name: str = Field(..., description="Name of the project", min_length=1, strip_whitespace=True)
     tag: str = Field(..., description="Tag of the project", min_length=1, strip_whitespace=True)
     active: int = Field(..., description="Status of the project (0-2)", ge=0, le=2)
+    contents: List[ProjectContentBaseOpt]
 
 
 class CreditCreate(BaseModel):
