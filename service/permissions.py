@@ -306,6 +306,42 @@ class permissionModel(dbSession):
                 if item.role_id in role_list:
                     return item.role_id
 
+    def search_tplt_role(self, applied_role_id: int):
+        with self.get_db() as session:
+            query = session.query(Role).filter(
+                Role.id == applied_role_id,
+            ).first()
+            query.status = 0
+            session.commit()
+            template_role = session.query(Role).filter(
+                Role.id == query.tplt_id
+            ).first()
+            return query.tplt_id, template_role.name
+
+    def modify_tplt_role(self, applied_role_id: int):
+        with self.get_db() as session:
+            query = session.query(Role).filter(
+                Role.id == applied_role_id,
+            ).first()
+            query.status = 2
+            session.commit()
+            return 'OK'
+
+    def approve_apply_template_role(self, role_superiorId: int, tplt_role_name: str):  # 创建申请角色
+        with self.get_db() as session:
+            result = session.query(Role).filter(Role.id == role_superiorId).first()  # 处理父节点
+            if result is None:
+                raise HTTPException(detail="父节点无效",
+                                    status_code=408)
+            temp_dict = json.loads(result.superiorListId)
+            superiorListId = add_superiorId(temp_dict, role_superiorId)
+            NewRole = Role(name=tplt_role_name, description=tplt_role_name,
+                           superiorId=role_superiorId, superiorListId=superiorListId, template=0,
+                           status='0', has_delete=0)
+            session.add(NewRole)
+            session.commit()
+            return NewRole.id
+
     def add_role_for_work(self, service_id: int, service_type: int, user_id: int, role_name: str):
         superiorId = self.search_user_default_role(user_id)
         role_id = self.create_role(role_name, superiorId)  # 添加角色
@@ -480,7 +516,7 @@ class permissionModel(dbSession):
             total_count = query.count()
             return total_count, res_list
 
-    def get_template_role_by_work(self, service_type: int, service_id: int, pg: page):
+    def get_template_role_by_work(self, service_type: int, service_id: int, user_id: int, pg: page):
         with self.get_db() as session:
             res_list = []
             query = session.query(Role).join(
@@ -502,10 +538,55 @@ class permissionModel(dbSession):
                 ).all()
                 for j in privilege:
                     privilege_list.append(j.name)
+                status = session.query(Role).join(
+                    UserRole,
+                    UserRole.role_id == Role.id
+                ).filter(
+                    UserRole.user_id == user_id,
+                    Role.tplt_id == item.id
+                ).first()
+                if status is not None:
+                    temp = {
+                        "status": status.status,
+                        "role_id": item.id,
+                        "role_name": item.name,
+                        "privilege_list": privilege_list
+                    }
+                else:
+                    temp = {
+                        "status": -1,
+                        "role_id": item.id,
+                        "role_name": item.name,
+                        "privilege_list": privilege_list
+                    }
+                res_list.append(temp)
+            total_count = query.count()
+            return total_count, res_list
+
+    def get_applied_template_role_by_work(self, service_type: int, service_id: int, pg: page):
+        with self.get_db() as session:
+            res_list = []
+            query = session.query(Role).join(
+                WorkRole,
+                WorkRole.role_id == Role.id
+            ).filter(
+                WorkRole.service_type == service_type,
+                WorkRole.service_id == service_id,
+                Role.status == 1
+            )
+            data = query.offset(pg.offset()).limit(pg.limit())
+            for item in data:
+                user = session.query(User).join(
+                    UserRole,
+                    UserRole.user_id == User.id
+                ).filter(
+                    UserRole.role_id == item.id
+                ).all()
+                role = session.query(Role).filter(Role.id == item.tplt_id).all()
                 temp = {
-                    "role_id": item.id,
-                    "role_name": item.name,
-                    "privilege_list": privilege_list
+                    "user_name": user[0].username,
+                    "template_role_name": role[0].name,
+                    "apply_role_id": item.id
                 }
                 res_list.append(temp)
             total_count = query.count()
@@ -689,6 +770,18 @@ class permissionModel(dbSession):
                 }
                 roles.append(temp)
             return roles
+
+    def search_given_role(self, user_id: int, service_type: int):
+        with self.get_db() as session:
+            work_role = session.query(WorkRole).join(
+                UserRole,
+                UserRole.role_id == WorkRole.id
+            ).filter(
+                UserRole.user_id == user_id,
+                WorkRole.service_type == service_type
+            ).first()
+            return work_role.service_id
+
 
     def test(self, role_id: int):
         with self.get_db() as session:

@@ -360,6 +360,7 @@ class FinancialModel(dbSession):
             for item in data:
                 roles = role_model.search_work_role(service_type=6, service_id=item.Id)
                 temp = {
+                    "Id": item.Id,
                     "name": item.name,
                     "note": item.note,
                     "roles": roles
