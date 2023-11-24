@@ -278,17 +278,49 @@ async def get_template_role(request: Request, service_id: int = Query(), service
     db = permissionModel()
     # user_id = int(request.headers.get("user_id"))
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = db.get_template_role_by_work(service_type, service_id, Page)
+    tn, res = db.get_template_role_by_work(service_type, service_id, user['user_id'], Page)
     return makePageResult(pg=Page, tn=tn, data=res)
 
 
-@permissions_router.post("/projects/apply_template_role/{role_id}")  # 申请模板角色
+@permissions_router.post("/projects/apply_template_role/{service_id}/{role_id}")  # 申请模板角色
 @standard_response
-async def add_template_role(request: Request, role_id: int,
-                            user=Depends(test_permission)):
+async def add_template_role(request: Request, role_id: int, service_id: int,
+                            user=Depends(auth_login)):
     db = permissionModel()
     superiorId = db.search_user_default_role(user['user_id'])
-    db.create_apply_template_role(superiorId, role_id)
+    applied_role_id = db.create_apply_template_role(superiorId, role_id)
+    db.attribute_role_for_work(7, service_id, applied_role_id)
+    db.attribute_user_role(user['user_id'], applied_role_id)
+    return 'OK'
+
+
+@permissions_router.get("/projects/get_applied_template_role")  # 请求申请角色
+@standard_response
+async def get_template_role(request: Request, service_id: int = Query(), service_type: int = Query(),
+                        pageNow: int = Query(description="页码", gt=0),
+                        pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+    db = permissionModel()
+    # user_id = int(request.headers.get("user_id"))
+    Page = page(pageNow=pageNow, pageSize=pageSize)
+    tn, res = db.get_applied_template_role_by_work(service_type, service_id, Page)
+    return makePageResult(pg=Page, tn=tn, data=res)
+
+@permissions_router.post("/projects/approve_template_role/{service_id}/{applied_role_id}")  # 通过角色
+@standard_response
+async def add_template_role(request: Request, applied_role_id: int, service_id: int,
+                            data: type.permissions.Is_Pass,
+                            user=Depends(auth_login)):
+    db = permissionModel()
+    if data.is_pass == 1:
+        tplt_role_id, tplt_role_name = db.search_tplt_role(applied_role_id)
+        superiorId = db.search_user_default_role(user['user_id'])
+        NewRole_id = db.approve_apply_template_role(superiorId, tplt_role_name)
+        role_list = [tplt_role_id]
+        privilege_set = db.search_privilege_by_role(role_list)
+        db.attribute_role_for_work(7, service_id, NewRole_id)
+        db.attribute_privilege_for_role(list(privilege_set), NewRole_id)
+    if data.is_pass == 0:
+        db.modify_tplt_role(applied_role_id)
     return 'OK'
 
 

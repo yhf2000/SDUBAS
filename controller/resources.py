@@ -1,5 +1,6 @@
 from type.financial import User_Name_Add
-from utils.auth_permission import auth_permission, auth_permission_default
+from utils.auth_login import auth_login
+from utils.auth_permission import auth_permission, auth_permission_default, test_permission
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from utils.response import standard_response, makePageResult
 from service.Resource import ResourceModel, FinancialModel, BillModel
@@ -278,7 +279,7 @@ async def delete_financial(request: Request, financial_id: int, apiSchme: financ
 @resources_router.get("/financial/search")  # 查询资金，需要权限，不可用
 @standard_response
 async def get_financial_by_user(request: Request, pageNow: int = Query(description="页码", gt=0),
-                                pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_permission)):
+                                pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
     Page = page(pageNow=pageNow, pageSize=pageSize)
     db = FinancialModel()
     # 调用函数

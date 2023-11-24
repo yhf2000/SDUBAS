@@ -99,3 +99,7 @@ class UserBase_Opt(BaseModel):
 
 class create_role_privilege_base(BaseModel):  # 创建角色信息
     privilege_list: list
+
+
+class Is_Pass(BaseModel):  # 创建角色信息
+    is_pass: int
