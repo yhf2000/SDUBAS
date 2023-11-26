@@ -8,7 +8,7 @@ from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
     ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress, \
     User_Name
 from utils.auth_login import auth_login
-from utils.auth_permission import auth_permission, auth_permission_default, test_permission
+from utils.auth_permission import auth_permission, auth_permission_default
 from utils.response import standard_response, makePageResult
 from type.page import page
 from Celery.add_operation import add_operation

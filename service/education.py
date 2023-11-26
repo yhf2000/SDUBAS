@@ -1,6 +1,6 @@
 from fastapi.encoders import jsonable_encoder
 from model.db import dbSession
-from model.user import School, College, Major, Class, Education_Program
+from model.user import School, College, Major, Class, Education_Program, User_info
 from type.user import school_interface, college_interface, class_interface, major_interface
 
 
@@ -33,6 +33,18 @@ class SchoolModel(dbSession):  # 学校model
             school = session.query(School.id).filter(School.has_delete == 0, School.name == name).first()
             session.commit()
             return school
+
+    def get_school_logo_id_by_id(self, id):  # 根据id查询school的logo
+        with self.get_db() as session:
+            school_logo = session.query(School.school_logo_id).filter(School.id == id).first()
+            session.commit()
+            return school_logo
+
+    def get_school_logo_id_by_name(self, name):  # 根据name查询school的logo
+        with self.get_db() as session:
+            school_logo = session.query(School.school_logo_id).filter(School.name == name).first()
+            session.commit()
+            return school_logo
 
     def get_school_information_by_name(self, name):  # 根据name查询school的基本信息
         with self.get_db() as session:
@@ -173,7 +185,7 @@ class MajorModel(dbSession):
 
     def delete_major(self, id: int):  # 删除一个major
         with self.get_db() as session:
-            names = session.query(Major.id,Major.name).filter(Major.id == id).update({"has_delete": 1})
+            names = session.query(Major.id, Major.name).filter(Major.id == id).update({"has_delete": 1})
             session.commit()
             return names
 
@@ -269,9 +281,10 @@ class ClassModel(dbSession):
 
     def get_class_by_name(self, obj: class_interface):  # 根据班级名和学院id和学校id查询班级的id
         with self.get_db() as session:
-            clas = session.query(Class.id,Class.name).outerjoin(College, Class.college_id == College.id).outerjoin(School,
+            clas = session.query(Class.id, Class.name).outerjoin(College, Class.college_id == College.id).outerjoin(
+                School,
 
-                                                                                                        College.school_id == School.id).filter(
+                College.school_id == School.id).filter(
                 College.id == obj.college_id,
                 Class.name == obj.name,
                 School.id == obj.school_id,

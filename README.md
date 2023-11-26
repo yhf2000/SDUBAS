@@ -2,6 +2,34 @@
 
 This repository contains the backend code for SDUBAS, an academic system built on blockchain technology.
 
+## Deploy the Project
+
+```bash
+docker pull zhao17/sdubas:latest
+```
+
+ID is the ID of the server to be deployed to, and server 6 is the primary server by default
+
+```bash
+docker run -e ID="6" -d -p 80:80 --name sdubas zhao17/sdubas:latest
+```
+
+## Build Image Yourself
+
+First, put SDUBAS-backend and SDUBAS-frontend in the deploy directory
+
+Second, enter the deploy directory and run the following command to build
+
+```bash
+docker build -t sdubas .
+```
+
+Finally, run the following command to start your exploration
+
+```bash
+docker run -e ID="6" sdubas  
+```
+
 ## Running Asynchronous Tasks
 
 For each asynchronous task, use a separate terminal.

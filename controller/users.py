@@ -32,7 +32,7 @@ session_model = SessionModel()
 user_info_model = UserinfoModel()
 operation_model = OperationModel()
 captcha_model = CaptchaModel()
-role_model = permissionModel()
+permission_model = permissionModel()
 dtype_mapping = {
     'username': str,
     'password': str,
@@ -61,7 +61,7 @@ async def user_add(user_information: admin_user_add_interface, request: Request,
                                     enrollment_dt=user_information.enrollment_dt,
                                     graduation_dt=user_information.graduation_dt)
     user_info_model.add_userinfo(user_info)  # 在user_info表中添加用户
-    role_model.add_user_role(create_user_role_base(role_id=user_information.role_id, user_id=user_id))  # 为其分配一个角色
+    permission_model.add_user_role(create_user_role_base(role_id=user_information.role_id, user_id=user_id))  # 为其分配一个角色
     parameters = await make_parameters(request)
     add_operation.delay(0, user_id, '添加用户', f"用户{session['user_id']}于xxx添加用户{user_id}",
                         parameters, session['user_id'])
@@ -100,7 +100,7 @@ async def user_add_all(request: Request, information: user_add_batch_interface, 
         user_info.append(user_info_data)
     user_id_list = user_model.add_all_user(user)  # 添加所有的user得到user_id_list
     user_info_model.add_all_user_info(user_info, user_id_list)  # 添加所有的user_info
-    role_model.add_all_user_role(information.role_id, user_id_list)  # 都分配一个默认角色
+    permission_model.add_all_user_role(information.role_id, user_id_list)  # 都分配一个默认角色
     parameters = await make_parameters(request)
     add_operation.delay(0, None, '批量添加用户', f"用户{session['user_id']}于xxx通过上传文件批量添加{nums}名用户",
                         parameters,
@@ -328,7 +328,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             add_operation.delay(0, int(user_information.id), '用户登录',
                                 f'用户{user_information.id}于xxx输入账号，密码登录', parameters,
                                 int(user_information.id))
-            return {'message': '登陆成功', 'token': token, 'data': True, 'code': 0}
+            return {'message': '登陆成功', 'token': token, 'data': {"first_time": False}, 'code': 0}
         else:
             return {'message': '用户名或密码不正确', 'data': False, 'code': 1}
 

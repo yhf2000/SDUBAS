@@ -53,7 +53,7 @@ class School(Base):  # 学校表
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     name = Column(VARCHAR(64), nullable=False, unique=True, comment='学校名称')  # 学校名称，非空，唯一
     school_abbreviation = Column(VARCHAR(10), nullable=False, comment='学校简称，如SDU')  # 学校简称，非空
-    school_logo_id = Column(Integer, ForeignKey('user_file.id'), nullable=False, unique=True,
+    school_logo_id = Column(Integer, ForeignKey('user_file.id'), nullable=False,
                             comment='学校logo')  # 学校logo，非空唯一
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
@@ -68,7 +68,7 @@ class College(Base):  # 学院表
     school_id = Column(Integer, ForeignKey('school.id'), nullable=False, index=True,
                        comment='外键，学校 ID')  # 外键，学校id，非空，索引
     name = Column(VARCHAR(64), nullable=False, comment='学院名称')  # 学院名称，非空
-    college_logo_id = Column(Integer, ForeignKey('user_file.id'), nullable=False, unique=True,
+    college_logo_id = Column(Integer, ForeignKey('user_file.id'), nullable=False,
                              comment='学院logo')  # 学院logo，非空唯一
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
@@ -103,7 +103,7 @@ class Operation(Base):  # 操作表
     service_type = Column(Integer, nullable=False, index=True, comment='业务类型')  # 业务类型，非空，索引
     service_id = Column(Integer, nullable=True, comment='业务id')  # 业务id，可空
     operation_type = Column(VARCHAR(64), comment='操作类型', nullable=False)  # 操作类型
-    func = Column(VARCHAR(128), comment='操作', nullable=False)  # 操作
+    func = Column(VARCHAR(512), comment='操作', nullable=False)  # 操作
     parameters = Column(VARCHAR(4 * 1024), comment='操作参数', nullable=False)  # 操作参数
     oper_user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True,
                           comment='操作人 id，外键')  # 操作人 id，外键，非空，索引

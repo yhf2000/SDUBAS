@@ -3,9 +3,9 @@ from celery import Celery
 from fastapi import HTTPException
 from minio import S3Error
 from model.db import minio_client
-from const import development_ip
-broker = f'redis://{development_ip}:6379/10'  # 消息队列
-backend = f'redis://{development_ip}:6379/11'  # 存储结果
+from const import development_ip,redis_password
+broker = f'redis://:{redis_password}@{development_ip}:6379/10'  # 消息队列
+backend = f'redis://:{redis_password}@{development_ip}:6379/11'  # 存储结果
 
 upload_file_app = Celery(
     'tasks',

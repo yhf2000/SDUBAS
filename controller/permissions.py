@@ -1,10 +1,7 @@
-import json
-
 from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
-
 import type.permissions
-from service.permissions import permissionModel
+from service.user import UserModel
 from type.functions import get_user_id
 from type.page import page
 from utils.response import standard_response
@@ -12,6 +9,7 @@ from utils.response import makePageResult
 from utils.auth_permission import *
 
 permissions_router = APIRouter()
+user_model = UserModel()
 
 
 @permissions_router.post("/select_son_user")
@@ -250,11 +248,21 @@ async def get_work_role(request: Request, service_id: int = Query(), service_typ
 @permissions_router.get("/search_created_user")  # 查找创建的用户(使用)
 @standard_response
 async def search_created_user(request: Request, pageNow: int = Query(description="页码", gt=0),
-                              pageSize: int = Query(description="每页数量", gt=0), user=Depends(auth_login)):
+                              pageSize: int = Query(description="每页数量", gt=0), user_name: str = None,
+                              school: str = None, user=Depends(auth_login)):
     db = permissionModel()
     user_id = user['user_id']
     Page = page(pageNow=pageNow, pageSize=pageSize)
-    tn, res = db.search_created_user_info(user_id=user_id, pg=Page)
+    if user_name is not None:
+        user_name = user_name.replace(' ','')
+        user_name = user_name if not user_name.isspace() and user_name != "" else None
+    if school is not None:
+        school = school.replace(' ','')
+        school = school if not school.isspace() and school != "" else None
+    if user_name is None and school is None:
+        tn, res = db.search_created_user_info(user_id=user_id, pg=Page)
+    else:
+        tn, res = user_model.get_user_information_by_name_school(user_name, school, Page)
     return makePageResult(pg=Page, tn=tn, data=res)
 
 

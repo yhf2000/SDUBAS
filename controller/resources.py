@@ -1,6 +1,6 @@
 from type.financial import User_Name_Add
 from utils.auth_login import auth_login
-from utils.auth_permission import auth_permission, auth_permission_default, test_permission
+from utils.auth_permission import auth_permission, auth_permission_default
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from utils.response import standard_response, makePageResult
 from service.Resource import ResourceModel, FinancialModel, BillModel
