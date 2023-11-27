@@ -3,11 +3,11 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from celery import Celery
-from const import development_ip
+from const import development_ip, redis_password, server_ip
 from service.user import SessionModel
 
-broker = f'redis://{development_ip}:6379/12'
-backend = f'redis://{development_ip}:6379/13'
+broker = f'redis://:{redis_password}@{development_ip}:6379/12'
+backend = f'redis://:{redis_password}@{development_ip}:6379/13'
 send_email_app = Celery(
     'tasks',
     broker=broker,
@@ -40,7 +40,7 @@ def send_email(Email, token, type):
                 <p>找回密码!</p>
                 <p><a href="http://{}/c/set_password/{}/{}" target=blank>www.SDUBAS.com</a>，\
                 请点击该链接设置密码！</p>
-                '''.format(f'{development_ip}', username, token)
+                '''.format(f'{server_ip}', username, token)
         mail['Subject'] = '找回密码'
     mail.attach(MIMEText(mail_content, 'html', 'utf-8'))
     mail['To'] = email.utils.formataddr(('您好', Email))

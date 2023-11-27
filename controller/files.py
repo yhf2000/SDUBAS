@@ -1,5 +1,3 @@
-import base64
-import codecs
 import io
 import json
 import uuid
@@ -100,9 +98,6 @@ async def file_upload(request: Request, file: UploadFile = File(...), ase_key: s
     sha256_hexdigest = sha256_hash.hexdigest()
     if sha256_hexdigest != get_file.hash_sha256:
         return {'message': '文件sha256不正确', 'data': None, 'code': 5}
-    if ase_key != ' ':
-        new_ase = ASE_interface(file_id=old_session['file_id'], ase_key=ase_key)
-        id = ASE_model.add_file_ASE(new_ase)
     else:
         if file.content_type.startswith('image/'):  # 仅对图像文件进行压缩
             try:
@@ -125,6 +120,9 @@ async def file_upload(request: Request, file: UploadFile = File(...), ase_key: s
     session_db.delete(token)  # 将缓存删掉
     user_file_all = user_file_all_interface(user_id = old_session['user_id'],file_id = old_session['file_id'],name= file.filename,type = file.content_type)
     id1 = user_file_model.add_user_file_all(user_file_all)
+    if ase_key != ' ':
+        new_ase = ASE_interface(file_id=id1, ase_key=ase_key)
+        id = ASE_model.add_file_ASE(new_ase)
     file_model.update_file_is_save(old_session['file_id'])  # 更新为已上传
     parameters = await make_parameters(request)
     add_operation.delay(8, old_session['file_id'], '上传文件',
@@ -157,7 +155,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     add_operation.delay(8, id, '下载文件',
                         f"用户{session['user_id']}于xxx下载文件{user_file.name}", parameters,
                         session['user_id'])
-    return {'message': '请前往下载', 'data': {'url': f'http://{development_ip}/api/files/download/' + new_token},
+    return {'message': '请前往下载', 'data': {'url': f'http://{server_ip}/api/files/download/' + new_token},
             'code': 0}
 
 

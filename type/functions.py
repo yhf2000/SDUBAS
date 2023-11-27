@@ -44,7 +44,20 @@ mimetype_to_format = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'office_word',
     'application/vnd.ms-powerpoint': 'office_word',
     'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'office_word',
-    'video/mp4': 'video'
+    'video/mp4': 'video',
+    'video/mpeg': 'video',
+    'video/quicktime': 'video',
+    'video/x-msvideo': 'video',
+    'video/x-flv': 'video',
+    'video/webm': 'video',
+    'video/x-ms-wmv': 'video',
+    'video/x-matroska': 'video',
+    'video/3gpp': 'video',
+    'video/x-ms-asf': 'video',
+    'video/x-m4v': 'video',
+    'video/x-mng': 'video',
+    'video/ogg': 'video',
+    'video/vnd.rn-realvideo': 'video'
 }
 
 
@@ -106,7 +119,7 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
 def get_url(new_session, new_token):
     user_session = json.dumps(new_session.model_dump())
     session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-    url = f'http://{development_ip}/api/files/download/' + new_token
+    url = f'http://{server_ip}/api/files/download/' + new_token
     return url
 
 
@@ -403,7 +416,7 @@ def block_chains_get(tx_hash, headers):
 
 
 def block_chains_information(headers):
-    response = requests.get(f"{base_url}/api/chain/tendermint/status/", headers=headers)  # 查询区块链基本信息
+    response = requests.post(f"{base_url}/api/chain/tendermint/status/", headers=headers)  # 查询区块链基本信息
     if response.status_code == 200:
         data = response.json()
         chain_information = data['data']

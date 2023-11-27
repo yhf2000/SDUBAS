@@ -104,8 +104,7 @@ class ProjectService(dbSession):
 
     def get_project_content_submission_by_id(self, id: int):
         with self.get_db() as session:
-            project = session.query(ProjectContentSubmission.name).filter(ProjectContentSubmission.pro_content_id == id,
-                                                                          ProjectContentSubmission.has_delete == 0).first()
+            project = session.query(ProjectContentSubmission.name).filter(ProjectContentSubmission.pro_content_id == id).first()
             return project
 
     def list_projects_content(self, request: Request, project_id: int, user_id: int):
@@ -452,11 +451,12 @@ class ProjectService(dbSession):
                          'completedCredits': project[1],
                          'requiredCredits': requiredCredits}
                 total_count.append(count)
-            for key, value in file_credits.items():
-                count = {'type': key,
-                         'completedCredits': 0,
-                         'requiredCredits': value}
-                total_count.append(count)
+            if file_credits is not None:
+                for key, value in file_credits.items():
+                    count = {'type': key,
+                             'completedCredits': 0,
+                             'requiredCredits': value}
+                    total_count.append(count)
         return total_count
 
     def get_all_project_score(self, project_id: int, user_id: int, pg: page):

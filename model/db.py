@@ -2,14 +2,14 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.orm import declarative_base
-from const import SQLALCHEMY_DATABASE_URL
+from const import SQLALCHEMY_DATABASE_URL, redis_password
 import redis
 from minio import Minio, S3Error
 from const import development_ip
 minio_client = Minio(
     "127.0.0.1:9000",  # 更新为MinIO服务器的地址和端口
-    access_key="minioadmin",  # 你的MinIO访问密钥
-    secret_key="minioadmin",  # 你的MinIO秘密密钥
+    access_key="SDUBAS-admin",  # 你的MinIO访问密钥
+    secret_key="SDUBASminio123!",  # 你的MinIO秘密密钥
     secure=False  # 是否使用安全连接（根据你的MinIO配置选择）
 )
 try:
@@ -18,11 +18,11 @@ try:
 except S3Error as e:
     print(f'Error: {e}')
 
-pool1 = redis.ConnectionPool(host=f'{development_ip}', port=6379, db=1, encoding='UTF-8')
-pool2 = redis.ConnectionPool(host=f'{development_ip}', port=6379, db=2, encoding='UTF-8')
-pool3 = redis.ConnectionPool(host=f'{development_ip}', port=6379, db=3, encoding='UTF-8')
-pool4 = redis.ConnectionPool(host=f'{development_ip}', port=6379, db=4, encoding='UTF-8')
-session_db = redis.Redis(connection_pool=pool1)  # 根据token缓存有效session
+pool1 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, encoding='UTF-8', password=redis_password)
+pool2 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=2, encoding='UTF-8', password=redis_password)
+pool3 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=3, encoding='UTF-8', password=redis_password)
+pool4 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=4, encoding='UTF-8', password=redis_password)
+session_db = redis.Redis(connection_pool=pool1)  # 根据token缓存有效sessioni
 user_information_db = redis.Redis(connection_pool=pool2)  # 根据user_id缓存用户基本信息
 url_db = redis.Redis(connection_pool=pool3)  # 根据user_file_id缓存下载链接
 block_chain_db = redis.Redis(connection_pool=pool4)  # 根据username缓存用户token

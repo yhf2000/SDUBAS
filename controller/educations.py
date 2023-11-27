@@ -454,3 +454,13 @@ async def user_add_education(school_id: int = None, college_id: int = None, type
             result = await user_class_view(college_id, pageNow, pageSize)
             ans = json.loads(result.body)
             return ans
+
+
+@users_router.get("/user_school_get")
+@user_standard_response
+async def user_school_get(request: Request,session=Depends(auth_login)):
+    school_id = permission_model.search_given_role(session['user_id'], 0)
+    school_logo_id = school_model.get_school_logo_id_by_id(school_id)
+    school_logo_id = school_model.get_school_logo_id_by_name('山东大学')[0] if school_logo_id is None else school_logo_id[0]
+    url = get_url_by_user_file_id(request,school_logo_id)
+    return {'message': '图片如下', 'data': url, 'code': 0}
