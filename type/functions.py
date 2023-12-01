@@ -1,16 +1,14 @@
 import asyncio
 import base64
 import copy
-import hashlib
 import io
 import json
+import os
 import random
 import re
 import time
 import uuid
-from binascii import b2a_hex, a2b_hex
 import requests
-from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Cipher import PKCS1_v1_5 as Cipher_pkcs1_v1_5
 from Crypto.PublicKey import RSA
@@ -18,13 +16,12 @@ from Crypto.Util.Padding import unpad
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from fastapi import Request, HTTPException
 from minio import S3Error
-from starlette.responses import JSONResponse
 
-from const import development_ip, base_url, server_ip
-from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db
+from starlette.responses import JSONResponse
+from const import base_url, server_ip
+from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db, session_db_write, url_db_write,user_information_db_write,block_chain_db_write
 from service.file import UserFileModel, FileModel
 from service.permissions import permissionModel
 from service.user import SessionModel, UserModel, UserinfoModel, EducationProgramModel
@@ -58,6 +55,19 @@ mimetype_to_format = {
     'video/x-mng': 'video',
     'video/ogg': 'video',
     'video/vnd.rn-realvideo': 'video'
+}
+
+server_id_to_ip = {
+    1: '111.15.182.56:41011',
+    2: '111.15.182.56:41012',
+    3: '111.15.182.56:41013',
+    4: '111.15.182.56:41014',
+    5: '111.15.182.56:41015',
+    6: '111.15.182.56:41016',
+    7: '111.15.182.56:41017',
+    8: '111.15.182.56:41018',
+    9: '111.15.182.56:41019',
+    10: '111.15.182.56:41020',
 }
 
 
@@ -116,10 +126,11 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
     return new_session
 
 
-def get_url(new_session, new_token):
+def get_url(new_session, new_token, use_file_id):
     user_session = json.dumps(new_session.model_dump())
-    session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
-    url = f'http://{server_ip}/api/files/download/' + new_token
+    session_db_write.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
+    server_id = file_model.get_server_id_by_user_file_id(use_file_id)[0]
+    url = f'http://{server_id_to_ip[server_id]}/api/files/download/' + new_token
     return url
 
 
@@ -140,12 +151,12 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     new_token = str(uuid.uuid4().hex)  # 生成token
                     new_session = make_download_session(new_token, request, user_file[1], id_list, -1, 72)
                     session_model.add_session(new_session)
-                    url = get_url(new_session, new_token)
+                    url = get_url(new_session, new_token, id_list)
                     types = user_file[2]
                     if user_file[2] in mimetype_to_format:
                         types = mimetype_to_format[user_file[2]]
                     temp = dict({"url": url, "file_type": types, "file_name": user_file[3]})
-                    url_db.set(id_list, json.dumps(temp))
+                    url_db_write.set(id_list, json.dumps(temp))
                     urls.update({id_list: temp})
         else:
             sessions = []
@@ -158,12 +169,12 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     new_session = make_download_session(new_token, request, user_file[i][1], user_file[i][0], -1, 72)
                     temp = copy.deepcopy(new_session)
                     sessions.append(temp)
-                    url = get_url(new_session, new_token)
+                    url = get_url(new_session, new_token, user_file[i][0])
                     types = user_file[i][2]
                     if user_file[i][2] in mimetype_to_format:
                         types = mimetype_to_format[user_file[i][2]]
                     temp = dict({"url": url, "file_type": types, "file_name": user_file[i][3]})
-                    url_db.set(user_file[i][0], json.dumps(temp))
+                    url_db_write.set(user_file[i][0], json.dumps(temp))
                     urls[user_file[i][0]] = temp
             if len(sessions) == 1:
                 session_model.add_session(sessions[0])
@@ -245,9 +256,8 @@ class DeAesCrypt:
         real_data = base64.b64decode(self.data)
         my_aes = AES.new(self.key, AES.MODE_ECB)
         decrypt_data = my_aes.decrypt(real_data)
-        decrypted_data = unpad(decrypt_data,16)
+        decrypted_data = unpad(decrypt_data, 16)
         return decrypt_data
-
 
     def get_str(self, bd):
         """解密后的数据去除加密前添加的数据"""
@@ -265,14 +275,8 @@ def get_user_information(user_id):  # 根据user_id查询用户基本信息
     user_information = user_information_db.get(user_id)  # 缓存中中没有
     if user_information is None:
         information = user_model.get_user_all_information_by_user_id(user_id)
-        res = dict({'username': information[0], 'email': information[1], 'card_id': information[2],
-                    'registration_dt': information[3], 'realname': information[4], 'gender': information[5],
-                    'school_name': information[6], 'college_name': information[7], 'major_name': information[8],
-                    'class_name': information[9], 'enrollment_dt': information[10], 'graduation_dt': information[11]})
-        res['registration_dt'] = res['registration_dt'].strftime("%Y-%m-%d %H:%M:%S")
-        res['enrollment_dt'] = res['enrollment_dt'].strftime("%Y-%m-%d")
-        res['graduation_dt'] = res['graduation_dt'].strftime("%Y-%m-%d")
-        user_information_db.set(user_id, json.dumps(res), ex=1209600)
+        res = dict({'username': information[0], 'email': information[1], 'oj_username': information[2]})
+        user_information_db_write.set(user_id, json.dumps(res), ex=1209600)
     else:
         res = json.loads(user_information)
     return res
@@ -350,7 +354,7 @@ def block_chains_login():
         if response.status_code == 200:
             data = response.json()
             token = data['data']['token']
-            block_chain_db.set(username, token, ex=1209600)  # 缓存有效session
+            block_chain_db_write.set(username, token, ex=1209600)  # 缓存有效session
         else:
             raise HTTPException(
                 status_code=404,
@@ -434,3 +438,8 @@ def block_chains_information(headers):
             status_code=404,
             detail="获取区块链信息失败",
         )
+
+
+def get_server_info():
+    host_ip = os.environ.get("host_ip")
+    return host_ip

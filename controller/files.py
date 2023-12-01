@@ -10,13 +10,12 @@ from fastapi import Request, Header, Depends
 from starlette.responses import JSONResponse, StreamingResponse
 from Celery.add_operation import add_operation
 from Celery.upload_file import upload_file
-from const import development_ip, server_ip
-from model.db import session_db
-from service.file import FileModel, UserFileModel, RSAModel, ASEModel
+from model.db import session_db, session_db_write
+from service.file import FileModel, UserFileModel, RSAModel, AESModel, ServersModel
 from service.user import UserModel, SessionModel
-from type.file import file_interface, user_file_interface, RSA_interface, ASE_interface, user_file_all_interface
-from type.functions import get_files, generate_rsa_key_pair, make_parameters, get_user_name, get_time_now, \
-    decrypt_aes_key_with_rsa, DeAesCrypt
+from type.file import file_interface, user_file_interface, RSA_interface, AES_interface, user_file_all_interface
+from type.functions import get_files, generate_rsa_key_pair, make_parameters, get_time_now, \
+    decrypt_aes_key_with_rsa, DeAesCrypt, get_server_info, server_id_to_ip
 from type.page import page
 from type.user import session_interface
 from utils.auth_login import auth_login
@@ -28,8 +27,8 @@ user_file_model = UserFileModel()
 session_model = SessionModel()
 user_model = UserModel()
 RSA_model = RSAModel()
-ASE_model = ASEModel()
-
+AES_model = AESModel()
+servers_model = ServersModel()
 
 # 文件存在验证，在上传文件之前先上传size和两个hash来判断文件是否存在：若文件存在则返回id，不存在则在cookie设置一个token
 @files_router.post("/upload/valid")
@@ -48,6 +47,8 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
             public_key = public_key[0]
     user_id = session['user_id']  # 得到user_id
     if id is None:  # 没有该file
+        ip = get_server_info()
+        file.server_id = servers_model.get_server_id_by_ip(ip)[0]
         file_id = file_model.add_file(file)  # 新建一个file
     else:
         file_id = id[0]
@@ -59,7 +60,7 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
     session_model.add_session(new_session)
     new_session = new_session.model_dump()
     user_session = json.dumps(new_session)
-    session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
+    session_db_write.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
     if id is None or id[1] == 0:
         return {'message': '文件不存在', 'data': {'file_id': None, 'public_key': public_key}, 'token_header': new_token,
                 'code': 0}
@@ -104,7 +105,7 @@ async def file_upload(request: Request, file: UploadFile = File(...), ase_key: s
                 # 读取上传的图像文件
                 image = Image.open(io.BytesIO(contents))
                 # 压缩图像
-                quality = 60  # 根据需要调整压缩质量
+                quality = 40  # 根据需要调整压缩质量
                 image = image.convert("RGB")
                 output_buffer = io.BytesIO()
                 image.save(output_buffer, format="JPEG", quality=quality)
@@ -117,12 +118,12 @@ async def file_upload(request: Request, file: UploadFile = File(...), ase_key: s
     upload_file.delay(folder, file.filename, contents)
     session_model.update_session_use_by_token(token, 1)  # 将该session使用次数设为1
     session_model.delete_session_by_token(token)  # 将该session设为已失效
-    session_db.delete(token)  # 将缓存删掉
+    session_db_write.delete(token)  # 将缓存删掉
     user_file_all = user_file_all_interface(user_id = old_session['user_id'],file_id = old_session['file_id'],name= file.filename,type = file.content_type)
     id1 = user_file_model.add_user_file_all(user_file_all)
     if ase_key != ' ':
-        new_ase = ASE_interface(file_id=id1, ase_key=ase_key)
-        id = ASE_model.add_file_ASE(new_ase)
+        new_aes = AES_interface(file_id=id1, aes_key=ase_key)
+        id = AES_model.add_file_AES(new_aes)
     file_model.update_file_is_save(old_session['file_id'])  # 更新为已上传
     parameters = await make_parameters(request)
     add_operation.delay(8, old_session['file_id'], '上传文件',
@@ -150,12 +151,13 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     session_model.add_session(new_session)
     new_session = new_session.model_dump()
     user_session = json.dumps(new_session)
-    session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
+    session_db_write.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
+    server_id = file_model.get_server_id_by_user_file_id(id)[0]
     parameters = await make_parameters(request)
     add_operation.delay(8, id, '下载文件',
                         f"用户{session['user_id']}于xxx下载文件{user_file.name}", parameters,
                         session['user_id'])
-    return {'message': '请前往下载', 'data': {'url': f'http://{server_ip}/api/files/download/' + new_token},
+    return {'message': '请前往下载', 'data': {'url': f'http://{server_id_to_ip[server_id]}/api/files/download/' + new_token},
             'code': 0}
 
 
@@ -171,24 +173,24 @@ async def file_download_files(request: Request, token: str):
     if old_session['use'] != old_session['use_limit']:  # 查看下载链接是否还有下载次数
         if old_session['use'] + 1 == old_session['use_limit']:  # 在下一次就失效
             session_model.delete_session_by_token(token)
-            session_db.delete(token)
+            session_db_write.delete(token)
         else:
             session_model.update_session_use_by_token(token, 1)  # 将该session使用次数加1
             old_session['use'] = old_session['use'] + 1
-            session_db.set(token, json.dumps(old_session), ex=21600)
+            session_db_write.set(token, json.dumps(old_session), ex=21600)
         user_file = user_file_model.get_user_file_by_id(old_session['file_id'])
         file = file_model.get_file_by_id(user_file.file_id)
         pre_folder = file.hash_md5[:8] + '/' + file.hash_sha256[-8:]
         folder = pre_folder + '/' + user_file.name  # 先找到路径
         filename = user_file.name
         data = get_files(folder)
-        is_private = ASE_model.get_ase_key_by_file_id(old_session['file_id'])
+        is_private = AES_model.get_aes_key_by_file_id(old_session['file_id'])
         if is_private is not None:
             data = data.read().decode('utf-8')
-            encrypt_ase_key = is_private[0]
+            encrypt_aes_key = is_private[0]
             private_key = RSA_model.get_private_key_by_user_id(user_id)[0]
-            ase_key = decrypt_aes_key_with_rsa(encrypt_ase_key, private_key)
-            temp = DeAesCrypt(data, ase_key, "pkcs7")
+            aes_key = decrypt_aes_key_with_rsa(encrypt_aes_key, private_key)
+            temp = DeAesCrypt(data, aes_key, "pkcs7")
             data = temp.decrypt_aes()
             data = data.encode('utf-8')
             data = io.BytesIO(data)
@@ -228,8 +230,7 @@ async def file_preview(request: Request, pageNow: int, pageSize: int, session=De
             file_data.append(temp_dict)
         result = makePageResult(Page, len(all_file), file_data)
     parameters = await make_parameters(request)
-    username = get_user_name(session['user_id'])
     add_operation.delay(8, session['user_id'], '查看文件',
-                        f'用户{username}于qpzm7913查看了他能下载的所有文件', parameters,
+                        f"用户{session['user_id']}于xxx查看文件", parameters,
                         session['user_id'])
     return {'message': '可下载文件如下', "data": result, 'code': 0}

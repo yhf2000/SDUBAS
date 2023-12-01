@@ -3,7 +3,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func
-from model.db import dbSession
+from model.db import dbSession,dbSessionread
 from model.financial import Bill
 from model.financial import Resource, Financial
 from model.permissions import *
@@ -16,7 +16,7 @@ from type.page import dealDataList
 from utils.response import page
 
 
-class ResourceModel(dbSession):
+class ResourceModel(dbSession,dbSessionread):
     def save_resource(self, obj_in: ResourceAdd, user_id: int):  # 增加
         obj_dict = obj_in.model_dump(exclude={"roles"})
         obj_add = Resource(**obj_dict)
@@ -44,13 +44,13 @@ class ResourceModel(dbSession):
             return Id
 
     def get_resource_by_id(self, id: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             name = session.query(Resource.name).filter(Resource.Id == id, Resource.has_delete == 0).first()
             session.commit()
             return name
 
     def check_by_id(self, Id: int, user_id: int):  # 通过主键获取
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             Resource_template = session.query(Resource).filter(Resource.Id == Id, Resource.has_delete == 0).first()
         if Resource_template is not None:
             Resource_dict = Resource_Basemodel.model_validate(Resource_template)
@@ -59,7 +59,7 @@ class ResourceModel(dbSession):
             raise HTTPException(status_code=408, detail="Item not found")
 
     def get_view_resource_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可用资源
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user)
             new_role_list = role_model.search_specific_role(role_list, '资源查看')
@@ -83,7 +83,7 @@ class ResourceModel(dbSession):
             return total_count, res_list
 
     def get_applied_resource_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可审批资源
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user)
             new_role_list = role_model.search_specific_role(role_list, '资源审批')
@@ -118,7 +118,7 @@ class ResourceModel(dbSession):
             return 'OK'
 
     def get_resource_application(self, resource_id: int, day: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             query = session.query(Role).join(
                 WorkRole,
                 WorkRole.role_id == Role.id
@@ -146,7 +146,7 @@ class ResourceModel(dbSession):
 
 
     def get_specific_applied_resources(self, user_id: int, resource_id: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             result = []
             role_model = permissionModel()
             query = session.query(Role).join(
@@ -181,7 +181,7 @@ class ResourceModel(dbSession):
                 return result
 
     def get_ifapply_resources(self, user_id: int, resource_id: int, pg: page):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             result = []
             role_model = permissionModel()
             query = session.query(Role).join(
@@ -245,7 +245,7 @@ class ResourceModel(dbSession):
         return
 
 
-class BillModel(dbSession):
+class BillModel(dbSession,dbSessionread):
     def save_amount(self, obj_in: AmountAdd, user_id: int):  # 增加
         obj_dict = jsonable_encoder(obj_in)
         obj_add = Bill(**obj_dict)
@@ -256,7 +256,7 @@ class BillModel(dbSession):
             return jsonable_encoder(obj_add.Id)
 
     def query_total(self, Id: int, user_id: int):  # 查询全部金额
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             # 查询收入，未删除的和
             result = session.query(func.sum(Bill.amount)).filter(Bill.finance_id == Id,
                                                                  Bill.state == 0,
@@ -273,7 +273,7 @@ class BillModel(dbSession):
         return result - result2
 
     def query_amount(self, request: Request, ID: int, pg: page, user_id: int):  # 查询分页流水
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             query = session.query(Bill).filter_by(finance_id=ID, has_delete=0)
             total_count = query.count()  # 总共
             # 执行分页查询
@@ -303,11 +303,11 @@ class BillModel(dbSession):
             return Id
 
     def check_by_id(self, Id: int, user_id: int):  # 通过主键获取
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             return session.query(Bill).filter(Bill.Id == Id, Bill.has_delete == 0).first()
 
 
-class FinancialModel(dbSession):
+class FinancialModel(dbSession,dbSessionread):
     def save_financial(self, obj_in: FinancialAdd, user_id: int):  # 增加
         obj_dict = obj_in.model_dump(exclude={"roles"})
         obj_add = Financial(**obj_dict)
@@ -328,7 +328,7 @@ class FinancialModel(dbSession):
             return obj_add.Id
 
     def check_by_id(self, Id: int, user_id: int):  # 获取，通过主键
-        with self.get_db() as session:
+        with self.get_db_read()as session:
             Financial_list = session.query(Financial).filter(Financial.Id == Id, Financial.has_delete == 0).first()
         if Financial_list is None:
             raise HTTPException(status_code=404, detail="Item not found")
@@ -348,7 +348,7 @@ class FinancialModel(dbSession):
             return Id
 
     def get_financial_by_user(self, user: Any, pg: page, user_id: int):  # 获取当前用户所有可用资金
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             res_list = []
             role_model = permissionModel()
             role_list = role_model.search_role_by_user(user)
@@ -369,7 +369,7 @@ class FinancialModel(dbSession):
             return total_count, res_list
 
     def get_financial_by_id(self, id: int):  # 获取资金名
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             name = session.query(Financial.name).filter(Financial.has_delete == 0, Financial.Id == id)
             session.commit()
             return name

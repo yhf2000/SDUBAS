@@ -2,10 +2,9 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.orm import declarative_base
-from const import SQLALCHEMY_DATABASE_URL, redis_password
+from const import SQLALCHEMY_DATABASE_URL_MASTER, SQLALCHEMY_DATABASE_URL_SLAVE , redis_password
 import redis
 from minio import Minio, S3Error
-from const import development_ip
 minio_client = Minio(
     "127.0.0.1:9000",  # 更新为MinIO服务器的地址和端口
     access_key="SDUBAS-admin",  # 你的MinIO访问密钥
@@ -22,15 +21,23 @@ pool1 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=1, encoding='UTF-8'
 pool2 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=2, encoding='UTF-8', password=redis_password)
 pool3 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=3, encoding='UTF-8', password=redis_password)
 pool4 = redis.ConnectionPool(host='127.0.0.1', port=6379, db=4, encoding='UTF-8', password=redis_password)
-session_db = redis.Redis(connection_pool=pool1)  # 根据token缓存有效sessioni
+pool5 = redis.ConnectionPool(host='172.16.2.10', port=6379, db=1, encoding='UTF-8', password=redis_password)
+pool6 = redis.ConnectionPool(host='172.16.2.10', port=6379, db=2, encoding='UTF-8', password=redis_password)
+pool7 = redis.ConnectionPool(host='172.16.2.10', port=6379, db=3, encoding='UTF-8', password=redis_password)
+pool8 = redis.ConnectionPool(host='172.16.2.10', port=6379, db=4, encoding='UTF-8', password=redis_password)
+session_db = redis.Redis(connection_pool=pool1)  # 根据token缓存有效session
 user_information_db = redis.Redis(connection_pool=pool2)  # 根据user_id缓存用户基本信息
 url_db = redis.Redis(connection_pool=pool3)  # 根据user_file_id缓存下载链接
 block_chain_db = redis.Redis(connection_pool=pool4)  # 根据username缓存用户token
+session_db_write = redis.Redis(connection_pool=pool5)  # 根据token缓存有效session
+user_information_db_write = redis.Redis(connection_pool=pool6)  # 根据user_id缓存用户基本信息
+url_db_write = redis.Redis(connection_pool=pool7)  # 根据user_file_id缓存下载链接
+block_chain_db_write = redis.Redis(connection_pool=pool8)  # 根据username缓存用户token
 Base = declarative_base()
 
 
 class dbSession:
-    def __init__(self, db_url=SQLALCHEMY_DATABASE_URL):
+    def __init__(self, db_url=SQLALCHEMY_DATABASE_URL_MASTER):
         self.engine = create_engine(db_url, pool_pre_ping=True)
         self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine, expire_on_commit=False)
         self.SessionThreadLocal = scoped_session(self.SessionLocal)
@@ -58,3 +65,20 @@ class dbSession:
             session.delete(record)
             session.commit()
             return record_id
+
+
+class dbSessionread:
+    def __init__(self, db_url=SQLALCHEMY_DATABASE_URL_SLAVE):
+        self.engine = create_engine(db_url, pool_pre_ping=True)
+        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine, expire_on_commit=False)
+        self.SessionThreadLocal = scoped_session(self.SessionLocal)
+
+    @contextmanager
+    def get_db_read(self):
+        if self.SessionThreadLocal is None:
+            raise Exception("Database not connected")
+        session = self.SessionThreadLocal()
+        try:
+            yield session
+        finally:
+            session.close()

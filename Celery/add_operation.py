@@ -8,8 +8,8 @@ from service.user import OperationModel
 from type.functions import block_chains_login, block_chains_upload, block_chains_judge_complete, get_user_name
 from type.user import operation_interface
 
-broker = f'redis://:{redis_password}@{development_ip}:6379/14'  # 消息队列
-backend = f'redis://:{redis_password}@{development_ip}:6379/15'  # 存储结果
+broker = f'redis://:{redis_password}@172.16.2.10:6379/14'  # 消息队列
+backend = f'redis://:{redis_password}@172.16.2.10:6379/15'  # 存储结果
 
 add_operation_app = Celery(
     'tasks',

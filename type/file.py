@@ -12,6 +12,7 @@ class file_interface(BaseModel):
     is_save: int = 0
     time: int = None
     type: int = 0
+    server_id : int = None
 
 
 class user_file_interface(BaseModel):
@@ -34,6 +35,6 @@ class RSA_interface(BaseModel):
     public_key_pem: bytes
 
 
-class ASE_interface(BaseModel):
+class AES_interface(BaseModel):
     file_id: int
-    ase_key: str
+    aes_key: str

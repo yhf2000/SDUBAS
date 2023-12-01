@@ -1,10 +1,10 @@
 from fastapi.encoders import jsonable_encoder
-from model.db import dbSession
+from model.db import dbSession, dbSessionread
 from model.user import School, College, Major, Class, Education_Program, User_info
 from type.user import school_interface, college_interface, class_interface, major_interface
 
 
-class SchoolModel(dbSession):  # 学校model
+class SchoolModel(dbSession, dbSessionread):  # 学校model
     def add_school(self, obj: school_interface):  # 添加一个school
         obj_dict = jsonable_encoder(obj)
         obj_add = School(**obj_dict)
@@ -29,43 +29,43 @@ class SchoolModel(dbSession):  # 学校model
             return name
 
     def get_school_id_by_name(self, name):  # 根据name查询school的id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             school = session.query(School.id).filter(School.has_delete == 0, School.name == name).first()
             session.commit()
             return school
 
     def get_school_logo_id_by_id(self, id):  # 根据id查询school的logo
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             school_logo = session.query(School.school_logo_id).filter(School.id == id).first()
             session.commit()
             return school_logo
 
     def get_school_logo_id_by_name(self, name):  # 根据name查询school的logo
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             school_logo = session.query(School.school_logo_id).filter(School.name == name).first()
             session.commit()
             return school_logo
 
     def get_school_information_by_name(self, name):  # 根据name查询school的基本信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             school = session.query(School).filter(School.name == name).first()
             session.commit()
             return school
 
     def get_school_name_by_id(self, id):  # 根据id查询school的name
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             name = session.query(School.name).filter(School.has_delete == 0, School.id == id).first()
             session.commit()
             return name
 
     def get_school_exist_by_id(self, id):  # 根据id查询school的id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             id = session.query(School.id).filter(School.id == id, School.has_delete == 0).first()
             session.commit()
             return id
 
     def get_school_by_admin(self, page):  # 查找管理员能操作的所有学校
-        with (self.get_db() as session):
+        with self.get_db_read() as session:
             query = session.query(School).filter(School.has_delete == 0)
             counts = query.count()
             school = query.order_by(
@@ -93,7 +93,7 @@ class SchoolModel(dbSession):  # 学校model
             return 'ok'
 
 
-class CollegeModel(dbSession):
+class CollegeModel(dbSession, dbSessionread):
     def add_college(self, obj: college_interface):  # 添加一个college
         obj_dict = jsonable_encoder(obj)
         obj_add = College(**obj_dict)
@@ -115,20 +115,20 @@ class CollegeModel(dbSession):
             return name
 
     def get_college_by_name(self, obj: college_interface):  # 根据school_id,name查询college的id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             college = session.query(College.id).filter(College.has_delete == 0, College.school_id == obj.school_id,
                                                        College.name == obj.name).first()
             session.commit()
             return college
 
     def get_college_exist_by_college_logo(self, college_logo):  # 根据college_logo查询college是否存在
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             college = session.query(College.college_logo_id).filter(College.college_logo_id == college_logo).first()
             session.commit()
             return college
 
     def get_college_status_by_name(self, obj: college_interface):  # 根据school_id,name查询college的状态
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             college = session.query(College.has_delete, College.id).filter(
                 College.school_id == obj.school_id,
                 College.name == obj.name).first()
@@ -136,19 +136,19 @@ class CollegeModel(dbSession):
             return college
 
     def get_college_exist_by_id(self, id):  # 根据id查询college的id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             id = session.query(College.id).filter(College.id == id, College.has_delete == 0).first()
             session.commit()
             return id
 
     def get_college_by_id(self, id):  # 根据id查询college的基本信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             college = session.query(College).filter(College.has_delete == 0, College.id == id).first()
             session.commit()
             return college
 
     def get_college_by_school_id(self, school_id, page):  # 根据college的school_id查询college的基本信息
-        with (self.get_db() as session):
+        with self.get_db_read() as session:
             query = session.query(College).filter(College.has_delete == 0, College.school_id == school_id)
             counts = query.count()
             college = query.order_by(
@@ -171,7 +171,7 @@ class CollegeModel(dbSession):
             return 'ok'
 
 
-class MajorModel(dbSession):
+class MajorModel(dbSession, dbSessionread):
     def add_major(self, obj: major_interface):  # 添加一个major
         obj_dict = jsonable_encoder(obj)
         obj_dict.pop('school_id')
@@ -190,13 +190,13 @@ class MajorModel(dbSession):
             return names
 
     def get_major_exist_by_id(self, id):  # 根据id查询major是否存在
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             id = session.query(Major.id).filter(Major.id == id, Major.has_delete == 0).first()
             session.commit()
             return id
 
     def get_major_by_college_id(self, college_id, page):  # 根据college_id查询major的基本信息
-        with (self.get_db() as session):
+        with self.get_db_read() as session:
             query = session.query(Major).filter(Major.has_delete == 0, Major.college_id == college_id)
             counts = query.count()
             major = query.order_by(
@@ -206,7 +206,7 @@ class MajorModel(dbSession):
             return major, counts
 
     def get_major_status_by_name(self, obj: major_interface):  # 根据专业名和学院id和学校id查询专业
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             major = session.query(Major.has_delete, Major.id).outerjoin(College,
                                                                         Major.college_id == College.id).outerjoin(
                 School,
@@ -219,7 +219,7 @@ class MajorModel(dbSession):
             return major
 
     def get_major_by_name(self, obj: major_interface):  # 根据专业名和学院id和学校id查询专业的id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             major = session.query(Major.id).outerjoin(College, Major.college_id == College.id).outerjoin(School,
                                                                                                          College.school_id == School.id).filter(
                 College.id == obj.college_id,
@@ -245,7 +245,7 @@ class MajorModel(dbSession):
             return 'ok'
 
 
-class ClassModel(dbSession):
+class ClassModel(dbSession, dbSessionread):
     def add_class(self, obj: class_interface):  # 添加一个class
         obj_dict = jsonable_encoder(obj)
         obj_dict.pop('school_id')
@@ -264,13 +264,13 @@ class ClassModel(dbSession):
             return name
 
     def get_class_exist_by_id(self, id):  # 根据id查询class是否存在
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             id = session.query(Class.id).filter(Class.id == id, Class.has_delete == 0).first()
             session.commit()
             return id
 
     def get_class_by_college_id(self, college_id, page):  # 根据college_id查询class的基本信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             query = session.query(Class).filter(Class.has_delete == 0, Class.college_id == college_id)
             counts = query.count()
             clas = query.order_by(
@@ -280,7 +280,7 @@ class ClassModel(dbSession):
             return clas, counts
 
     def get_class_by_name(self, obj: class_interface):  # 根据班级名和学院id和学校id查询班级的id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             clas = session.query(Class.id, Class.name).outerjoin(College, Class.college_id == College.id).outerjoin(
                 School,
 
@@ -295,7 +295,7 @@ class ClassModel(dbSession):
             return clas
 
     def get_class_status_by_name(self, obj: class_interface):  # 根据班级名和学院id和学校id查询班级
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             clas = session.query(Class.has_delete, Class.id).outerjoin(College,
                                                                        Class.college_id == College.id).outerjoin(School,
                                                                                                                  College.school_id == School.id).filter(

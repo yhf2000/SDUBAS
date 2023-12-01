@@ -1,0 +1,81 @@
+INSERT INTO `SDUBAS`.`user` (`id`, `username`, `password`, `email`, `card_id`, `registration_dt`, `storage_quota`, `status`, `has_delete`) VALUES (1, 'admin', 'd82494f05d6917ba02f7aaa29689ccb444bb73f20380876cb05d1f37537b7892', '1254620366@qq.com', '1', '2023-10-17 11:30:13', 32, 0, 0);
+
+INSERT INTO `SDUBAS`.`user_info` (`id`, `user_id`, `realname`, `gender`, `major_id`, `class_id`, `enrollment_dt`, `graduation_dt`, `has_delete`) VALUES (1, 1, '管理员', 1, NULL, NULL, '2023-10-17', '2023-10-17', 0);
+
+INSERT INTO `SDUBAS`.`role` (`id`, `name`, `description`, `superiorId`, `template`, `template_val`, `tplt_id`, `status`, `superiorListId`, `has_delete`) VALUES (1, '超级管理员', '', 0, 0, NULL, NULL, 0, '{\"ids\": [0]}', 0);
+INSERT INTO `SDUBAS`.`role` (`id`, `name`, `description`, `superiorId`, `template`, `template_val`, `tplt_id`, `status`, `superiorListId`, `has_delete`) VALUES (2, '学校', '', 1, 0, NULL, NULL, 0, '{\"ids\": [0, 1]}', 0);
+INSERT INTO `SDUBAS`.`role` (`id`, `name`, `description`, `superiorId`, `template`, `template_val`, `tplt_id`, `status`, `superiorListId`, `has_delete`) VALUES (3, '学院', '', 2, 0, NULL, NULL, 0, '{\"ids\": [0, 1, 2]}', 0);
+INSERT INTO `SDUBAS`.`role` (`id`, `name`, `description`, `superiorId`, `template`, `template_val`, `tplt_id`, `status`, `superiorListId`, `has_delete`) VALUES (4, '教师', '', 3, 0, NULL, NULL, 0, '{\"ids\": [0, 1, 2, 3]}', 0);
+INSERT INTO `SDUBAS`.`role` (`id`, `name`, `description`, `superiorId`, `template`, `template_val`, `tplt_id`, `status`, `superiorListId`, `has_delete`) VALUES (5, '学生', '', 4, 0, NULL, NULL, 0, '{\"ids\": [0, 1, 2, 3, 4]}', 0);
+
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (1, 7, '', '项目查看', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (2, 7, '', '项目提交', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (3, 7, '', '项目批阅', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (4, 7, '', '项目编辑', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (5, 7, '', '项目删除', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (6, 7, '', '项目学分认定', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (7, 5, NULL, '资源编辑', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (8, 5, NULL, '资源申请', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (9, 5, NULL, '资源审批', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (10, 5, NULL, '资源删除', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (11, 0, NULL, '新建资源', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (12, 6, NULL, '查看资金', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (13, 0, NULL, '添加资金', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (14, 0, NULL, '新建用户', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (15, 0, NULL, '添加学校', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (16, 1, NULL, '学校管理', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (17, 0, NULL, '添加学院', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (18, 2, NULL, '学院管理', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (19, 0, NULL, '添加专业', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (20, 3, NULL, '专业管理', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (21, 0, NULL, '添加班级', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (22, 4, NULL, '班级管理', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (23, 0, NULL, '新建项目', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (24, 1, NULL, '学校查看', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (25, 2, NULL, '学院查看 ', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (27, 5, NULL, '资源查看', NULL, 0);
+INSERT INTO `SDUBAS`.`privilege` (`id`, `service_type`, `key`, `name`, `name_alias`, `has_delete`) VALUES (28, 5, NULL, '资源使用', NULL, 0);
+
+INSERT INTO `SDUBAS`.`user_role` (`id`, `role_id`, `user_id`, `has_delete`) VALUES (1, 1, 1, 0);
+
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (1, 1, 1, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (2, 1, 2, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (3, 1, 3, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (4, 1, 4, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (5, 1, 5, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (6, 1, 6, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (7, 1, 7, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (8, 1, 8, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (9, 1, 9, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (10, 1, 10, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (11, 1, 11, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (12, 1, 12, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (13, 1, 13, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (14, 1, 14, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (15, 1, 15, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (16, 1, 16, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (17, 1, 17, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (18, 1, 18, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (19, 1, 19, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (20, 1, 20, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (21, 1, 21, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (22, 1, 22, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (23, 1, 23, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (24, 1, 24, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (25, 1, 25, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (27, 1, 27, NULL, NULL, 0);
+INSERT INTO `SDUBAS`.`role_privilege` (`id`, `role_id`, `privilege_id`, `start_dt`, `end_dt`, `has_delete`) VALUES (28, 1, 28, NULL, NULL, 0);
+
+INSERT INTO `SDUBAS`.`work-role` (`id`, `role_id`, `roles_alias`, `service_type`, `service_id`, `type`, `has_delete`) VALUES (1, 1, NULL, 0, 1, NULL, 0);
+
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (1, 'SDUBAS-01', '172.16.2.1', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (2, 'SDUBAS-02', '172.16.2.2', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (3, 'SDUBAS-03', '172.16.2.3', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (4, 'SDUBAS-04', '172.16.2.4', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (5, 'SDUBAS-05', '172.16.2.5', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (6, 'SDUBAS-06', '172.16.2.6', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (7, 'SDUBAS-07', '172.16.2.7', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (8, 'SDUBAS-08', '172.16.2.8', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (9, 'SDUBAS-09', '172.16.2.9', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (10, 'SDUBAS-10', '172.16.2.10', 0, 0);
+INSERT INTO `SDUBAS`.`Servers` (`id`, `server_name`, `ip_address`, `status`, `has_delete`) VALUES (11, 'SDUBAS-11', '43.138.34.119', 0, 0);

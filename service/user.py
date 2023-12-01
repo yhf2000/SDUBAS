@@ -1,7 +1,7 @@
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func, join
 import model.user
-from model.db import dbSession
+from model.db import dbSession, dbSessionread
 from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College, Education_Program
 from type.user import user_info_interface, session_interface, \
     operation_interface, user_add_interface, education_program_interface
@@ -26,7 +26,7 @@ programs_translation1 = {
 }
 
 
-class UserModel(dbSession):
+class UserModel(dbSession, dbSessionread):
 
     def add_user(self, obj: user_add_interface):  # 管理员添加一个用户(在user表中添加一个用户)
         obj_dict = jsonable_encoder(obj)
@@ -49,12 +49,6 @@ class UserModel(dbSession):
             session.commit()
             return id
 
-    def update_user_storage_quota(self, id: int, storage_quota: int):  # 更改用户存储空间限制
-        with self.get_db() as session:
-            session.query(User).filter(User.id == id).update({"storage_quota": storage_quota})
-            session.commit()
-            return id
-
     def update_user_password(self, id: int, password: str):  # 更改用户密码
         with self.get_db() as session:
             session.query(User).filter(User.id == id).update({"password": password})
@@ -68,77 +62,72 @@ class UserModel(dbSession):
             return id
 
     def get_user_by_username(self, username):  # 根据username查询user的基本信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user = session.query(User).filter(User.has_delete == 0, User.username == username).first()
             session.commit()
             return user
 
     def get_user_some_by_username(self, username):  # 根据username查询user的部分信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user = session.query(User.email, User.password, User.username, User.id).filter(User.has_delete == 0,
                                                                                            User.username == username).first()
             session.commit()
             return user
 
     def get_user_email_by_username(self, username):  # 根据username查询id,email
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             email = session.query(User.id, User.email).filter(User.username == username).first()
             session.commit()
             return email
 
     def get_user_status_by_username(self, username):  # 根据username查询user的帐号状态
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user = session.query(User.status).filter(User.has_delete == 0, User.username == username).first()
             session.commit()
             return user
 
     def get_user_status_by_email(self, email):  # 根据email查询user的帐号状态
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user = session.query(User.status).filter(User.has_delete == 0, User.email == email).first()
             session.commit()
             return user
 
     def get_user_status_by_card_id(self, card_id):  # 根据card_id查询user的帐号状态
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user = session.query(User.status).filter(User.has_delete == 0, User.card_id == card_id).first()
             session.commit()
             return user
 
     def get_user_id_by_email(self, email):  # 根据email查询user_id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user = session.query(User.id).filter(User.has_delete == 0, User.email == email).first()
             session.commit()
             return user
 
     def get_user_by_user_id(self, user_id):  # 根据user_id查询user的基本信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user = session.query(User).filter(User.id == user_id, User.has_delete == 0).first()
             session.commit()
             return user
 
     def get_user_all_information_by_user_id(self, user_id):  # 根据user_id查询user的所有信息
-        with self.get_db() as session:
-            informations = session.query(User.username, User.email, User.card_id, User.registration_dt,
-                                         User_info.realname, User_info.gender, School.name, College.name, Major.name,
-                                         Class.name, User_info.enrollment_dt, User_info.graduation_dt). \
+        with self.get_db_read() as session:
+            informations = session.query(User.username, User.email,
+                                         User_info.oj_username). \
                 outerjoin(User_info, User_info.user_id == User.id). \
-                outerjoin(Major, Major.id == User_info.major_id). \
-                outerjoin(Class, Class.id == User_info.class_id). \
-                outerjoin(College, College.id == Major.college_id). \
-                outerjoin(School, School.id == College.school_id). \
                 filter(User.id == user_id, User.has_delete == 0). \
                 first()
             session.commit()
             return informations
 
     def get_user_status_by_user_id(self, user_id):  # 根据user_id查询user的帐号状态
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             status = session.query(User.status).filter(User.id == user_id, User.has_delete == 0).first()
             session.commit()
             return status
 
     def get_name_by_user_id(self, user_id):  # 根据user_id查询username,realname
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             names = session.query(User.username, User_info.realname).outerjoin(User_info,
                                                                                User_info.user_id == user_id).filter(
                 User.id == user_id, User.has_delete == 0).first()
@@ -146,14 +135,14 @@ class UserModel(dbSession):
             return names
 
     def get_user_name_by_user_id(self, user_id):  # 根据user_id查询username
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             name = session.query(User.username).filter(
                 User.id == user_id, User.has_delete == 0).first()
             session.commit()
             return name
 
     def get_user_information_by_name_school(self, name, school, pg):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             res_list = []
             join_tables = join(User, User_info, User.id == User_info.user_id)
             join_tables = join(join_tables, Class, User_info.class_id == Class.id)
@@ -187,7 +176,7 @@ class UserModel(dbSession):
             return total_count, res_list
 
 
-class SessionModel(dbSession):
+class SessionModel(dbSession, dbSessionread):
     def add_session(self, obj: session_interface):  # 添加一个session
         obj_dict = jsonable_encoder(obj)
         obj_dict['exp_dt'] = func.from_unixtime(obj_dict['exp_dt'])
@@ -221,19 +210,19 @@ class SessionModel(dbSession):
             return 'ok'
 
     def get_session_by_token(self, token):  # 根据token查询session的基本信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             ses = session.query(Session).filter(Session.has_delete == 0, Session.token == token).first()
             session.commit()
             return ses
 
     def get_user_id_by_token(self, token):  # 根据token查询user_id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user_id = session.query(Session.user_id).filter(Session.has_delete == 0, Session.token == token).first()
             session.commit()
             return user_id
 
     def get_user_name_by_token(self, token):  # 根据token查询user_name
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user_name = session.query(User.username).outerjoin(Session, Session.user_id == User.id).filter(
                 Session.has_delete == 0, Session.token == token).first()
             session.commit()
@@ -252,7 +241,7 @@ class SessionModel(dbSession):
             return "ok"
 
 
-class UserinfoModel(dbSession):
+class UserinfoModel(dbSession, dbSessionread):
     def add_userinfo(self, obj: user_info_interface):  # 在user_info表中添加一条信息
         obj_dict = jsonable_encoder(obj)
         obj_dict.pop('card_id')
@@ -273,11 +262,18 @@ class UserinfoModel(dbSession):
             return 'ok'
 
     def get_major_id_by_user_id(self, user_id):  # 根据user_id查询user的major_id
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             userinfo = session.query(User_info.major_id).filter(User_info.user_id == user_id,
                                                                 User_info.has_delete == 0).first()
             session.commit()
             return userinfo
+
+    def get_oj_exist_by_user_id(self, user_id):  # 根据user_id查询oj账号是否绑定
+        with self.get_db_read() as session:
+            exist = session.query(User_info.oj_username).filter(User_info.user_id == user_id,
+                                                                User_info.has_delete == 0).first()
+            session.commit()
+            return exist
 
     def add_new_something(self, new):
         with self.get_db() as session:
@@ -286,7 +282,7 @@ class UserinfoModel(dbSession):
             return new.id
 
 
-class OperationModel(dbSession):
+class OperationModel(dbSession, dbSessionread):
     def add_operation(self, obj: operation_interface):  # 添加一个操作(在operation表中添加一个操作)
         obj_dict = jsonable_encoder(obj)
         obj_add = Operation(**obj_dict)
@@ -296,13 +292,13 @@ class OperationModel(dbSession):
             return 'ok'
 
     def get_operation_hash_by_id_list(self, id_list):  # 根据id_list查询operation的hash
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             hash_list = session.query(Operation.id, Operation.oper_hash).filter(Operation.id.in_(id_list)).all()
             session.commit()
             return hash_list
 
     def get_func_and_time_by_admin(self, page, user_id):  # 查找某操作人的所有操作和时间
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             query = session.query(Operation.func, Operation.oper_dt, Operation.id).filter(
                 Operation.oper_user_id == user_id)
             counts = query.count()
@@ -313,7 +309,7 @@ class OperationModel(dbSession):
             return operations, counts
 
     def get_operation_by_service_type(self, service_type, service_id, type):  # 根据service与type查询operation的基本信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             reason = session.query(Operation.func, Operation.oper_user_id).filter(
                 Operation.service_type == service_type,
                 Operation.service_id == service_id, Operation.operation_type == type).first()
@@ -321,7 +317,7 @@ class OperationModel(dbSession):
             return reason
 
 
-class CaptchaModel(dbSession):
+class CaptchaModel(dbSession, dbSessionread):
     def add_captcha(self, value):  # 添加一个验证码
         obj_add = Captcha(value=value, has_delete=0)
         with self.get_db() as session:
@@ -336,13 +332,13 @@ class CaptchaModel(dbSession):
             return id
 
     def get_captcha_by_id(self, id):  # 根据id查询captcha的值
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             value = session.query(Captcha.value).filter(Captcha.id == id, Captcha.has_delete == 0).first()
             session.commit()
             return value
 
 
-class EducationProgramModel(dbSession):
+class EducationProgramModel(dbSession, dbSessionread):
     def add_education_program(self, obj: education_program_interface):  # 添加一个培养方案
         obj_dict = jsonable_encoder(obj)
         obj_add = Education_Program(**obj_dict)
@@ -364,7 +360,7 @@ class EducationProgramModel(dbSession):
             return 'ok'
 
     def get_education_program_by_user_id(self, user_id):  # 根据user_id查询education_program
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user_info = UserinfoModel()
             major_id = user_info.get_major_id_by_user_id(user_id)
             if major_id is None:
