@@ -20,6 +20,7 @@ class File(Base):  # 文件表
     hash_sha256 = Column(VARCHAR(128), nullable=False)  # 文件哈希sha256
     time = Column(Integer, nullable=True)  # 视频类型的文件的播放时长
     create_dt = Column(DateTime,default=func.now(), nullable=False)  # 文件创建时间
+    server_id = Column(Integer, ForeignKey('Servers.id'),nullable=False)  # 文件所在的服务器id
     has_delete = Column(Boolean, nullable=False, default=0)  # 是否已经删除
 
 
@@ -43,11 +44,11 @@ class RSAKeys(Base):  # 用户RSA公私钥表
     has_delete = Column(Boolean, index=True, default=0, nullable=False)  # 是否已经删除
 
 
-class ASEKey(Base):
-    __tablename__ = 'ASE_key'
+class AESKey(Base):
+    __tablename__ = 'AES_key'
     id = Column(Integer, primary_key=True)  # 主键
     file_id = Column(Integer, ForeignKey('user_file.id'), nullable=False)  # 文件id，外键
-    ase_key = Column(VARCHAR(512), nullable=False)
+    aes_key = Column(VARCHAR(512), nullable=False)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     has_delete = Column(Boolean, index=True, default=0, nullable=False)  # 是否已经删除
 
@@ -55,8 +56,7 @@ class ASEKey(Base):
 class Servers(Base):  # 服务器表
     __tablename__ = 'Servers'
     id = Column(Integer, primary_key=True, nullable=False, comment='服务器的唯一标识符')
-    server_name = Column(VARCHAR(128), nullable=False, comment='服务器名称')
-    ip_address = Column(VARCHAR(128), nullable=False, comment='服务器的IP地址')
-    location = Column(VARCHAR(128), nullable=False, comment='服务器的位置')
-    status = Column(Integer, nullable=False, comment='服务器状态:0为运行中，1为离线，2为故障')
+    server_name = Column(VARCHAR(64), nullable=False, comment='服务器名称')
+    ip_address = Column(VARCHAR(64), nullable=False, comment='服务器的IP地址')
+    status = Column(Integer, nullable=False, comment='服务器状态:0为运行中，1为离线，2为故障',default=0)
     has_delete = Column(Boolean, index=True, default=0, nullable=False)  # 是否已经删除

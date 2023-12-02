@@ -7,7 +7,7 @@ from sqlalchemy.sql import select
 
 from model.permissions import Role, RolePrivilege, UserRole, Privilege, WorkRole
 from model.user import User ,User_info, School, Major, Class, College
-from model.db import dbSession
+from model.db import dbSession,dbSessionread
 from type.permissions import *
 from type.page import page
 
@@ -28,10 +28,10 @@ def delete_superiorId(data: dict, super_id: int):  # 在superiorListId中删除�
     return json_string
 
 
-class permissionModel(dbSession):
+class permissionModel(dbSession,dbSessionread):
 
     def get_role_info_by_id(self, id):  # 获取角色表信息
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             op = session.query(Role).filter(
                 Role.id == id
             ).first()
@@ -187,7 +187,7 @@ class permissionModel(dbSession):
                 return new_work_role.id
 
     def get_son_role(self, role_list: list):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             role_set = set()
             while len(role_list) != 0:
                 role_set.add(role_list[0])
@@ -201,7 +201,7 @@ class permissionModel(dbSession):
             return role_set
 
     def search_role_by_user(self, user_id: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user_role = session.query(UserRole.role_id).filter(
                 UserRole.user_id == user_id,
                 UserRole.has_delete == 0
@@ -212,7 +212,7 @@ class permissionModel(dbSession):
             return role_list
 
     def search_user_by_role(self, role_list: list):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user_set = set()
             user = session.query(UserRole).filter(
                 UserRole.role_id.in_(role_list),
@@ -224,7 +224,7 @@ class permissionModel(dbSession):
             return user_list
 
     def search_privilege_by_role(self, role_list: list):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             privilege_set = set()
             for i in role_list:
                 role_privilege = session.query(RolePrivilege).filter(
@@ -235,14 +235,14 @@ class permissionModel(dbSession):
             return privilege_set
 
     def search_privilege_name_by_privilege_id(self, privilege_name: str):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             privilege_id = session.query(Privilege).filter(
                 Privilege.name == privilege_name
             ).first()
             return privilege_id.id
 
     def search_work_by_role(self, role_list: list):
-        with self.get_db() as session:
+        with self.get_db_read()  as session:
             work_list = []
             for i in role_list:
                 work = session.query(WorkRole).filter(
@@ -253,7 +253,7 @@ class permissionModel(dbSession):
             return work_list
 
     def check_permission(self, permission_key: str, privilege_set: set):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             for item in privilege_set:
                 privilege = session.query(Privilege).filter(
                     item == Privilege.id
@@ -263,7 +263,7 @@ class permissionModel(dbSession):
             return False
 
     def search_service_id(self, role_list: list, service_type: int, name: str):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             service_ids = []
             for i in role_list:
                 work_role = session.query(WorkRole).filter(
@@ -275,7 +275,7 @@ class permissionModel(dbSession):
             return service_ids
 
     def search_user_id_by_service(self, service_type: int, service_id: int):  # userrolehasdelete有改动
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user_list = []
             query = session.query(distinct(UserRole.user_id)).join(
                 WorkRole,
@@ -288,7 +288,7 @@ class permissionModel(dbSession):
             return query
 
     def search_college_default_role_id(self, role_list: list):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             query = session.query(WorkRole).filter(
                 WorkRole.role_id.in_(role_list),
                 WorkRole.service_type == 2,
@@ -297,7 +297,7 @@ class permissionModel(dbSession):
             return query.role_id
 
     def search_user_default_role(self, user_id: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             role_list = self.search_role_by_user(user_id)
             query = session.query(WorkRole).filter(
                 WorkRole.service_type == 0
@@ -307,7 +307,7 @@ class permissionModel(dbSession):
                     return item.role_id
 
     def search_tplt_role(self, applied_role_id: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             query = session.query(Role).filter(
                 Role.id == applied_role_id,
             ).first()
@@ -349,7 +349,7 @@ class permissionModel(dbSession):
         return role_id
 
     def search_role_by_service(self, service_id: int, service_type: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             role_list = []
             query = session.query(WorkRole).filter(
                 WorkRole.service_id == service_id,
@@ -360,7 +360,7 @@ class permissionModel(dbSession):
             return role_list
 
     def search_privilege_list(self, service_type: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             privilege_list = []
             privilege = session.query(Privilege).filter(
                 Privilege.service_type == service_type
@@ -374,7 +374,7 @@ class permissionModel(dbSession):
             return privilege_list
 
     def search_user_privilege_list(self, service_type: int, user_id: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             privilege_list = []
             query = session.query(Privilege).join(
                 RolePrivilege,
@@ -396,7 +396,7 @@ class permissionModel(dbSession):
             return privilege_list
 
     def search_privilege_id_list(self, service_type: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             privilege_list = []
             privilege = session.query(Privilege).filter(
                 Privilege.service_type == service_type
@@ -420,7 +420,7 @@ class permissionModel(dbSession):
             return 'OK'
 
     def search_created_user_id(self, user_id: int, pg: page):  # 改userrole的hasdelete
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             user = session.query(distinct(UserRole.user_id)).join(
                 WorkRole,
                 WorkRole.role_id == UserRole.role_id,
@@ -436,7 +436,7 @@ class permissionModel(dbSession):
             return total_count, dicts
 
     def search_role_by_user_2(self, user_id: int, pg: page):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             res_list = []
             user_role = session.query(UserRole.role_id).filter(
                 UserRole.user_id == user_id,
@@ -477,7 +477,7 @@ class permissionModel(dbSession):
             return total_count, res_list
 
     def get_user_info_by_role(self, role_id: int, pg: page):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             res_list = []
             query = session.query(User).join(
                 UserRole,
@@ -497,7 +497,7 @@ class permissionModel(dbSession):
             return total_count, res_list
 
     def get_role_by_work(self, service_type: int, service_id: int, pg: page):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             res_list = []
             query = session.query(Role).join(
                 WorkRole,
@@ -517,7 +517,7 @@ class permissionModel(dbSession):
             return total_count, res_list
 
     def get_template_role_by_work(self, service_type: int, service_id: int, user_id: int, pg: page):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             res_list = []
             query = session.query(Role).join(
                 WorkRole,
@@ -564,7 +564,7 @@ class permissionModel(dbSession):
             return total_count, res_list
 
     def get_applied_template_role_by_work(self, service_type: int, service_id: int, pg: page):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             res_list = []
             query = session.query(Role).join(
                 WorkRole,
@@ -617,7 +617,7 @@ class permissionModel(dbSession):
             return 'OK'
 
     def search_created_user_info(self, user_id: int, pg: page):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             role_list = []
             res_list = []
             query = session.query(WorkRole).filter(
@@ -659,7 +659,7 @@ class permissionModel(dbSession):
             return total_count, res_list
 
     def search_specific_role(self, role_list: list, privilege_name: str):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             new_role_list = []
             privilege = session.query(Privilege).filter(
                 Privilege.name == privilege_name
@@ -673,7 +673,7 @@ class permissionModel(dbSession):
             return new_role_list
 
     def search_role_info_by_service(self, service_id: int, service_type: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             role_list = []
             query = session.query(Role).join(
                 WorkRole,
@@ -691,7 +691,7 @@ class permissionModel(dbSession):
             return role_list
 
     def return_student_role(self, service_id: int, service_type: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             query = session.query(WorkRole).join(
                 RolePrivilege,
                 RolePrivilege.role_id == WorkRole.role_id
@@ -710,7 +710,7 @@ class permissionModel(dbSession):
             return user_list
 
     def return_user_major_role(self, user_id: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             query = session.query(UserRole).join(
                 User,
                 UserRole.user_id == User.id
@@ -744,7 +744,7 @@ class permissionModel(dbSession):
             return 'OK'
 
     def search_work_role(self, service_type: int, service_id: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             roles = []
             query = session.query(Role).join(
                 WorkRole,
@@ -772,7 +772,7 @@ class permissionModel(dbSession):
             return roles
 
     def search_given_role(self, user_id: int, service_type: int):
-        with self.get_db() as session:
+        with self.get_db_read() as session:
             work_role = session.query(WorkRole).join(
                 UserRole,
                 UserRole.role_id == WorkRole.id

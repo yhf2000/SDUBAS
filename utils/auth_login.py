@@ -1,9 +1,10 @@
 import json
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, Depends
 from model.db import session_db
-from service.user import SessionModel
+from service.user import SessionModel, UserinfoModel
 
 session_model = SessionModel()
+user_info_model = UserinfoModel()
 
 
 def auth_login(request: Request):  # 用来判断用户是否登录
@@ -35,3 +36,26 @@ def auth_not_login(request: Request):  # 用来判断用户是否没登录
             detail="用户已登录"
         )
     return token
+
+
+def oj_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
+    username = user_info_model.get_oj_exist_by_user_id(session['user_id'])
+    if username is None:
+        raise HTTPException(
+            status_code=401,
+            detail="请先绑定oj账号"
+        )
+    # 用账号密码登录获取token
+    token = 1
+    res = {"token": token, "user_id": session['user_id']}
+    return res
+
+
+def oj_not_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
+    username = user_info_model.get_oj_exist_by_user_id(session['user_id'])
+    if username is not None:
+        raise HTTPException(
+            status_code=401,
+            detail="您已绑定oj账号"
+        )
+    return session

@@ -8,13 +8,13 @@ This repository contains the backend code for SDUBAS, an academic system built o
 docker pull zhao17/sdubas:latest
 ```
 
-ID is the ID of the server to be deployed to, and server 6 is the primary server by default
+ID is the ID of the server to be deployed to, and server 10 is the primary server by default
 
 ```bash
-docker run -e ID="6" -d -p 80:80 --name sdubas zhao17/sdubas:latest
+docker run -e ID="10" -d -p 80:80 -p 3306:3307 -p 6379:6379 --name sdubas zhao17/sdubas:latest
 ```
 
-## Build Image Yourself
+## Build Image Yourself (Please note that some configuration files are not provided.)
 
 First, put SDUBAS-backend and SDUBAS-frontend in the deploy directory
 
@@ -27,7 +27,7 @@ docker build -t sdubas .
 Finally, run the following command to start your exploration
 
 ```bash
-docker run -e ID="6" sdubas  
+docker run -e ID="10" sdubas  
 ```
 
 ## Running Asynchronous Tasks

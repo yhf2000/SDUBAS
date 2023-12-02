@@ -10,7 +10,7 @@ from fastapi import APIRouter
 from fastapi import Request, Header, Depends
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
-from model.db import session_db, user_information_db
+from model.db import session_db, user_information_db,session_db_write,user_information_db_write
 from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
 from type.functions import block_chains_login, block_chains_get
@@ -22,7 +22,7 @@ from type.user import user_info_interface, \
     session_interface, email_interface, password_interface, user_add_interface, admin_user_add_interface, \
     login_interface, \
     captcha_interface, user_interface, reason_interface, user_add_batch_interface
-from utils.auth_login import auth_login, auth_not_login
+from utils.auth_login import auth_login, auth_not_login, oj_login, oj_not_login
 from utils.auth_permission import auth_permission_default
 from utils.response import user_standard_response, page_response, makePageResult
 
@@ -213,8 +213,9 @@ async def get_captcha():
 @user_standard_response
 async def send_captcha(captcha_data: captcha_interface, request: Request, user_agent: str = Header(None)):
     value = captcha_model.get_captcha_by_id(int(captcha_data.captchaId))
-    if value[0] != captcha_data.captcha.lower():
+    if value is None or value[0] != captcha_data.captcha.lower():
         return {'message': '验证码输入错误', 'code': 1, 'data': False}
+    captcha_model.delete_captcha(int(captcha_data.captchaId))
     id = None
     str1 = ''
     str2 = ''
@@ -253,7 +254,7 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
         send_email.delay(captcha_data.email, token, 2)  # 异步发送邮件
     session = session.model_dump()
     user_session = json.dumps(session)
-    session_db.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
+    session_db_write.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
     return {'data': True, 'token_header': token, 'message': '验证码已发送，请前往验证！', 'code': 0}
 
 
@@ -274,7 +275,7 @@ async def user_activation(email_data: email_interface, request: Request, type: i
         if session['token_s6'] == email_data.token_s6:  # 输入的验证码正确
             session_model.update_session_use(user_session.id, 1)  # 把这个session使用次数设为1
             session_model.delete_session(user_session.id)  # 把这个session设为无效
-            session_db.delete(token)
+            session_db_write.delete(token)
             parameters = await make_parameters(request)
             if type == 0:  # 用户激活时进行验证
                 user_model.update_user_status(user_session.user_id, 0)
@@ -323,7 +324,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             id = session_model.add_session(session)
             session = session.model_dump()
             user_session = json.dumps(session)
-            session_db.set(token, user_session, ex=1209600)  # 缓存有效session
+            session_db_write.set(token, user_session, ex=1209600)  # 缓存有效session
             parameters = await make_parameters(request)
             add_operation.delay(0, int(user_information.id), '用户登录',
                                 f'用户{user_information.id}于xxx输入账号，密码登录', parameters,
@@ -339,7 +340,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
 async def user_logout(request: Request, session=Depends(auth_login)):
     token = session['token']
     mes = session_model.delete_session_by_token(token)  # 将session标记为已失效
-    session_db.delete(token)  # 在缓存中删除
+    session_db_write.delete(token)  # 在缓存中删除
     parameters = await make_parameters(request)
     add_operation.delay(0, session['user_id'], '用户登出', f"用户{session['user_id']}于xxx登出", parameters,
                         session['user_id'])
@@ -372,7 +373,7 @@ async def user_email_update(email_data: email_interface, request: Request, sessi
     if user_information is not None:
         user_information = json.loads(user_information)
         user_information['email'] = email_data.email
-        user_information_db.set(session["user_id"], json.dumps(user_information), ex=1209600)  # 缓存有效session
+        user_information_db_write.set(session["user_id"], json.dumps(user_information), ex=1209600)  # 缓存有效session
     else:
         session_model.delete_session_by_token(session["token"])
     return {'data': True, 'message': ans['message'], 'code': 0}
@@ -507,3 +508,13 @@ async def user_get_all_user_information(request: Request, pageNow: int, pageSize
                         parameters,
                         session['user_id'])
     return {'message': '操作如下', "data": result, "code": 0}
+
+
+@users_router.post("/oj_bind")  # 绑定oj账号
+@user_standard_response
+async def oj_bind(request: Request, bind_data : login_interface,  oj = Depends(oj_not_login)):
+    # token = 1 根据账号密码绑定账号
+    parameters = await make_parameters(request)
+    add_operation.delay(1, oj['user_id'], '绑定oj账号', f"{oj['user_id']}于xxx绑定oj账号", parameters,
+                       oj['user_id'])
+    return {'message': '绑定成功', 'data': True, 'code': 0}
