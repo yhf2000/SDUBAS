@@ -3,7 +3,7 @@ import json
 from fastapi import HTTPException, Request
 from sqlalchemy import and_
 from sqlalchemy import func, distinct, case
-from model.db import dbSession,dbSessionread
+from model.db import dbSession, dbSessionread
 from model.permissions import UserRole
 from model.project import Project, ProjectContent, ProjectCredit, ProjectContentSubmission, \
     ProjectContentUserSubmission, ProjectContentUserScore
@@ -16,7 +16,7 @@ from type.project import ProjectUpdate, CreditCreate, ScoreCreate, ProjectBase_O
     project_content_renew, User_Opt, ProjectCreate, video_finish_progress, Credit_Opt
 
 
-class ProjectService(dbSession,dbSessionread):
+class ProjectService(dbSession, dbSessionread):
     def create_project(self, project: ProjectCreate, user_id: int) -> int:
         with self.get_db() as session:
             # Create a new Project instance
@@ -104,7 +104,8 @@ class ProjectService(dbSession,dbSessionread):
 
     def get_project_content_submission_by_id(self, id: int):
         with self.get_db_read() as session:
-            project = session.query(ProjectContentSubmission.name).filter(ProjectContentSubmission.pro_content_id == id).first()
+            project = session.query(ProjectContentSubmission.name).filter(
+                ProjectContentSubmission.pro_content_id == id).first()
             return project
 
     def list_projects_content(self, request: Request, project_id: int, user_id: int):
@@ -359,12 +360,29 @@ class ProjectService(dbSession,dbSessionread):
                                                         ProjectContent.has_delete == 0).all()
             data = dealDataList(data, ProjectContentBaseOpt, {})
             contents = []
+            new_list = []
             for da in project_contents.contents:
                 da.project_id = project_id
                 da = da.model_dump()
                 contents.append(da)
+                new_list.append(da['id'])
             delete_list = []
             add_list = []
+            orignl_list = []
+            for item in contents:
+                for da in data:
+                    if item['id'] is not None:
+                        if (da['id'] == item['id']) & (da != item):
+                            session.query(ProjectContent).filter(ProjectContent.id == da['id']).update(
+                                {'type': item['type'],
+                                 'prefix': item['prefix'],
+                                 'name': item['name'],
+                                 'file_id': item['file_id'],
+                                 'content': item['content'],
+                                 'weight': item['weight'],
+                                 'feature': item['feature']})
+                            session.commit()
+                    orignl_list.append(da['id'])
             for content in contents:
                 if content['id'] is None:
                     add_list.append(content)
@@ -372,10 +390,10 @@ class ProjectService(dbSession,dbSessionread):
                     session.add(db_submission)
                     session.commit()
                     session.refresh(db_submission)
-            for da in data:
-                if da not in contents:
+            for da in orignl_list:
+                if da not in new_list:
                     delete_list.append(da)
-                    session.query(ProjectContent).filter(ProjectContent.id == da['id']).update({'has_delete': 1})
+                    session.query(ProjectContent).filter(ProjectContent.id == da).update({'has_delete': 1})
                     session.commit()
         return project_id
 
@@ -702,6 +720,6 @@ class ProjectService(dbSession,dbSessionread):
         return total_count, results
 
     def get_project_credits_role_info(self, project_id: int):
-            role_model = permissionModel()
-            role_list = role_model.search_role_info_by_service(project_id, 3)
-            return role_list
+        role_model = permissionModel()
+        role_list = role_model.search_role_info_by_service(project_id, 3)
+        return role_list
