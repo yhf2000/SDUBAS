@@ -101,6 +101,9 @@ class Class(Base):  # 班级表
 
 class Operation(Base):  # 操作表
     __tablename__ = 'operation'
+    __table_args__ = (
+        Index('ix_user_service_id_type', "oper_user_id", "service_type", "service_id"),  # 非唯一的联合索引
+    )
     id = Column(Integer, primary_key=True, autoincrement=True, comment='主键')  # 主键
     service_type = Column(Integer, nullable=False, index=True, comment='业务类型')  # 业务类型，非空，索引
     service_id = Column(Integer, nullable=True, comment='业务id')  # 业务id，可空

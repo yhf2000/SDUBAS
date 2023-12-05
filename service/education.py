@@ -16,7 +16,8 @@ class SchoolModel(dbSession, dbSessionread):  # 学校model
 
     def delete_school(self, id: int):  # 删除一个school
         with self.get_db() as session:
-            name = session.query(School.name).filter(School.id == id).update({"has_delete": 1})
+            name = session.query(School.name).filter(School.id == id).first()
+            session.query(School).filter(School.id == id).update({"has_delete": 1})
             college_query = session.query(College).filter(College.school_id == id)
             college_ids = [college.id for college in college_query]
             session.query(College).filter(College.id.in_(college_ids)).update({"has_delete": 1})
@@ -105,7 +106,8 @@ class CollegeModel(dbSession, dbSessionread):
 
     def delete_college(self, id: int):  # 删除一个college
         with self.get_db() as session:
-            name = session.query(College.name).filter(College.id == id).update({"has_delete": 1})
+            name = session.query(College.name).filter(College.id == id)
+            session.query(College).filter(College.id == id).update({"has_delete": 1})
             major_query = session.query(Major).filter(Major.college_id == id)
             major_ids = [major.id for major in major_query]
             major_query.update({"has_delete": 1})
@@ -185,7 +187,8 @@ class MajorModel(dbSession, dbSessionread):
 
     def delete_major(self, id: int):  # 删除一个major
         with self.get_db() as session:
-            names = session.query(Major.id, Major.name).filter(Major.id == id).update({"has_delete": 1})
+            names = session.query(Major.id, Major.name).filter(Major.id == id)
+            session.query(Major).filter(Major.id == id).update({"has_delete": 1})
             session.commit()
             return names
 
@@ -259,7 +262,8 @@ class ClassModel(dbSession, dbSessionread):
 
     def delete_class(self, id: int):  # 删除一个class
         with self.get_db() as session:
-            name = session.query(Class.name).filter(Class.id == id).update({"has_delete": 1})
+            name = session.query(Class.name).filter(Class.id == id)
+            session.query(Class).filter(Class.id == id).update({"has_delete": 1})
             session.commit()
             return name
 

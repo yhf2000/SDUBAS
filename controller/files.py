@@ -10,7 +10,7 @@ from fastapi import Request, Header, Depends
 from starlette.responses import JSONResponse, StreamingResponse
 from Celery.add_operation import add_operation
 from Celery.upload_file import upload_file
-from model.db import session_db, session_db_write
+from model.db import session_db
 from service.file import FileModel, UserFileModel, RSAModel, AESModel, ServersModel
 from service.user import UserModel, SessionModel
 from type.file import file_interface, user_file_interface, RSA_interface, AES_interface, user_file_all_interface
@@ -60,7 +60,7 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
     session_model.add_session(new_session)
     new_session = new_session.model_dump()
     user_session = json.dumps(new_session)
-    session_db_write.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
+    session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
     if id is None or id[1] == 0:
         return {'message': '文件不存在', 'data': {'file_id': None, 'public_key': public_key}, 'token_header': new_token,
                 'code': 0}
@@ -76,7 +76,7 @@ async def file_upload_valid(request: Request, file: file_interface, user_agent: 
 # 上传文件。文件存储位置：files/hash_md5前八位/hash_sha256的后八位/文件名
 @files_router.post("/upload")
 @user_standard_response
-async def file_upload(request: Request, file: UploadFile = File(...), ase_key: str = Form(...),
+async def file_upload(request: Request, file: UploadFile = File(...), aes_key: str = Form(...),
                       session=Depends(auth_login)):
     token = request.cookies.get("TOKEN")
     old_session = session_db.get(token)  # 有效session中没有，即session过期了
@@ -118,11 +118,11 @@ async def file_upload(request: Request, file: UploadFile = File(...), ase_key: s
     upload_file.delay(folder, file.filename, contents)
     session_model.update_session_use_by_token(token, 1)  # 将该session使用次数设为1
     session_model.delete_session_by_token(token)  # 将该session设为已失效
-    session_db_write.delete(token)  # 将缓存删掉
+    session_db.delete(token)  # 将缓存删掉
     user_file_all = user_file_all_interface(user_id = old_session['user_id'],file_id = old_session['file_id'],name= file.filename,type = file.content_type)
     id1 = user_file_model.add_user_file_all(user_file_all)
-    if ase_key != ' ':
-        new_aes = AES_interface(file_id=id1, aes_key=ase_key)
+    if aes_key != ' ':
+        new_aes = AES_interface(file_id=id1, aes_key=aes_key)
         id = AES_model.add_file_AES(new_aes)
     file_model.update_file_is_save(old_session['file_id'])  # 更新为已上传
     parameters = await make_parameters(request)
@@ -151,7 +151,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     session_model.add_session(new_session)
     new_session = new_session.model_dump()
     user_session = json.dumps(new_session)
-    session_db_write.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
+    session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
     server_id = file_model.get_server_id_by_user_file_id(id)[0]
     parameters = await make_parameters(request)
     add_operation.delay(8, id, '下载文件',
@@ -173,11 +173,11 @@ async def file_download_files(request: Request, token: str):
     if old_session['use'] != old_session['use_limit']:  # 查看下载链接是否还有下载次数
         if old_session['use'] + 1 == old_session['use_limit']:  # 在下一次就失效
             session_model.delete_session_by_token(token)
-            session_db_write.delete(token)
+            session_db.delete(token)
         else:
             session_model.update_session_use_by_token(token, 1)  # 将该session使用次数加1
             old_session['use'] = old_session['use'] + 1
-            session_db_write.set(token, json.dumps(old_session), ex=21600)
+            session_db.set(token, json.dumps(old_session), ex=21600)
         user_file = user_file_model.get_user_file_by_id(old_session['file_id'])
         file = file_model.get_file_by_id(user_file.file_id)
         pre_folder = file.hash_md5[:8] + '/' + file.hash_sha256[-8:]

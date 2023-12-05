@@ -21,10 +21,10 @@ from minio import S3Error
 
 from starlette.responses import JSONResponse
 from const import base_url, server_ip
-from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db, session_db_write, url_db_write,user_information_db_write,block_chain_db_write
-from service.file import UserFileModel, FileModel
+from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db
+from service.file import UserFileModel, FileModel, RSAModel
 from service.permissions import permissionModel
-from service.user import SessionModel, UserModel, UserinfoModel, EducationProgramModel
+from service.user import SessionModel, UserModel, UserinfoModel, EducationProgramModel, OperationModel
 from type.user import parameters_interface, session_interface
 
 session_model = SessionModel()
@@ -33,6 +33,8 @@ file_model = FileModel()
 user_model = UserModel()
 user_info_model = UserinfoModel()
 education_program_model = EducationProgramModel()
+operation_model = OperationModel()
+RSA_model = RSAModel()
 mimetype_to_format = {
     'image/jpeg': 'image',
     'image/png': 'image',
@@ -128,7 +130,7 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
 
 def get_url(new_session, new_token, use_file_id):
     user_session = json.dumps(new_session.model_dump())
-    session_db_write.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
+    session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
     server_id = file_model.get_server_id_by_user_file_id(use_file_id)[0]
     url = f'http://{server_id_to_ip[server_id]}/api/files/download/' + new_token
     return url
@@ -156,7 +158,7 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     if user_file[2] in mimetype_to_format:
                         types = mimetype_to_format[user_file[2]]
                     temp = dict({"url": url, "file_type": types, "file_name": user_file[3]})
-                    url_db_write.set(id_list, json.dumps(temp))
+                    url_db.set(id_list, json.dumps(temp))
                     urls.update({id_list: temp})
         else:
             sessions = []
@@ -174,7 +176,7 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     if user_file[i][2] in mimetype_to_format:
                         types = mimetype_to_format[user_file[i][2]]
                     temp = dict({"url": url, "file_type": types, "file_name": user_file[i][3]})
-                    url_db_write.set(user_file[i][0], json.dumps(temp))
+                    url_db.set(user_file[i][0], json.dumps(temp))
                     urls[user_file[i][0]] = temp
             if len(sessions) == 1:
                 session_model.add_session(sessions[0])
@@ -275,8 +277,8 @@ def get_user_information(user_id):  # 根据user_id查询用户基本信息
     user_information = user_information_db.get(user_id)  # 缓存中中没有
     if user_information is None:
         information = user_model.get_user_all_information_by_user_id(user_id)
-        res = dict({'username': information[0], 'email': information[1], 'oj_username': information[2]})
-        user_information_db_write.set(user_id, json.dumps(res), ex=1209600)
+        res = dict({'username': information[0], 'email': information[1], 'oj_username': information[2], 'oj_bind':1})
+        user_information_db.set(user_id, json.dumps(res), ex=1209600)
     else:
         res = json.loads(user_information)
     return res
@@ -344,8 +346,13 @@ def get_time_now(unit="seconds", value=0):
 def block_chains_login():
     username = 'admin'
     password = 'admin'
-    token = block_chain_db.get(username)  # 从缓存中得到token
-    if token is None:
+    response = requests.post(f"{base_url}/api/auth/user/current/")
+    token = None
+    if response.status_code == 200:
+        token = block_chain_db.get(get_server_info())  # 从缓存中得到token
+        if token is not None:
+            token = token.decode('utf-8')
+    if response.status_code != 200 or token is None:
         user_info = {
             "username": username,
             "password": password
@@ -354,14 +361,12 @@ def block_chains_login():
         if response.status_code == 200:
             data = response.json()
             token = data['data']['token']
-            block_chain_db_write.set(username, token, ex=1209600)  # 缓存有效session
+            block_chain_db.set(get_server_info(), token, ex=12096000)  # 缓存有效session
         else:
             raise HTTPException(
                 status_code=404,
                 detail="登录失败",
             )
-    else:
-        token = token.decode('utf-8')  # 使用指定的编码（通常是UTF-8）
     headers = {
         "Authorization": f"Token {token}"
     }
@@ -426,12 +431,13 @@ def block_chains_information(headers):
         chain_information = data['data']
         results = {}
         if chain_information:
-            results['protocol_version'] = chain_information['status']['node_info']['protocol_version']
             results['id'] = chain_information['status']['node_info']['id']
-            results['moniker'] = chain_information['status']['node_info']['moniker']
             results['latest_block_height'] = chain_information['status']['sync_info']['latest_block_height']
             results['latest_block_time'] = chain_information['status']['sync_info']['latest_block_time']
             results['address'] = chain_information['status']['validator_info']['address']
+            results['earliest_block_time'] = chain_information['status']['sync_info']['earliest_block_time']
+            results['num_cnt'] = get_user_num()
+            results['deal_cnt'] = get_operation_num()
             return results
     else:
         raise HTTPException(
@@ -443,3 +449,31 @@ def block_chains_information(headers):
 def get_server_info():
     host_ip = os.environ.get("host_ip")
     return host_ip
+
+
+def get_user_num():
+    return user_model.get_user_num()
+
+def get_operation_num():
+    return operation_model.get_operation_num()
+
+
+
+# def oj_bind(username,password):
+#     private_key = RSA_model.get_private_key_by_user_id(1)[0]
+#     user_info = {
+#         "username": username,
+#         "password": decrypt_aes_key_with_rsa(bind_data.password, private_key)
+#     }
+#     response = requests.post(f"https://oj.cs.sdu.edu.cn/api/user/login", json=user_info)
+#     if response.status_code == 200:
+#         data = response.json()
+#         token = data['data']['tok0en']
+#     else:
+#         raise HTTPException(
+#             status_code=404,
+#             detail="登录失败",
+#         )
+#     headers = {
+#         "Authorization": f"Token {token}"
+#     }

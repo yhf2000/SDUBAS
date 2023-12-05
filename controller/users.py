@@ -5,17 +5,19 @@ import random
 import string
 import uuid
 from io import BytesIO
+from service.file import RSAModel
+import requests
 from captcha.image import ImageCaptcha
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi import Request, Header, Depends
 from Celery.add_operation import add_operation
 from Celery.send_email import send_email
-from model.db import session_db, user_information_db,session_db_write,user_information_db_write
+from model.db import session_db, user_information_db
 from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
 from type.functions import block_chains_login, block_chains_get
 from type.functions import search_son_user, get_email_token, get_user_id, get_user_information, make_parameters, \
-    get_user_name, extract_word_between, get_time_now, block_chains_information
+    get_user_name, extract_word_between, get_time_now, block_chains_information, decrypt_aes_key_with_rsa
 from type.page import page
 from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
@@ -33,6 +35,7 @@ user_info_model = UserinfoModel()
 operation_model = OperationModel()
 captcha_model = CaptchaModel()
 permission_model = permissionModel()
+RSA_model = RSAModel()
 dtype_mapping = {
     'username': str,
     'password': str,
@@ -254,7 +257,7 @@ async def send_captcha(captcha_data: captcha_interface, request: Request, user_a
         send_email.delay(captcha_data.email, token, 2)  # 异步发送邮件
     session = session.model_dump()
     user_session = json.dumps(session)
-    session_db_write.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
+    session_db.set(token, user_session, ex=300)  # 缓存有效session(时效5分钟)
     return {'data': True, 'token_header': token, 'message': '验证码已发送，请前往验证！', 'code': 0}
 
 
@@ -275,7 +278,7 @@ async def user_activation(email_data: email_interface, request: Request, type: i
         if session['token_s6'] == email_data.token_s6:  # 输入的验证码正确
             session_model.update_session_use(user_session.id, 1)  # 把这个session使用次数设为1
             session_model.delete_session(user_session.id)  # 把这个session设为无效
-            session_db_write.delete(token)
+            session_db.delete(token)
             parameters = await make_parameters(request)
             if type == 0:  # 用户激活时进行验证
                 user_model.update_user_status(user_session.user_id, 0)
@@ -324,7 +327,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
             id = session_model.add_session(session)
             session = session.model_dump()
             user_session = json.dumps(session)
-            session_db_write.set(token, user_session, ex=1209600)  # 缓存有效session
+            session_db.set(token, user_session, ex=1209600)  # 缓存有效session
             parameters = await make_parameters(request)
             add_operation.delay(0, int(user_information.id), '用户登录',
                                 f'用户{user_information.id}于xxx输入账号，密码登录', parameters,
@@ -340,7 +343,7 @@ async def user_login(log_data: login_interface, request: Request, user_agent: st
 async def user_logout(request: Request, session=Depends(auth_login)):
     token = session['token']
     mes = session_model.delete_session_by_token(token)  # 将session标记为已失效
-    session_db_write.delete(token)  # 在缓存中删除
+    session_db.delete(token)  # 在缓存中删除
     parameters = await make_parameters(request)
     add_operation.delay(0, session['user_id'], '用户登出', f"用户{session['user_id']}于xxx登出", parameters,
                         session['user_id'])
@@ -373,7 +376,7 @@ async def user_email_update(email_data: email_interface, request: Request, sessi
     if user_information is not None:
         user_information = json.loads(user_information)
         user_information['email'] = email_data.email
-        user_information_db_write.set(session["user_id"], json.dumps(user_information), ex=1209600)  # 缓存有效session
+        user_information_db.set(session["user_id"], json.dumps(user_information), ex=1209600)  # 缓存有效session
     else:
         session_model.delete_session_by_token(session["token"])
     return {'data': True, 'message': ans['message'], 'code': 0}
@@ -450,7 +453,8 @@ async def user_verify_hash(request: Request, permission=Depends(auth_login)):
     for hash in hashs:
         bashash = block_chains_get(hash[1], headers)
         if bashash is not None:
-            results.append({'id': hash[0], 'verify': True, 'block_number': bashash['block_number']})
+            results.append(
+                {'id': hash[0], 'verify': True, 'block_number': bashash['block_number'], 'blockchain_hash': hash[1]})
         else:
             results.append({'id': hash[0], 'verify': False})
     parameters = await make_parameters(request)
@@ -462,22 +466,29 @@ async def user_verify_hash(request: Request, permission=Depends(auth_login)):
 
 @users_router.get("/get_operation")  # 获取用户的所有操作
 @page_response
-async def user_get_operation(pageNow: int, pageSize: int, request: Request, user_id: int = None,
+async def user_get_operation(pageNow: int, pageSize: int, request: Request, service_type: int = None, service_id: int = None,
                              permission=Depends(auth_login)):
-    if user_id is None:
-        user_id = permission['user_id']
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_operations, counts = operation_model.get_func_and_time_by_admin(Page, user_id)
+    all_operations, counts = operation_model.get_operation_by_service(Page, permission['user_id'], service_type, service_id)
     result = {'rows': None}
     if all_operations:
         operation_data = []
         for operation in all_operations:  # 对每个操作的数据进行处理
             dict = {'func': operation[0], 'oper_dt': operation[1].strftime(
-                "%Y-%m-%d %H:%M:%S"), 'id': operation[2]}
+                "%Y-%m-%d %H:%M:%S"), 'id': operation[2], 'local_hash': operation[3]}
             operation_data.append(dict)
+        operation_data.reverse()
         result = makePageResult(Page, counts, operation_data)
     parameters = await make_parameters(request)
-    add_operation.delay(1, user_id, '获取用户操作', f"用户{permission['user_id']}于xxx获取用户{user_id}所有操作",
+    if service_type == 0:
+        str = f"用户{permission['user_id']}于xxx获取用户{service_id}所有操作"
+    elif service_type == 5:
+        str = f"用户{permission['user_id']}于xxx获取用户{permission['user_id']}对资源{service_id}所有操作"
+    elif service_type == 6:
+        str = f"用户{permission['user_id']}于xxx获取用户{permission['user_id']}对资金{service_id}所有操作"
+    elif service_type == 7:
+        str = f"用户{permission['user_id']}于xxx获取用户{permission['user_id']}对项目{service_id}所有操作"
+    add_operation.delay(service_type, service_id, '获取用户操作', str,
                         parameters,
                         permission['user_id'])
     return {'message': '操作如下', "data": result, "code": 0}
@@ -510,11 +521,29 @@ async def user_get_all_user_information(request: Request, pageNow: int, pageSize
     return {'message': '操作如下', "data": result, "code": 0}
 
 
-@users_router.post("/oj_bind")  # 绑定oj账号
-@user_standard_response
-async def oj_bind(request: Request, bind_data : login_interface,  oj = Depends(oj_not_login)):
-    # token = 1 根据账号密码绑定账号
-    parameters = await make_parameters(request)
-    add_operation.delay(1, oj['user_id'], '绑定oj账号', f"{oj['user_id']}于xxx绑定oj账号", parameters,
-                       oj['user_id'])
-    return {'message': '绑定成功', 'data': True, 'code': 0}
+# @users_router.post("/oj_bind")  # 绑定oj账号
+# @user_standard_response
+# async def oj_bind(request: Request, bind_data: login_interface, oj_headers=Depends(oj_login)):
+#     private_key = RSA_model.get_private_key_by_user_id(1)[0]
+#     user_info = {
+#         "username": bind_data.username,
+#         "password": decrypt_aes_key_with_rsa(bind_data.password,private_key)
+#     }
+#     response = requests.post(f"https://oj.cs.sdu.edu.cn/api/user/login", json=user_info)
+#     if response.status_code == 200:
+#         data = response.json()
+#         token = data['data']['token']
+#     else:
+#         raise HTTPException(
+#                 status_code=404,
+#                 detail="登录失败",
+#             )
+#     headers = {
+#         "Authorization": f"Token {token}"
+#     }
+#     parameters = await make_parameters(request)
+#     add_operation.delay(1, oj['user_id'], '绑定oj账号', f"{oj['user_id']}于xxx绑定oj账号", parameters,
+#                         oj['user_id'])
+#     return {'message': '绑定成功', 'data': True, 'code': 0}
+
+

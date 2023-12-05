@@ -9,6 +9,7 @@ from controller import files, projects, permissions, resources, users, education
 from utils.auth_login import auth_login
 from utils.response import standard_response
 from utils.times import getMsTime
+
 app = FastAPI()
 app.include_router(files.files_router, prefix="/files")
 app.include_router(permissions.permissions_router, prefix="/permissions")

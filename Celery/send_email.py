@@ -6,8 +6,10 @@ from celery import Celery
 from const import development_ip, redis_password, server_ip
 from service.user import SessionModel
 
-broker = f'redis://:{redis_password}@172.16.2.10:6379/12'
-backend = f'redis://:{redis_password}@172.16.2.10:6379/13'
+# broker = f'redis://:{redis_password}@172.16.2.10:6379/12'
+# backend = f'redis://:{redis_password}@172.16.2.10:6379/13'
+broker = f'redis://:@127.0.0.1:6379/12'  # 消息队列
+backend = f'redis://:@127.0.0.1:6379/13'  # 存储结果
 send_email_app = Celery(
     'tasks',
     broker=broker,
