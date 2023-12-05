@@ -1,5 +1,6 @@
 from typing import Optional
-
+import httpx
+import requests
 from fastapi import APIRouter, Depends, Query, Request
 from type.functions import make_parameters, get_user_name
 from service.permissions import permissionModel
@@ -7,7 +8,7 @@ from service.project import ProjectService
 from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
     ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress, \
     User_Name
-from utils.auth_login import auth_login
+from utils.auth_login import auth_login, oj_login
 from utils.auth_permission import auth_permission, auth_permission_default
 from utils.response import standard_response, makePageResult
 from type.page import page
@@ -23,7 +24,8 @@ project_service = ProjectService()
 async def create_project(request: Request, project: ProjectCreate, user=Depends(auth_permission_default)) -> int:
     results = project_service.create_project(project, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(7, results, "添加项目", f"用户{user['user_id']}于xxx添加{project.name}项目", parameters, user['user_id'])
+    add_operation.delay(7, results, "添加项目", f"用户{user['user_id']}于xxx添加{project.name}项目", parameters,
+                        user['user_id'])
     return results
 
 
@@ -35,7 +37,8 @@ async def update_project(request: Request, project_id: int, project: ProjectUpda
     results = project_service.renew_project_content(project_id=project_id, project_contents=project,
                                                     user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(7, project_id, "更新项目", f"用户{user['user_id']}于xxx更新{project.name}项目", parameters, user['user_id'])
+    add_operation.delay(7, project_id, "更新项目", f"用户{user['user_id']}于xxx更新{project.name}项目", parameters,
+                        user['user_id'])
     return results
 
 
@@ -46,7 +49,8 @@ async def delete_project(request: Request, project_id: int, user=Depends(auth_pe
     name = project_service.get_project_by_id(project_id)[0]
     results = project_service.delete_project(project_id=project_id, user_id=user['user_id'])
     parameters = await make_parameters(request)
-    add_operation.delay(7, project_id, "删除项目", f"用户{user['user_id']}于xxx删除{name}项目", parameters, user['user_id'])
+    add_operation.delay(7, project_id, "删除项目", f"用户{user['user_id']}于xxx删除{name}项目", parameters,
+                        user['user_id'])
     return results
 
 
@@ -82,7 +86,8 @@ async def get_project_content(request: Request, project_id: int, user=Depends(au
     results = project_service.list_projects_content(request=request, project_id=project_id, user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看项目内容列表", f"用户{user['user_id']}于xxx查看{name}项目内容列表", parameters,
+    add_operation.delay(7, project_id, "查看项目内容列表", f"用户{user['user_id']}于xxx查看{name}项目内容列表",
+                        parameters,
                         user['user_id'])
     return results
     # 实现查询项目内容结构表的逻辑
@@ -98,7 +103,8 @@ async def get_specific_project_content(request: Request, project_id: int, conten
                                                    user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看某一项目内容", f"用户{user['user_id']}于xxx查看{name}项目{results['content']}内容",
+    add_operation.delay(7, project_id, "查看某一项目内容",
+                        f"用户{user['user_id']}于xxx查看{name}项目{results['content']}内容",
                         parameters, user['user_id'])
     return results
     # 查看某一项目内容
@@ -111,7 +117,8 @@ async def add_project_credit(request: Request, project_id: int, credit: CreditCr
     results = project_service.create_credit(credit=credit, user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "添加项目学分认定", f"用户{user['user_id']}于xxx添加{name}项目学分认定", parameters,
+    add_operation.delay(7, project_id, "添加项目学分认定", f"用户{user['user_id']}于xxx添加{name}项目学分认定",
+                        parameters,
                         user['user_id'])
     return results
     # 实现添加项目学分认定的逻辑
@@ -127,7 +134,8 @@ async def submit_project_content(request: Request, project_id: int, content_id: 
     results = project_service.create_submission(submission=submission, user_id=user['user_id'], project_id=project_id)
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "增加项目提交要求", f"用户{user['user_id']}于xxx增加{name}项目提交要求", parameters,
+    add_operation.delay(7, project_id, "增加项目提交要求", f"用户{user['user_id']}于xxx增加{name}项目提交要求",
+                        parameters,
                         user['user_id'])
     return results
     # 实现提交项目要求内容的逻辑
@@ -181,7 +189,8 @@ async def list_project_members(request: Request, project_id: int,
     tn, res = project_service.get_user_by_project_id(project_id=project_id, pg=Page, user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    add_operation.delay(7, project_id, "查看参加项目学生", f"用户{user['user_id']}于xxx查看参加项目{name}学生", parameters,
+    add_operation.delay(7, project_id, "查看参加项目学生", f"用户{user['user_id']}于xxx查看参加项目{name}学生",
+                        parameters,
                         user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)
     # 查询参加项目学生
@@ -245,7 +254,8 @@ async def list_projects(request: Request, projectType: str = Query(),
                                                    project_name=project_name,
                                                    user_id=user['user_id'])  # 返回总额，分页数据
     parameters = await make_parameters(request)
-    add_operation.delay(7, 0, "查看某类项目", f"用户{user['user_id']}于xxx查看{projectType}类项目", parameters, user['user_id'])
+    add_operation.delay(7, 0, "查看某类项目", f"用户{user['user_id']}于xxx查看{projectType}类项目", parameters,
+                        user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
     # 实现分类查询项目列表的逻辑
 
@@ -309,7 +319,8 @@ async def get_all_projects_score(request: Request, project_id: int,
     project_service.check_project_exist(project_id=project_id)
     tn, results = project_service.get_all_project_score(project_id=project_id, user_id=user['user_id'], pg=Page)
     parameters = await make_parameters(request)
-    add_operation.delay(7, project_id, "查看用户项目内容成绩", f"用户{user['user_id']}于xxx查看用户项目内容成绩", parameters,
+    add_operation.delay(7, project_id, "查看用户项目内容成绩", f"用户{user['user_id']}于xxx查看用户项目内容成绩",
+                        parameters,
                         user['user_id'])
     return makePageResult(Page, tn, results)
 
@@ -469,3 +480,183 @@ async def get_project_credits_role(request: Request, project_id: int,
     parameters = await make_parameters(request)
     # add_operation.delay(0, 0, "获取能够参加项目学分认定的角色", parameters, user['user_id'])
     return role_list
+
+
+@projects_router.get("/api/contest/list")
+@standard_response
+def forward_api1(pageNow: int = Query(description="页码", gt=0),
+                 pageSize: int = Query(description="每页数量", gt=0),
+                 groupId: int = Query(), mode: str = Query(),
+                 headers=Depends(oj_login),
+                 user=Depends(auth_login)
+                 ):
+    target_url = "https://oj.qd.sdu.edu.cn/api/contest/list"  # 替换为API1的目标服务器URL
+    url = httpx.URL(target_url)
+    url = url.copy_with(params={
+        "pageNow": str(pageNow),
+        "pageSize": str(pageSize),
+        "groupId": str(groupId),
+        "mode": mode
+    })
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if data['code'] == 0:
+        data1 = data['data']['rows']
+        return_list = []
+        for item in data1:
+            newdict = {"id": item['contestId'],
+                       "name": item['contestTitle'],
+                       "type": "实验",
+                       "tag": "",
+                       "img_id": "",
+                       "active": item['isPublic'],
+                       "create_dt": item['gmtCreate']}
+            return_list.append(newdict)
+        return {
+            "total_page": data['data']['totalPage'],
+            "totalPage": data['data']['totalNum'],
+            'rows': return_list
+        }
+    else:
+        return data
+
+
+# 定义API2的转发路由
+@projects_router.get("/api/contest/queryProblem")
+@standard_response
+def forward_api1(contestId: int = Query(description="页码", gt=0),
+                 problemCode: int = Query(description="每页数量", gt=0),
+                 headers=Depends(oj_login),
+                 user=Depends(auth_login)):
+    target_url = "https://oj.qd.sdu.edu.cn/api/contest/queryProblem"  # 替换为API1的目标服务器URL
+    url = httpx.URL(target_url)
+    url = url.copy_with(params={
+        "contestId": str(contestId),
+        "problemCode": str(problemCode)
+    })
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if data['code'] == 0:
+        conten_list = []
+        for its in data['data']['problems']:
+            new_dict = {
+                "project_id": data['data']['contestId'],
+                "type": 2,
+                "name": its['problemTitle'],
+                "prefix": None,
+                "file_id": "",
+                "content": "",
+                "weight": its['problemWeight'],
+                "feature": "",
+                "file_time": "",
+                "id": its['problemCode'],
+            }
+            conten_list.append(new_dict)
+        item = data['data']
+        return {"id": item['contestId'],
+                "name": item['contestTitle'],
+                "type": "实验",
+                "tag": "",
+                "img_id": "",
+                "active": item['isPublic'],
+                "create_dt": item['gmtCreate'],
+                "contents": conten_list}
+    else:
+        return data
+
+
+@projects_router.get("/api/contest/query")
+@standard_response
+def forward_api1(contestId: int = Query(description="页码", gt=0),
+                 headers=Depends(oj_login),
+                 user=Depends(auth_login)
+                 ):
+    target_url = "https://oj.qd.sdu.edu.cn/api/contest/query"  # 替换为API1的目标服务器URL
+    url = httpx.URL(target_url)
+    url = url.copy_with(params={
+        "contestId": str(contestId)
+    })
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    if data['code'] == 0:
+        conten_list = []
+        for its in data['data']['problems']:
+            target_url = "https://oj.qd.sdu.edu.cn/api/contest/queryProblem"  # 替换为API1的目标服务器URL
+            url = httpx.URL(target_url)
+            url = url.copy_with(params={
+                "contestId": str(contestId),
+                "problemCode": its['problemCode']
+            })
+            response = requests.get(url, headers=headers)
+            bata=response.json()
+            new_dict = {
+                "project_id": data['data']['contestId'],
+                "type": 2,
+                "name": its['problemTitle'],
+                "prefix": None,
+                "file_id": "",
+                "content": bata['data']['problemDescriptionDTO']['markdownDescription'],
+                "weight": its['problemWeight'],
+                "feature": "",
+                "file_time": "",
+                "id": its['problemCode'],
+            }
+            conten_list.append(new_dict)
+        item = data['data']
+        return {"id": item['contestId'],
+                "name": item['contestTitle'],
+                "type": "实验",
+                "tag": "",
+                "img_id": "",
+                "active": item['isPublic'],
+                "create_dt": item['gmtCreate'],
+                "contents": conten_list}
+    else:
+        return data
+
+
+@projects_router.get("/api/contest/listSubmission")
+@standard_response
+def forward_api1(contestId: int = Query(description="页码", gt=0),
+                 pageNow: int = Query(description="页码", gt=0),
+                 pageSize: int = Query(description="每页数量", gt=0),
+                 username: str = Query(),
+                 problemCode: int = Query(description="每页数量", gt=0),
+                 language: str = Query(), judgeResult: str = Query(),
+                 sortBy: str = Query(), ascending: str = Query(),
+                 headers=Depends(oj_login),
+                 user=Depends(auth_login)
+                 ):
+    target_url = "https://oj.qd.sdu.edu.cn/api/contest/listSubmission"  # 替换为API1的目标服务器URL
+    url = httpx.URL(target_url)
+    url = url.copy_with(params={
+        "contestId": str(contestId),
+        "pageNow": str(pageNow),
+        "pageSize": str(pageSize),
+        "username": str(username),
+        "problemCode": str(problemCode),
+        "language": str(language),
+        "judgeResult": str(judgeResult),
+        "sortBy": str(sortBy),
+        "ascending": str(ascending)
+    })
+    response = requests.get(url, headers=headers)
+    print(response)
+    return response.json()
+
+
+@projects_router.get("/api/contest/querySubmisson")
+@standard_response
+def forward_api1(contestId: int = Query(description="页码", gt=0),
+                 submissionId: int = Query(),
+                 headers=Depends(oj_login),
+                 user=Depends(auth_login)
+                 ):
+    target_url = "https://oj.qd.sdu.edu.cn/api/contest/querySubmission"  # 替换为API1的目标服务器URL
+    url = httpx.URL(target_url)
+    url = url.copy_with(params={
+        "contestId": str(contestId),
+        "submissionId": str(submissionId)
+    })
+    response = requests.get(url, headers=headers)
+    return response.json()
