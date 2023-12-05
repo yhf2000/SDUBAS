@@ -1,6 +1,9 @@
+import asyncio
+from time import sleep
 from typing import Optional
 import httpx
 import requests
+import ssl
 from fastapi import APIRouter, Depends, Query, Request
 from type.functions import make_parameters, get_user_name
 from service.permissions import permissionModel
@@ -482,24 +485,32 @@ async def get_project_credits_role(request: Request, project_id: int,
     return role_list
 
 
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
+
 @projects_router.get("/api/contest/list")
 @standard_response
-def forward_api1(pageNow: int = Query(description="页码", gt=0),
-                 pageSize: int = Query(description="每页数量", gt=0),
-                 groupId: int = Query(), mode: str = Query(),
-                 headers=Depends(oj_login),
-                 user=Depends(auth_login)
-                 ):
-    target_url = "https://oj.qd.sdu.edu.cn/api/contest/list"  # 替换为API1的目标服务器URL
+async def forward_api1(request: Request,
+                       headers=Depends(oj_login),
+                       # user=Depends(auth_login)
+                       ):
+    target_url = "https://43.143.149.67:7359/api/contest/list"  # 替换为API1的目标服务器URL,我都写完了
     url = httpx.URL(target_url)
-    url = url.copy_with(params={
-        "pageNow": str(pageNow),
-        "pageSize": str(pageSize),
-        "groupId": str(groupId),
-        "mode": mode
-    })
-    response = requests.get(url, headers=headers)
+    url = url.copy_with(params=request)
+    # print(url)#这个print没打印，下面的肯定不会打印  是的但是我觉得没问题
+    print(request.query_params)  # 我挂着梯子
+
+    # 假设 target_url, headers 和 request.query_params 已经定义
+    async with httpx.AsyncClient(verify=ssl_context) as client:
+        response = await client.get(
+            target_url,
+            headers=headers,
+            params={key: value for key, value in request.query_params.items()}
+        )
     data = response.json()
+    print(data)  # 返回了
     if data['code'] == 0:
         data1 = data['data']['rows']
         return_list = []
@@ -518,7 +529,21 @@ def forward_api1(pageNow: int = Query(description="页码", gt=0),
             'rows': return_list
         }
     else:
-        return data
+        return data  # 字典
+
+
+async def get_request(url, headers, paras):
+    async with httpx.AsyncClient(verify=ssl_context) as client:
+        response = await client.get(
+            url,
+            headers=headers,
+            params=paras
+        )
+        return response.json()
+
+
+def get_paras(request: Request):
+    return {key: value for key, value in request.query_params.items()}
 
 
 # 定义API2的转发路由
@@ -527,8 +552,9 @@ def forward_api1(pageNow: int = Query(description="页码", gt=0),
 def forward_api1(contestId: int = Query(description="页码", gt=0),
                  problemCode: int = Query(description="每页数量", gt=0),
                  headers=Depends(oj_login),
-                 user=Depends(auth_login)):
-    target_url = "https://oj.qd.sdu.edu.cn/api/contest/queryProblem"  # 替换为API1的目标服务器URL
+                 # user=Depends(auth_login)
+                 ):
+    target_url = "https://43.143.149.67:7359/api/contest/queryProblem"  # 替换为API1的目标服务器URL
     url = httpx.URL(target_url)
     url = url.copy_with(params={
         "contestId": str(contestId),
@@ -550,6 +576,7 @@ def forward_api1(contestId: int = Query(description="页码", gt=0),
                 "feature": "",
                 "file_time": "",
                 "id": its['problemCode'],
+                "judgeTemplates": data['data']['judgeTemplates']
             }
             conten_list.append(new_dict)
         item = data['data']
@@ -567,28 +594,24 @@ def forward_api1(contestId: int = Query(description="页码", gt=0),
 
 @projects_router.get("/api/contest/query")
 @standard_response
-def forward_api1(contestId: int = Query(description="页码", gt=0),
-                 headers=Depends(oj_login),
-                 user=Depends(auth_login)
-                 ):
-    target_url = "https://oj.qd.sdu.edu.cn/api/contest/query"  # 替换为API1的目标服务器URL
-    url = httpx.URL(target_url)
-    url = url.copy_with(params={
-        "contestId": str(contestId)
-    })
-    response = requests.get(url, headers=headers)
-    data = response.json()
+async def forward_api1(request: Request,
+                       headers=Depends(oj_login),
+                       # user=Depends(auth_login)
+                       ):
+    target_url = "https://43.143.149.67:7359/api/contest/query"  # 替换为API1的目标服务器URL
+
+    data = await get_request(target_url, headers, get_paras(request))
     if data['code'] == 0:
-        conten_list = []
+        conten_list = []  # 这一部分我们和OJ逻辑
+        await asyncio.sleep(0.3)
         for its in data['data']['problems']:
-            target_url = "https://oj.qd.sdu.edu.cn/api/contest/queryProblem"  # 替换为API1的目标服务器URL
+            target_url = "https://43.143.149.67:7359/api/contest/queryProblem"  # 替换为API1的目标服务器URL
             url = httpx.URL(target_url)
-            url = url.copy_with(params={
-                "contestId": str(contestId),
+            params = {
+                "contestId": data['data']['contestId'],
                 "problemCode": its['problemCode']
-            })
-            response = requests.get(url, headers=headers)
-            bata=response.json()
+            }
+            bata = await  get_request(target_url, headers, params)
             new_dict = {
                 "project_id": data['data']['contestId'],
                 "type": 2,
@@ -600,8 +623,10 @@ def forward_api1(contestId: int = Query(description="页码", gt=0),
                 "feature": "",
                 "file_time": "",
                 "id": its['problemCode'],
+                "judgeTemplates": bata['data']['judgeTemplates']  # 从这里就报错了
             }
             conten_list.append(new_dict)
+            await asyncio.sleep(0.3)
         item = data['data']
         return {"id": item['contestId'],
                 "name": item['contestTitle'],
@@ -617,46 +642,37 @@ def forward_api1(contestId: int = Query(description="页码", gt=0),
 
 @projects_router.get("/api/contest/listSubmission")
 @standard_response
-def forward_api1(contestId: int = Query(description="页码", gt=0),
-                 pageNow: int = Query(description="页码", gt=0),
-                 pageSize: int = Query(description="每页数量", gt=0),
-                 username: str = Query(),
-                 problemCode: int = Query(description="每页数量", gt=0),
-                 language: str = Query(), judgeResult: str = Query(),
-                 sortBy: str = Query(), ascending: str = Query(),
-                 headers=Depends(oj_login),
-                 user=Depends(auth_login)
-                 ):
-    target_url = "https://oj.qd.sdu.edu.cn/api/contest/listSubmission"  # 替换为API1的目标服务器URL
-    url = httpx.URL(target_url)
-    url = url.copy_with(params={
-        "contestId": str(contestId),
-        "pageNow": str(pageNow),
-        "pageSize": str(pageSize),
-        "username": str(username),
-        "problemCode": str(problemCode),
-        "language": str(language),
-        "judgeResult": str(judgeResult),
-        "sortBy": str(sortBy),
-        "ascending": str(ascending)
-    })
-    response = requests.get(url, headers=headers)
-    print(response)
-    return response.json()
+async def forward_api1(request: Request,
+                       headers=Depends(oj_login),
+                       # user=Depends(auth_login)
+                       ):
+    target_url = "https://43.143.149.67:7359/api/contest/listSubmission"  # 替换为API1的目标服务器URL
+    data = await get_request(target_url, headers, get_paras(request))
+    print(data)
+    return data
 
 
-@projects_router.get("/api/contest/querySubmisson")
+@projects_router.get("/api/contest/query/submission")
 @standard_response
-def forward_api1(contestId: int = Query(description="页码", gt=0),
-                 submissionId: int = Query(),
-                 headers=Depends(oj_login),
-                 user=Depends(auth_login)
-                 ):
-    target_url = "https://oj.qd.sdu.edu.cn/api/contest/querySubmission"  # 替换为API1的目标服务器URL
-    url = httpx.URL(target_url)
-    url = url.copy_with(params={
-        "contestId": str(contestId),
-        "submissionId": str(submissionId)
-    })
-    response = requests.get(url, headers=headers)
+async def forward_api1(request: Request,
+                       headers=Depends(oj_login),
+                       # user=Depends(auth_login)
+                       ):
+    target_url = "https://43.143.149.67:7359/api/contest/querySubmission"  # 替换为API1的目标服务器URL
+    data = await get_request(target_url, headers, get_paras(request))
+    return data
+
+
+@projects_router.post("/api/contest/createSubmission")
+@standard_response
+async def forward_api1(data: dict, headers=Depends(oj_login),
+                 #user=Depends(auth_login)
+                       ):
+    target_url = "https://43.143.149.67:7359/api/contest/createSubmission"  # 替换为API1的目标服务器URL
+    async with httpx.AsyncClient(verify=ssl_context) as client:
+        response = await client.post(
+            target_url,
+            headers=headers,
+            json=data
+        )
     return response.json()
