@@ -141,6 +141,13 @@ class UserModel(dbSession, dbSessionread):
             session.commit()
             return name
 
+    def get_user_num(self):  # 查询user_num
+        with self.get_db_read() as session:
+            counts = session.query(User.id).filter(
+                User.has_delete == 0).count()
+            session.commit()
+            return counts
+
     def get_user_information_by_name_school(self, name, school, pg):
         with self.get_db_read() as session:
             res_list = []
@@ -270,7 +277,7 @@ class UserinfoModel(dbSession, dbSessionread):
 
     def get_oj_exist_by_user_id(self, user_id):  # 根据user_id查询oj账号是否绑定
         with self.get_db_read() as session:
-            exist = session.query(User_info.oj_username).filter(User_info.user_id == user_id,
+            exist = session.query(User_info.oj_username,User_info.oj_password).filter(User_info.user_id == user_id,
                                                                 User_info.has_delete == 0).first()
             session.commit()
             return exist
@@ -297,10 +304,17 @@ class OperationModel(dbSession, dbSessionread):
             session.commit()
             return hash_list
 
-    def get_func_and_time_by_admin(self, page, user_id):  # 查找某操作人的所有操作和时间
+    def get_operation_num(self):
         with self.get_db_read() as session:
-            query = session.query(Operation.func, Operation.oper_dt, Operation.id).filter(
-                Operation.oper_user_id == user_id)
+            num = session.query(Operation.id).filter().count()
+            session.commit()
+            return num
+
+    def get_operation_by_service(self, page, user_id, service_type, service_id):  # 查找某操作人的所有操作和时间
+        with self.get_db_read() as session:
+            query = session.query(Operation.func, Operation.oper_dt, Operation.id, Operation.oper_hash).filter(
+                Operation.oper_user_id == user_id, Operation.service_type == service_type,
+                Operation.service_id == service_id)
             counts = query.count()
             operations = query.order_by(
                 Operation.id).offset(

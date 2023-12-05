@@ -1,4 +1,6 @@
 import json
+
+import requests
 from fastapi import Request, HTTPException, Depends
 from model.db import session_db
 from service.user import SessionModel, UserinfoModel
@@ -39,16 +41,23 @@ def auth_not_login(request: Request):  # 用来判断用户是否没登录
 
 
 def oj_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
-    username = user_info_model.get_oj_exist_by_user_id(session['user_id'])
-    if username is None:
-        raise HTTPException(
-            status_code=401,
-            detail="请先绑定oj账号"
-        )
-    # 用账号密码登录获取token
-    token = 1
-    res = {"token": token, "user_id": session['user_id']}
-    return res
+    # information = user_info_model.get_oj_exist_by_user_id(session['user_id'])
+    # if information is None:
+    #     raise HTTPException(
+    #         status_code=401,
+    #         detail="请先绑定oj账号"
+    #     )
+    user_info = {
+        "username": 'sdubas_bind',
+        "password": 'LuX2y2Kkg!YfV:N'
+    }
+    response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
+    data = response.headers
+    token = data['Set-Cookie'].split(';')[0]
+    headers = {
+        "Cookie": token
+    }
+    return headers
 
 
 def oj_not_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
