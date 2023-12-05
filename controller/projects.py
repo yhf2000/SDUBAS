@@ -649,7 +649,7 @@ async def forward_api1(request: Request,
     target_url = "https://43.143.149.67:7359/api/contest/listSubmission"  # 替换为API1的目标服务器URL
     data = await get_request(target_url, headers, get_paras(request))
     print(data)
-    return data
+    return data['data']
 
 
 @projects_router.get("/api/contest/query/submission")
@@ -660,7 +660,7 @@ async def forward_api1(request: Request,
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/querySubmission"  # 替换为API1的目标服务器URL
     data = await get_request(target_url, headers, get_paras(request))
-    return data
+    return data['data']
 
 
 @projects_router.post("/api/contest/createSubmission")
@@ -675,4 +675,5 @@ async def forward_api1(data: dict, headers=Depends(oj_login),
             headers=headers,
             json=data
         )
-    return response.json()
+    data = response.json()
+    return data['data']
