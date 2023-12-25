@@ -524,8 +524,8 @@ async def forward_api1(request: Request,
                        "create_dt": item['gmtCreate']}
             return_list.append(newdict)
         return {
-            "total_page": data['data']['totalPage'],
-            "totalPage": data['data']['totalNum'],
+            "totalPage": data['data']['totalPage'],
+            "totalNum": data['data']['totalNum'],
             'rows': return_list
         }
     else:
