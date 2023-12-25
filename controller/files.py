@@ -192,7 +192,6 @@ async def file_download_files(request: Request, token: str):
             aes_key = decrypt_aes_key_with_rsa(encrypt_aes_key, private_key)
             temp = DeAesCrypt(data, aes_key, "pkcs7")
             data = temp.decrypt_aes()
-            data = data.encode('utf-8')
             data = io.BytesIO(data)
         if old_session['use_limit'] == -1:
             encoded_filename = quote(filename)

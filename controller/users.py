@@ -17,7 +17,7 @@ from service.permissions import permissionModel
 from service.user import UserModel, SessionModel, UserinfoModel, OperationModel, CaptchaModel
 from type.functions import block_chains_login, block_chains_get
 from type.functions import search_son_user, get_email_token, get_user_id, get_user_information, make_parameters, \
-    get_user_name, extract_word_between, get_time_now, block_chains_information, decrypt_aes_key_with_rsa
+    get_user_name, extract_word_between, get_time_now, block_chains_information, decrypt_aes_key_with_rsa, oj_bind_func
 from type.page import page
 from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
@@ -469,7 +469,10 @@ async def user_verify_hash(request: Request, permission=Depends(auth_login)):
 async def user_get_operation(pageNow: int, pageSize: int, request: Request, service_type: int = None, service_id: int = None,
                              permission=Depends(auth_login)):
     Page = page(pageSize=pageSize, pageNow=pageNow)
-    all_operations, counts = operation_model.get_operation_by_service(Page, permission['user_id'], service_type, service_id)
+    if service_type is None:
+        all_operations, counts = operation_model.get_func_and_time_by_admin(Page,permission['user_id'])
+    else:
+        all_operations, counts = operation_model.get_operation_by_service(Page, permission['user_id'], service_type, service_id)
     result = {'rows': None}
     if all_operations:
         operation_data = []
@@ -480,9 +483,9 @@ async def user_get_operation(pageNow: int, pageSize: int, request: Request, serv
         operation_data.reverse()
         result = makePageResult(Page, counts, operation_data)
     parameters = await make_parameters(request)
-    if service_type == 0:
-        str = f"用户{permission['user_id']}于xxx获取用户{service_id}所有操作"
-    elif service_type == 5:
+    if service_type is None:
+        str = f"用户{permission['user_id']}于xxx获取用户{permission['user_id']}所有操作"
+    if service_type == 5:
         str = f"用户{permission['user_id']}于xxx获取用户{permission['user_id']}对资源{service_id}所有操作"
     elif service_type == 6:
         str = f"用户{permission['user_id']}于xxx获取用户{permission['user_id']}对资金{service_id}所有操作"
@@ -496,9 +499,9 @@ async def user_get_operation(pageNow: int, pageSize: int, request: Request, serv
 
 @users_router.get("/block_chain_information")  # 获取区块链信息
 @user_standard_response
-async def get_block_chain_information(request: Request, permission=Depends(auth_login)):
+async def get_block_chain_information(request: Request, permission=Depends(auth_login), oj_headers=Depends(oj_login)):
     headers = block_chains_login()
-    result = block_chains_information(headers)
+    result = block_chains_information(headers,oj_headers)
     parameters = await make_parameters(request)
     add_operation.delay(1, None, '获取区块链信息', f"用户{permission['user_id']}于xxx获取区块链信息", parameters,
                         permission['user_id'])
@@ -521,29 +524,12 @@ async def user_get_all_user_information(request: Request, pageNow: int, pageSize
     return {'message': '操作如下', "data": result, "code": 0}
 
 
-# @users_router.post("/oj_bind")  # 绑定oj账号
-# @user_standard_response
-# async def oj_bind(request: Request, bind_data: login_interface, oj_headers=Depends(oj_login)):
-#     private_key = RSA_model.get_private_key_by_user_id(1)[0]
-#     user_info = {
-#         "username": bind_data.username,
-#         "password": decrypt_aes_key_with_rsa(bind_data.password,private_key)
-#     }
-#     response = requests.post(f"https://oj.cs.sdu.edu.cn/api/user/login", json=user_info)
-#     if response.status_code == 200:
-#         data = response.json()
-#         token = data['data']['token']
-#     else:
-#         raise HTTPException(
-#                 status_code=404,
-#                 detail="登录失败",
-#             )
-#     headers = {
-#         "Authorization": f"Token {token}"
-#     }
-#     parameters = await make_parameters(request)
-#     add_operation.delay(1, oj['user_id'], '绑定oj账号', f"{oj['user_id']}于xxx绑定oj账号", parameters,
-#                         oj['user_id'])
-#     return {'message': '绑定成功', 'data': True, 'code': 0}
-
-
+@users_router.post("/oj_bind")  # 绑定oj账号
+@user_standard_response
+async def oj_bind(request: Request, bind_data: login_interface, session=Depends(oj_not_login)):
+    oj_bind_func(bind_data.username,bind_data.password)
+    user_info_model.update_user_oj(session['user_id'],bind_data.username,bind_data.password)
+    parameters = await make_parameters(request)
+    add_operation.delay(1, session['user_id'], '绑定oj账号', f"{session['user_id']}于xxx绑定oj账号", parameters,
+                        session['user_id'])
+    return {'message': '绑定成功', 'data': True, 'code': 0}

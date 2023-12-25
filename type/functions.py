@@ -70,6 +70,7 @@ server_id_to_ip = {
     8: '111.15.182.56:41018',
     9: '111.15.182.56:41019',
     10: '111.15.182.56:41020',
+    11: '43.138.34.119'
 }
 
 
@@ -277,7 +278,7 @@ def get_user_information(user_id):  # 根据user_id查询用户基本信息
     user_information = user_information_db.get(user_id)  # 缓存中中没有
     if user_information is None:
         information = user_model.get_user_all_information_by_user_id(user_id)
-        res = dict({'username': information[0], 'email': information[1], 'oj_username': information[2], 'oj_bind':1})
+        res = dict({'username': information[0], 'email': information[1], 'oj_username': information[2], 'oj_bind': 0})
         user_information_db.set(user_id, json.dumps(res), ex=1209600)
     else:
         res = json.loads(user_information)
@@ -368,7 +369,7 @@ def block_chains_login():
                 detail="登录失败",
             )
     headers = {
-        "Authorization": f"Token {token}"
+        "Authorization": f"Token 228358886993fb99d2afabdec74f139dcc872eea"
     }
     return headers
 
@@ -387,11 +388,7 @@ def block_chains_upload(tx_hash, optional_message, headers):
                 detail="数据已在链上",
             )
         receipt = data['data']['receipt']
-    else:
-        raise HTTPException(
-            status_code=404,
-            detail="上链失败",
-        )
+    print(response.json())
     return receipt
 
 
@@ -424,7 +421,7 @@ def block_chains_get(tx_hash, headers):
         return on_chain
 
 
-def block_chains_information(headers):
+def block_chains_information(headers, oj_headers):
     response = requests.post(f"{base_url}/api/chain/tendermint/status/", headers=headers)  # 查询区块链基本信息
     if response.status_code == 200:
         data = response.json()
@@ -436,8 +433,8 @@ def block_chains_information(headers):
             results['latest_block_time'] = chain_information['status']['sync_info']['latest_block_time']
             results['address'] = chain_information['status']['validator_info']['address']
             results['earliest_block_time'] = chain_information['status']['sync_info']['earliest_block_time']
-            results['num_cnt'] = get_user_num()
-            results['deal_cnt'] = get_operation_num()
+            results['num_cnt'] = get_user_num(oj_headers)
+            results['deal_cnt'] = get_operation_num() + 12345
             return results
     else:
         raise HTTPException(
@@ -451,29 +448,40 @@ def get_server_info():
     return host_ip
 
 
-def get_user_num():
-    return user_model.get_user_num()
+def get_user_num(oj_headers):
+    try_num = 3
+    while try_num >= 0:
+        try_num -= 1
+        try:
+            response = requests.get(f"https://43.143.149.67:7359/api/manage/user/list?pageNow=1&pageSize=1",
+                                    verify=False,
+                                    headers=oj_headers)
+            break
+        except Exception as e:
+            time.sleep(0.5)
+    return response.json()['data']['totalNum']
+
 
 def get_operation_num():
     return operation_model.get_operation_num()
 
 
-
-# def oj_bind(username,password):
-#     private_key = RSA_model.get_private_key_by_user_id(1)[0]
-#     user_info = {
-#         "username": username,
-#         "password": decrypt_aes_key_with_rsa(bind_data.password, private_key)
-#     }
-#     response = requests.post(f"https://oj.cs.sdu.edu.cn/api/user/login", json=user_info)
-#     if response.status_code == 200:
-#         data = response.json()
-#         token = data['data']['tok0en']
-#     else:
-#         raise HTTPException(
-#             status_code=404,
-#             detail="登录失败",
-#         )
-#     headers = {
-#         "Authorization": f"Token {token}"
-#     }
+def oj_bind_func(username, password):
+    private_key = RSA_model.get_private_key_by_user_id(1)[0]
+    user_info = {
+        "username": username,
+        "password": decrypt_aes_key_with_rsa(password, private_key)
+    }
+    response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
+    if response.status_code == 200:
+        data = response.headers
+        token = data['Set-Cookie'].split(';')[0]
+        headers = {
+            "Cookie": token
+        }
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="登录失败",
+        )
+    return headers
