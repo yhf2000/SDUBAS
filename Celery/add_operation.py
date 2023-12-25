@@ -10,10 +10,8 @@ from type.functions import block_chains_login, block_chains_upload, block_chains
     get_time_now
 from type.user import operation_interface
 
-# broker = f'redis://:{redis_password}@172.16.2.10:6379/14'  # 消息队列
-# backend = f'redis://:{redis_password}@172.16.2.10:6379/15'  # 存储结果
-broker = f'redis://:@127.0.0.1:6379/14'  # 消息队列
-backend = f'redis://:@127.0.0.1:6379/15'  # 存储结果
+broker = f'redis://:{redis_password}@127.0.0.1:6379/14'  # 消息队列
+backend = f'redis://:{redis_password}@127.0.0.1:6379/15'  # 存储结果
 add_operation_app = Celery(
     'tasks',
     broker=broker,
@@ -30,7 +28,7 @@ def add_operation(service_type, service_id, operation_type, funcs, parameters, o
     for id in ids:
         username = get_user_name(int(id))
         funcs = funcs.replace(id, username, 1)
-    time = func.from_unixtime(get_time_now('days', 0))
+    time = datetime.datetime.utcfromtimestamp(get_time_now('days', 0))
     keys_to_check = ['password', 'new_password', 'old_password']
     for key in keys_to_check:
         if key in parameters['para']:
