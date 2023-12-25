@@ -620,10 +620,11 @@ async def forward_api1(request: Request,
                 "file_id": "",
                 "content": bata['data']['problemDescriptionDTO']['markdownDescription'],
                 "weight": its['problemWeight'],
-                "feature": "",
+                "feature": "/",
                 "file_time": "",
                 "id": its['problemCode'],
-                "judgeTemplates": bata['data']['judgeTemplates']  # 从这里就报错了
+                "case": bata['data']['problemCaseDTOList'],
+                "judgeTemplates": bata['data']['judgeTemplates']  # 从这里就报错
             }
             conten_list.append(new_dict)
             await asyncio.sleep(0.3)
