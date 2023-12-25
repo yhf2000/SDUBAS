@@ -283,7 +283,7 @@ def get_user_information(user_id):  # 根据user_id查询用户基本信息
         information = user_model.get_user_all_information_by_user_id(user_id)
         oj_bind = 1
         is_bind = user_info_model.get_oj_exist_by_user_id(user_id)
-        if is_bind is None:
+        if is_bind[0] is None:
             oj_bind = 0
         res = dict({'username': information[0], 'email': information[1], 'oj_username': information[2], 'oj_bind': oj_bind})
         user_information_db.set(user_id, json.dumps(res), ex=1209600)
@@ -515,7 +515,8 @@ def oj_bind_func(username, password, user_id):
     private_key = RSA_model.get_private_key_by_user_id(1)[0]
     user_info = {
         "username": username,
-        "password": decrypt_aes_key_with_rsa(password, private_key)
+        # "password": decrypt_aes_key_with_rsa(password, private_key)
+        "password":password
     }
     response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
     if response.status_code == 200:

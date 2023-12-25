@@ -1,4 +1,6 @@
+import ast
 import json
+import time
 
 import requests
 from fastapi import Request, HTTPException, Depends
@@ -49,15 +51,20 @@ def oj_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
         )
     oj_user = oj_db.get(session['user_id'])  # 有效session中有
     if oj_user is not None:
-        data = json.loads(oj_user)
+        data = ast.literal_eval(oj_user.decode('utf-8'))
     else:
-        user_info = {
-            "username": information[0],
-            "password": information[1]
-        }
-        response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
-        data = response.headers
-        oj_db.set(session['user_id'],data,ex=1400000)
+        while 1:
+            user_info = {
+                "username": information[0],
+                "password": information[1]
+            }
+            response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
+            if response.status_code == 200:
+                data = response.headers
+                oj_db.set(session['user_id'],str(data),ex=1400000)
+                break
+            else:
+                time.sleep(2)
     token = data['Set-Cookie'].split(';')[0]
     headers = {
         "Cookie": token
@@ -67,7 +74,7 @@ def oj_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
 
 def oj_not_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
     username = user_info_model.get_oj_exist_by_user_id(session['user_id'])
-    if username is not None:
+    if username[0] is not None:
         raise HTTPException(
             status_code=401,
             detail="您已绑定oj账号"

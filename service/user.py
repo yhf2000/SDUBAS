@@ -281,6 +281,12 @@ class UserinfoModel(dbSession, dbSessionread):
             session.commit()
             return id
 
+    def delete_user_oj(self, id: int):  # 更改用户oj
+        with self.get_db() as session:
+            session.query(User_info).filter(User.id == id).update({"oj_username": None, "oj_password": None})
+            session.commit()
+            return id
+
     def get_oj_exist_by_user_id(self, user_id):  # 根据user_id查询oj账号是否绑定
         with self.get_db_read() as session:
             exist = session.query(User_info.oj_username, User_info.oj_password).filter(User_info.user_id == user_id,

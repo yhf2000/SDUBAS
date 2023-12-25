@@ -23,7 +23,7 @@ from type.permissions import create_user_role_base
 from type.user import user_info_interface, \
     session_interface, email_interface, password_interface, user_add_interface, admin_user_add_interface, \
     login_interface, \
-    captcha_interface, user_interface, reason_interface, user_add_batch_interface
+    captcha_interface, user_interface, reason_interface, user_add_batch_interface, oj_login_interface
 from utils.auth_login import auth_login, auth_not_login, oj_login, oj_not_login
 from utils.auth_permission import auth_permission_default
 from utils.response import user_standard_response, page_response, makePageResult
@@ -526,10 +526,21 @@ async def user_get_all_user_information(request: Request, pageNow: int, pageSize
 
 @users_router.post("/oj_bind")  # 绑定oj账号
 @user_standard_response
-async def oj_bind(request: Request, bind_data: login_interface, session=Depends(oj_not_login)):
-    oj_bind_func(bind_data.username,bind_data.password, session['user_id'])
-    user_info_model.update_user_oj(session['user_id'],bind_data.username,bind_data.password)
+async def oj_bind(request: Request, bind_data: oj_login_interface, session=Depends(oj_not_login)):
+    oj_bind_func(bind_data.oj_username,bind_data.oj_password, session['user_id'])
+    user_info_model.update_user_oj(session['user_id'],bind_data.oj_username,bind_data.oj_password)
     parameters = await make_parameters(request)
     add_operation.delay(1, session['user_id'], '绑定oj账号', f"{session['user_id']}于xxx绑定oj账号", parameters,
                         session['user_id'])
     return {'message': '绑定成功', 'data': True, 'code': 0}
+
+
+
+@users_router.post("/oj_unbind")  # 解绑oj账号
+@user_standard_response
+async def oj_unbind(request: Request,  session=Depends(oj_login)):
+    user_info_model.delete_user_oj(session['user_id'])
+    parameters = await make_parameters(request)
+    add_operation.delay(1, session['user_id'], '解绑oj账号', f"{session['user_id']}于xxx解绑oj账号", parameters,
+                        session['user_id'])
+    return {'message': '解绑成功', 'data': True, 'code': 0}
