@@ -501,7 +501,7 @@ async def user_get_operation(pageNow: int, pageSize: int, request: Request, serv
 @user_standard_response
 async def get_block_chain_information(request: Request, permission=Depends(auth_login), oj_headers=Depends(oj_login)):
     headers = block_chains_login()
-    result = block_chains_information(headers,oj_headers)
+    result = await block_chains_information(headers,oj_headers)
     parameters = await make_parameters(request)
     add_operation.delay(1, None, '获取区块链信息', f"用户{permission['user_id']}于xxx获取区块链信息", parameters,
                         permission['user_id'])

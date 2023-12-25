@@ -6,8 +6,11 @@ import json
 import os
 import random
 import re
+import ssl
 import time
 import uuid
+
+import httpx
 import requests
 from Crypto.Cipher import AES
 from Crypto.Cipher import PKCS1_v1_5 as Cipher_pkcs1_v1_5
@@ -21,6 +24,7 @@ from minio import S3Error
 
 from starlette.responses import JSONResponse
 from const import base_url, server_ip
+from controller.projects import ssl_context
 from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db
 from service.file import UserFileModel, FileModel, RSAModel
 from service.permissions import permissionModel
@@ -421,7 +425,7 @@ def block_chains_get(tx_hash, headers):
         return on_chain
 
 
-def block_chains_information(headers, oj_headers):
+async def block_chains_information(headers, oj_headers):
     response = requests.post(f"{base_url}/api/chain/tendermint/status/", headers=headers)  # 查询区块链基本信息
     if response.status_code == 200:
         data = response.json()
@@ -433,7 +437,7 @@ def block_chains_information(headers, oj_headers):
             results['latest_block_time'] = chain_information['status']['sync_info']['latest_block_time']
             results['address'] = chain_information['status']['validator_info']['address']
             results['earliest_block_time'] = chain_information['status']['sync_info']['earliest_block_time']
-            results['num_cnt'] = get_user_num(oj_headers)
+            results['num_cnt'] = await get_user_num(oj_headers)
             results['deal_cnt'] = get_operation_num() + 12345
             return results
     else:
@@ -448,18 +452,56 @@ def get_server_info():
     return host_ip
 
 
-def get_user_num(oj_headers):
-    try_num = 3
-    while try_num >= 0:
-        try_num -= 1
-        try:
-            response = requests.get(f"https://43.143.149.67:7359/api/manage/user/list?pageNow=1&pageSize=1",
-                                    verify=False,
-                                    headers=oj_headers)
-            break
-        except Exception as e:
-            time.sleep(0.5)
-    return response.json()['data']['totalNum']
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
+
+async def get_request(url, headers, paras):
+    async with httpx.AsyncClient(verify=ssl_context) as client:
+        try_num = 3
+        while try_num >= 0:
+            try_num -= 1
+            try:
+                response = await client.get(
+                    url,
+                    headers=headers,
+                    params=paras
+                )
+                data = response.json()
+                if data['code'] == 0:
+                    return data['data']
+                else:
+                    raise HTTPException(status_code=500, detail="Item not found")
+            except Exception as e:
+                time.sleep(0.5)
+    raise HTTPException(status_code=500, detail="time out")
+
+async def post_request(url, headers, data):
+    async with httpx.AsyncClient(verify=ssl_context) as client:
+        try_num = 3
+        while try_num >= 0:
+            try_num -= 1
+            try:
+                response = await client.post(
+                    url,
+                    headers=headers,
+                    json=data
+                )
+                data = response.json()
+                if data['code'] == 0:
+                    return data['data']
+                else:
+                    raise HTTPException(status_code=500, detail="Item not found")
+            except Exception as e:
+                time.sleep(0.5)
+    raise HTTPException(status_code=500, detail="time out")
+
+
+
+async def get_user_num(oj_headers):
+    response = await get_request('https://43.143.149.67:7359/api/manage/user/list?pageNow=1&pageSize=1',oj_headers,{})
+    return response['totalNum']
 
 
 def get_operation_num():
