@@ -524,8 +524,8 @@ async def forward_api1(request: Request,
                        "create_dt": item['gmtCreate']}
             return_list.append(newdict)
         return {
-            "total_page": data['data']['totalPage'],
-            "totalPage": data['data']['totalNum'],
+            "totalPage": data['data']['totalPage'],
+            "totalNum": data['data']['totalNum'],
             'rows': return_list
         }
     else:
@@ -616,11 +616,11 @@ async def forward_api1(request: Request,
                 "project_id": data['data']['contestId'],
                 "type": 2,
                 "name": its['problemTitle'],
-                "prefix": None,
+                "prefix": "/",
                 "file_id": "",
                 "content": bata['data']['problemDescriptionDTO']['markdownDescription'],
                 "weight": its['problemWeight'],
-                "feature": "/",
+                "feature": "",
                 "file_time": "",
                 "id": its['problemCode'],
                 "case": bata['data']['problemCaseDTOList'],
