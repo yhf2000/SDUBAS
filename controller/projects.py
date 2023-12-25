@@ -4,7 +4,7 @@ from typing import Optional
 import httpx
 import requests
 import ssl
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from type.functions import make_parameters, get_user_name
 from service.permissions import permissionModel
 from service.project import ProjectService
@@ -494,7 +494,7 @@ ssl_context.verify_mode = ssl.CERT_NONE
 @standard_response
 async def forward_api1(request: Request,
                        headers=Depends(oj_login),
-                       # user=Depends(auth_login)
+                       user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/list"  # 替换为API1的目标服务器URL,我都写完了
     url = httpx.URL(target_url)
@@ -529,7 +529,7 @@ async def forward_api1(request: Request,
             'rows': return_list
         }
     else:
-        return data  # 字典
+        raise HTTPException(status_code=500, detail="Item not found")
 
 
 async def get_request(url, headers, paras):
@@ -552,7 +552,7 @@ def get_paras(request: Request):
 def forward_api1(contestId: int = Query(description="页码", gt=0),
                  problemCode: int = Query(description="每页数量", gt=0),
                  headers=Depends(oj_login),
-                 # user=Depends(auth_login)
+                 user=Depends(auth_login)
                  ):
     target_url = "https://43.143.149.67:7359/api/contest/queryProblem"  # 替换为API1的目标服务器URL
     url = httpx.URL(target_url)
@@ -589,14 +589,14 @@ def forward_api1(contestId: int = Query(description="页码", gt=0),
                 "create_dt": item['gmtCreate'],
                 "contents": conten_list}
     else:
-        return data
+        raise HTTPException(status_code=500, detail="Item not found")
 
 
 @projects_router.get("/api/contest/query")
 @standard_response
 async def forward_api1(request: Request,
                        headers=Depends(oj_login),
-                       # user=Depends(auth_login)
+                       user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/query"  # 替换为API1的目标服务器URL
 
@@ -637,36 +637,42 @@ async def forward_api1(request: Request,
                 "create_dt": item['gmtCreate'],
                 "contents": conten_list}
     else:
-        return data
+        raise HTTPException(status_code=500, detail="Item not found")
 
 
 @projects_router.get("/api/contest/listSubmission")
 @standard_response
 async def forward_api1(request: Request,
                        headers=Depends(oj_login),
-                       # user=Depends(auth_login)
+                       user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/listSubmission"  # 替换为API1的目标服务器URL
     data = await get_request(target_url, headers, get_paras(request))
     print(data)
-    return data['data']
+    if data['code'] == 0:
+        return data['data']
+    else:
+        raise HTTPException(status_code=500, detail="Item not found")
 
 
 @projects_router.get("/api/contest/query/submission")
 @standard_response
 async def forward_api1(request: Request,
                        headers=Depends(oj_login),
-                       # user=Depends(auth_login)
+                       user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/querySubmission"  # 替换为API1的目标服务器URL
     data = await get_request(target_url, headers, get_paras(request))
-    return data['data']
+    if data['code']==0:
+        return data['data']
+    else:
+        raise HTTPException(status_code=500, detail="Item not found")
 
 
 @projects_router.post("/api/contest/createSubmission")
 @standard_response
 async def forward_api1(data: dict, headers=Depends(oj_login),
-                 #user=Depends(auth_login)
+                       # user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/createSubmission"  # 替换为API1的目标服务器URL
     async with httpx.AsyncClient(verify=ssl_context) as client:
@@ -676,4 +682,8 @@ async def forward_api1(data: dict, headers=Depends(oj_login),
             json=data
         )
     data = response.json()
-    return data['data']
+    if data['code']==0:
+        return data['data']
+    else:
+        raise HTTPException(status_code=500, detail="Item not found")
+
