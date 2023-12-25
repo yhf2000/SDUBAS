@@ -24,7 +24,6 @@ from minio import S3Error
 
 from starlette.responses import JSONResponse
 from const import base_url, server_ip
-from controller.projects import ssl_context
 from model.db import session_db, url_db, user_information_db, minio_client, block_chain_db
 from service.file import UserFileModel, FileModel, RSAModel
 from service.permissions import permissionModel
@@ -282,7 +281,11 @@ def get_user_information(user_id):  # 根据user_id查询用户基本信息
     user_information = user_information_db.get(user_id)  # 缓存中中没有
     if user_information is None:
         information = user_model.get_user_all_information_by_user_id(user_id)
-        res = dict({'username': information[0], 'email': information[1], 'oj_username': information[2], 'oj_bind': 0})
+        oj_bind = 1
+        is_bind = user_info_model.get_oj_exist_by_user_id(user_id)
+        if is_bind is None:
+            oj_bind = 0
+        res = dict({'username': information[0], 'email': information[1], 'oj_username': information[2], 'oj_bind': oj_bind})
         user_information_db.set(user_id, json.dumps(res), ex=1209600)
     else:
         res = json.loads(user_information)
@@ -508,7 +511,7 @@ def get_operation_num():
     return operation_model.get_operation_num()
 
 
-def oj_bind_func(username, password):
+def oj_bind_func(username, password, user_id):
     private_key = RSA_model.get_private_key_by_user_id(1)[0]
     user_info = {
         "username": username,
@@ -521,6 +524,10 @@ def oj_bind_func(username, password):
         headers = {
             "Cookie": token
         }
+        user_information = user_information_db.get(user_id)
+        user_information = json.loads(user_information)
+        user_information['oj_bind'] = 1
+        user_information_db.set(user_id, json.dumps(user_information), ex=1209600)  # 缓存有效session
     else:
         raise HTTPException(
             status_code=404,

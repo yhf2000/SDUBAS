@@ -527,7 +527,7 @@ async def user_get_all_user_information(request: Request, pageNow: int, pageSize
 @users_router.post("/oj_bind")  # 绑定oj账号
 @user_standard_response
 async def oj_bind(request: Request, bind_data: login_interface, session=Depends(oj_not_login)):
-    oj_bind_func(bind_data.username,bind_data.password)
+    oj_bind_func(bind_data.username,bind_data.password, session['user_id'])
     user_info_model.update_user_oj(session['user_id'],bind_data.username,bind_data.password)
     parameters = await make_parameters(request)
     add_operation.delay(1, session['user_id'], '绑定oj账号', f"{session['user_id']}于xxx绑定oj账号", parameters,
