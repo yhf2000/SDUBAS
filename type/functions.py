@@ -128,13 +128,13 @@ def make_download_session(token, request, user_id, file_id, use_limit, hours):
     new_session = session_interface(user_id=user_id, file_id=file_id, token=token,
                                     ip=request.client.host,
                                     func_type=2, user_agent=request.headers.get("user-agent"), use_limit=use_limit,
-                                    exp_dt=get_time_now('hours', hours))  # 生成新session
+                                    exp_dt=get_time_now('days', hours))  # 生成新session
     return new_session
 
 
 def get_url(new_session, new_token, use_file_id):
     user_session = json.dumps(new_session.model_dump())
-    session_db.set(new_token, user_session, ex=3600 * 72)  # 缓存有效session(时效72h)
+    session_db.set(new_token, user_session, ex=3600 * 72 * 200)  # 缓存有效session(时效72h)
     server_id = file_model.get_server_id_by_user_file_id(use_file_id)[0]
     url = f'http://{server_id_to_ip[server_id]}/api/files/download/' + new_token
     return url
@@ -155,7 +155,7 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     urls.update({id_list: json.loads(url)})
                 else:
                     new_token = str(uuid.uuid4().hex)  # 生成token
-                    new_session = make_download_session(new_token, request, user_file[1], id_list, -1, 72)
+                    new_session = make_download_session(new_token, request, user_file[1], id_list, -1, 60)
                     session_model.add_session(new_session)
                     url = get_url(new_session, new_token, id_list)
                     types = user_file[2]
@@ -172,7 +172,7 @@ def get_url_by_user_file_id(request, id_list):  # 得到下载链接
                     urls.update({user_file[i][0]: json.loads(url)})
                 else:
                     new_token = str(uuid.uuid4().hex)  # 生成token
-                    new_session = make_download_session(new_token, request, user_file[i][1], user_file[i][0], -1, 72)
+                    new_session = make_download_session(new_token, request, user_file[i][1], user_file[i][0], -1, 60)
                     temp = copy.deepcopy(new_session)
                     sessions.append(temp)
                     url = get_url(new_session, new_token, user_file[i][0])
@@ -515,8 +515,7 @@ def oj_bind_func(username, password, user_id):
     private_key = RSA_model.get_private_key_by_user_id(1)[0]
     user_info = {
         "username": username,
-        # "password": decrypt_aes_key_with_rsa(password, private_key)
-        "password":password
+        "password": decrypt_aes_key_with_rsa(password, private_key)
     }
     response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
     if response.status_code == 200:
