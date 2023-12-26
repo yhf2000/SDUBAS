@@ -75,9 +75,14 @@ class SchoolModel(dbSession, dbSessionread):  # 学校model
             session.commit()
             return school, counts
 
-    def update_school_information(self, id, name, abbreviation):  # 更改school中的name与abbreviation
+    def update_school_information(self, id, name, abbreviation, school_logo_id):  # 更改school中的name与abbreviation
         with self.get_db() as session:
-            session.query(School).filter(School.id == id).update({"name": name, "school_abbreviation": abbreviation})
+            if school_logo_id is None:
+                session.query(School).filter(School.id == id).update(
+                    {"name": name, "school_abbreviation": abbreviation})
+            else:
+                session.query(School).filter(School.id == id).update(
+                    {"name": name, "school_abbreviation": abbreviation, "school_logo_id": school_logo_id})
             session.commit()
             return id
 
@@ -159,9 +164,12 @@ class CollegeModel(dbSession, dbSessionread):
             session.commit()
             return college, counts
 
-    def update_college_school_id_name(self, id, name):  # 更改college中的name
+    def update_college_school_id_name(self, id, name, college_logo_id):  # 更改college中的name
         with self.get_db() as session:
-            session.query(College).filter(College.id == id).update({"name": name})
+            if college_logo_id is None:
+                session.query(College).filter(College.id == id).update({"name": name})
+            else:
+                session.query(College).filter(College.id == id).update({"name": name,"college_logo_id":college_logo_id})
             session.commit()
             return id
 

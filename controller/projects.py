@@ -276,9 +276,8 @@ async def list_projects(request: Request, project_id: int,
                                                                      pg=Page, project_id=project_id)  # 返回总额，分页数据
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(contentId)[0]
     add_operation.delay(7, project_id, "查看项目内容提交项",
-                        f"用户{user['user_id']}于xxx查看{name}项目内容{content}提交项", parameters, user['user_id'])
+                        f"用户{user['user_id']}于xxx查看{name}项目内容{project_id}提交项", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
     # 查看项目内容提交项
 
@@ -457,9 +456,8 @@ async def renew_all_student_content(request: Request,
                                                                         user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
     add_operation.delay(7, project_id, "更新项目完成情况",
-                        f"用户{user['user_id']}于xxx更新所有学生{name}项目{content}完成情况",
+                        f"用户{user['user_id']}于xxx更新所有学生{name}项目{project_id}完成情况",
                         parameters,
                         user['user_id'])
     return results

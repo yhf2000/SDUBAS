@@ -59,8 +59,12 @@ def oj_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
         while 1:
             user_info = {
                 "username": information[0],
-                "password": decrypt_aes_key_with_rsa(information[1], private_key)
+                "password": decrypt_aes_key_with_rsa(information[1], private_key).decode('utf-8')
             }
+            # user_info = {
+            #     "username": 'sdubas_bind',
+            #     "password": 'LuX2y2Kkg!YfV:N'
+            # }
             response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
             if response.status_code == 200:
                 data = response.headers

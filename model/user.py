@@ -42,7 +42,7 @@ class User_info(Base):  # 用户信息表
     enrollment_dt = Column(Date, nullable=False, comment='入学时间')  # 入学时间，非空
     graduation_dt = Column(Date, nullable=False, comment='毕业时间')  # 毕业时间，非空
     oj_username = Column(VARCHAR(32), nullable=True, unique=True, comment='oj用户名')  # 用户名，可空，唯一
-    oj_password = Column(VARCHAR(128), nullable=True, comment='oj密码')  # 密码，可空
+    oj_password = Column(VARCHAR(1024), nullable=True, comment='oj密码')  # 密码，可空
     has_delete = Column(Integer, nullable=False, comment='是否已经删除', default=0)  # 是否被删除，非空
 
 

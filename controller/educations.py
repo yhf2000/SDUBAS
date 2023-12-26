@@ -60,7 +60,7 @@ async def user_school_add(request: Request, school_data: school_interface, sessi
             school_model.update_school_status_by_id(exist_school_name.id)  # 恢复这个学校
             if school_data.school_abbreviation != exist_school_name.school_abbreviation:  # 学校简称如果变化则进行更新
                 school_model.update_school_information(exist_school_name.id, school_data.name,
-                                                       school_data.school_abbreviation)
+                                                       school_data.school_abbreviation,None)
             if school_data.school_logo_id != exist_school_name.school_logo_id:  # 学校logo_id如果变化则进行更新
                 school_model.update_school_logo(exist_school_name.id, school_data.school_logo_id)
             str = f"用户{session['user_id']}于xxx恢复曾删除学校{school_data.name}"
@@ -122,7 +122,7 @@ async def user_school_update(request: Request, school_id: int, school_data: scho
     exist_school = school_model.get_school_id_by_name(school_data.name)
     if exist_school is not None and exist_school[0] != school_id:  # 要修改的学校名字已存在
         return {'message': '学校名字已存在', 'data': False, 'code': 2}
-    school_model.update_school_information(school_id, school_data.name, school_data.school_abbreviation)  # 修改学校信息
+    school_model.update_school_information(school_id, school_data.name, school_data.school_abbreviation, school_data.school_logo_id)  # 修改学校信息
     parameters = await make_parameters(request)
     add_operation.delay(1, school_id, '修改学校信息',
                         f"用户{session['user_id']}于xxx修改学校{school_data.name}信息",
@@ -209,7 +209,7 @@ async def user_college_update(request: Request, college_id: int, college_data: c
     exist_college = college_model.get_college_by_name(college_data)
     if exist_college is not None and exist_college[0] != college_id:
         return {'message': '该学校下的学院名字已存在', 'data': False, 'code': 3}
-    college_model.update_college_school_id_name(college_id, college_data.name)
+    college_model.update_college_school_id_name(college_id, college_data.name, college_data.college_logo_id)
     parameters = await make_parameters(request)
     add_operation.delay(2, college_id, '修改学院信息',
                         f"用户{session['user_id']}于xxx修改学院{college_data.name}信息",
