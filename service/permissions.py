@@ -727,7 +727,7 @@ class permissionModel(dbSession,dbSessionread):
                     WorkRole.role_id == item.role_id
                 ).first()
                 if work_role is not None:
-                    test_list.append(work_role.service_id)
+                    test_list.append(work_role.role_id)
             if not test_list:
                 raise HTTPException(
                     status_code=408,

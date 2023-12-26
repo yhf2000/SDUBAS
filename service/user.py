@@ -277,7 +277,7 @@ class UserinfoModel(dbSession, dbSessionread):
 
     def update_user_oj(self, id: int, username: str, password: str):  # 更改用户oj
         with self.get_db() as session:
-            session.query(User_info).filter(User.id == id).update({"oj_username": username, "oj_password": password})
+            session.query(User_info).update({"oj_username": username, "oj_password": password}).filter(User.id == id)
             session.commit()
             return id
 

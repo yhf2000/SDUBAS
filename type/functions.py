@@ -515,7 +515,7 @@ def oj_bind_func(username, password, user_id):
     private_key = RSA_model.get_private_key_by_user_id(1)[0]
     user_info = {
         "username": username,
-        "password": decrypt_aes_key_with_rsa(password, private_key)
+        "password": decrypt_aes_key_with_rsa(password, private_key).decode('utf-8')
     }
     response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
     if response.status_code == 200:
