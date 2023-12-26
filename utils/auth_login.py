@@ -5,11 +5,13 @@ import time
 import requests
 from fastapi import Request, HTTPException, Depends
 from model.db import session_db, oj_db
+from service.file import RSAModel
 from service.user import SessionModel, UserinfoModel
+from type.functions import decrypt_aes_key_with_rsa
 
 session_model = SessionModel()
 user_info_model = UserinfoModel()
-
+RSA_model = RSAModel()
 
 def auth_login(request: Request):  # 用来判断用户是否登录
     token = request.cookies.get("SESSION")
@@ -53,10 +55,11 @@ def oj_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
     if oj_user is not None:
         data = ast.literal_eval(oj_user.decode('utf-8'))
     else:
+        private_key = RSA_model.get_private_key_by_user_id(1)[0]
         while 1:
             user_info = {
                 "username": information[0],
-                "password": information[1]
+                "password": decrypt_aes_key_with_rsa(information[1], private_key)
             }
             response = requests.post(f"https://43.143.149.67:7359/api/user/login", json=user_info, verify=False)
             if response.status_code == 200:
