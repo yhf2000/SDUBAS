@@ -1,21 +1,20 @@
 import asyncio
-from time import sleep
 from typing import Optional
+
 import httpx
 import requests
-import ssl
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
-from type.functions import make_parameters, get_user_name, ssl_context, get_request, post_request
+
+from Celery.add_operation import add_operation
 from service.permissions import permissionModel
 from service.project import ProjectService
-from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
-    ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress, \
-    User_Name
+from type.functions import make_parameters, get_user_name, get_request, post_request
+from type.page import page
+from type.project import CreditCreate, ScoreCreate, \
+    ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress
 from utils.auth_login import auth_login, oj_login
 from utils.auth_permission import auth_permission, auth_permission_default
 from utils.response import standard_response, makePageResult
-from type.page import page
-from Celery.add_operation import add_operation
 
 projects_router = APIRouter()
 
