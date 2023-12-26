@@ -44,8 +44,8 @@ mimetype_to_format = {
     'audio/mpeg': 'MP3',
     'application/msword': 'office_word',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'office_word',
-    'application/vnd.ms-powerpoint': 'office_word',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'office_word',
+    'application/vnd.ms-powerpoint': 'office_ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'office_ppt',
     'video/mp4': 'video',
     'video/mpeg': 'video',
     'video/quicktime': 'video',
@@ -527,6 +527,7 @@ def oj_bind_func(username, password, user_id):
         user_information = user_information_db.get(user_id)
         user_information = json.loads(user_information)
         user_information['oj_bind'] = 1
+        user_information['oj_username'] = username
         user_information_db.set(user_id, json.dumps(user_information), ex=1209600)  # 缓存有效session
     else:
         raise HTTPException(
