@@ -60,7 +60,7 @@ async def user_school_add(request: Request, school_data: school_interface, sessi
             school_model.update_school_status_by_id(exist_school_name.id)  # 恢复这个学校
             if school_data.school_abbreviation != exist_school_name.school_abbreviation:  # 学校简称如果变化则进行更新
                 school_model.update_school_information(exist_school_name.id, school_data.name,
-                                                       school_data.school_abbreviation)
+                                                       school_data.school_abbreviation,None)
             if school_data.school_logo_id != exist_school_name.school_logo_id:  # 学校logo_id如果变化则进行更新
                 school_model.update_school_logo(exist_school_name.id, school_data.school_logo_id)
             str = f"用户{session['user_id']}于xxx恢复曾删除学校{school_data.name}"
