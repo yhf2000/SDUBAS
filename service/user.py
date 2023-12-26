@@ -1,5 +1,5 @@
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import func, join
+from sqlalchemy import func, join, update
 import model.user
 from model.db import dbSession, dbSessionread
 from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College, Education_Program
@@ -277,13 +277,19 @@ class UserinfoModel(dbSession, dbSessionread):
 
     def update_user_oj(self, id: int, username: str, password: str):  # 更改用户oj
         with self.get_db() as session:
-            session.query(User_info).update({"oj_username": username, "oj_password": password}).filter(User.id == id)
+            update_query = update(User_info).where(User_info.id == id).values(oj_username=username,
+                                                                              oj_password=password)
+
+            session.execute(update_query)
             session.commit()
             return id
 
     def delete_user_oj(self, id: int):  # 更改用户oj
         with self.get_db() as session:
-            session.query(User_info).filter(User.id == id).update({"oj_username": None, "oj_password": None})
+            update_query = update(User_info).where(User_info.id == id).values(oj_username=None,
+                                                                              oj_password=None)
+
+            session.execute(update_query)
             session.commit()
             return id
 

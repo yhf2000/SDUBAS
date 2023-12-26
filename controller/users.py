@@ -552,10 +552,6 @@ async def oj_bind(request: Request, bind_data: oj_login_interface, session=Depen
     oj_bind_func(bind_data.oj_username, bind_data.oj_password, session['user_id'])
     user_info_model.update_user_oj(session['user_id'], bind_data.oj_username, bind_data.oj_password)
     parameters = await make_parameters(request)
-    user_information = user_information_db.get(session["user_id"])
-    user_information['oj_username'] = bind_data.oj_username
-    user_information['oj_bind'] = 1
-    user_information_db.set(session["user_id"], json.dumps(user_information), ex=1209600)  # 缓存有效session
     add_operation.delay(1, session['user_id'], '绑定oj账号', f"{session['user_id']}于xxx绑定oj账号", parameters,
                         session['user_id'])
     return {'message': '绑定成功', 'data': True, 'code': 0}
@@ -563,10 +559,11 @@ async def oj_bind(request: Request, bind_data: oj_login_interface, session=Depen
 
 @users_router.put("/oj_unbind")  # 解绑oj账号
 @user_standard_response
-async def oj_unbind(request: Request, session=Depends(oj_login)):
+async def oj_unbind(request: Request, oj=Depends(oj_login),session = Depends(auth_login)):
     user_info_model.delete_user_oj(session['user_id'])
     parameters = await make_parameters(request)
     user_information = user_information_db.get(session["user_id"])
+    user_information = json.loads(user_information)
     user_information['oj_username'] = None
     user_information['oj_bind'] = 0
     user_information_db.set(session["user_id"], json.dumps(user_information), ex=1209600)  # 缓存有效session
