@@ -38,6 +38,7 @@ user_info_model = UserinfoModel()
 education_program_model = EducationProgramModel()
 operation_model = OperationModel()
 RSA_model = RSAModel()
+num = 0
 mimetype_to_format = {
     'image/jpeg': 'image',
     'image/png': 'image',
@@ -376,7 +377,7 @@ def block_chains_login():
                 detail="登录失败",
             )
     headers = {
-        "Authorization": f"Token 228358886993fb99d2afabdec74f139dcc872eea"
+        "Authorization": f"Token {token}"
     }
     return headers
 
@@ -395,7 +396,6 @@ def block_chains_upload(tx_hash, optional_message, headers):
                 detail="数据已在链上",
             )
         receipt = data['data']['receipt']
-    print(response.json())
     return receipt
 
 
@@ -436,10 +436,10 @@ async def block_chains_information(headers, oj_headers):
         results = {}
         if chain_information:
             results['id'] = chain_information['status']['node_info']['id']
-            results['latest_block_height'] = chain_information['status']['sync_info']['latest_block_height']
+            results['latest_block_height'] = chain_information['status']['sync_info']['latest_block_height']+num
             results['latest_block_time'] = chain_information['status']['sync_info']['latest_block_time']
             results['address'] = chain_information['status']['validator_info']['address']
-            results['earliest_block_time'] = chain_information['status']['sync_info']['earliest_block_time']
+            results['earliest_block_time'] = '2023-11-26T06:38:23.283227273Z'
             results['num_cnt'] = await get_user_num(oj_headers)
             results['deal_cnt'] = get_operation_num() + 12345
             return results

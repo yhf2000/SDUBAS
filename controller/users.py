@@ -502,7 +502,6 @@ async def user_get_operation(pageNow: int, pageSize: int, request: Request, serv
             dict = {'func': operation[0], 'oper_dt': operation[1].strftime(
                 "%Y-%m-%d %H:%M:%S"), 'id': operation[2], 'local_hash': operation[3]}
             operation_data.append(dict)
-        operation_data.reverse()
         result = makePageResult(Page, counts, operation_data)
     parameters = await make_parameters(request)
     if service_type is None:

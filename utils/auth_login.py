@@ -46,7 +46,7 @@ def auth_not_login(request: Request):  # 用来判断用户是否没登录
 
 def oj_login(session=Depends(auth_login)):  # 用来判断用户oj是否绑定
     information = user_info_model.get_oj_exist_by_user_id(session['user_id'])
-    if information is None:
+    if information[0] is None:
         raise HTTPException(
             status_code=401,
             detail="请先绑定oj账号"
