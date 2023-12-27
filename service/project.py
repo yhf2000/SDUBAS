@@ -437,7 +437,6 @@ class ProjectService(dbSession, dbSessionread):
             service_ids = role_model.search_service_id(role_list, service_type=7, name="提交项目内容")
             credit_role_id = role_model.return_user_major_role(user_id=user_id)
             # service_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-
             subquery = session.query(Project). \
                 select_from(Project). \
                 join(ProjectContent,

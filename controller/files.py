@@ -151,7 +151,7 @@ async def file_download(id: int, request: Request, user_agent: str = Header(None
     session_model.add_session(new_session)
     new_session = new_session.model_dump()
     user_session = json.dumps(new_session)
-    session_db.set(new_token, user_session, ex=21600)  # 缓存有效session(时效6h)
+    session_db.set(new_token, user_session, ex=216000000)  # 缓存有效session(时效6h)
     server_id = file_model.get_server_id_by_user_file_id(id)[0]
     parameters = await make_parameters(request)
     add_operation.delay(8, id, '下载文件',
@@ -192,7 +192,6 @@ async def file_download_files(request: Request, token: str):
             aes_key = decrypt_aes_key_with_rsa(encrypt_aes_key, private_key)
             temp = DeAesCrypt(data, aes_key, "pkcs7")
             data = temp.decrypt_aes()
-            data = data.encode('utf-8')
             data = io.BytesIO(data)
         if old_session['use_limit'] == -1:
             encoded_filename = quote(filename)

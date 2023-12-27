@@ -1,21 +1,20 @@
 import asyncio
-from time import sleep
 from typing import Optional
+
 import httpx
 import requests
-import ssl
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
-from type.functions import make_parameters, get_user_name
+
+from Celery.add_operation import add_operation
 from service.permissions import permissionModel
 from service.project import ProjectService
-from type.project import CreditCreate, SubmissionCreate, ScoreCreate, \
-    ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress, \
-    User_Name
+from type.functions import make_parameters, get_user_name, get_request, post_request
+from type.page import page
+from type.project import CreditCreate, ScoreCreate, \
+    ProjectUpdate, ProjectCreate, user_submission, SubmissionListCreate, project_content_renew, video_finish_progress
 from utils.auth_login import auth_login, oj_login
 from utils.auth_permission import auth_permission, auth_permission_default
 from utils.response import standard_response, makePageResult
-from type.page import page
-from Celery.add_operation import add_operation
 
 projects_router = APIRouter()
 
@@ -277,9 +276,8 @@ async def list_projects(request: Request, project_id: int,
                                                                      pg=Page, project_id=project_id)  # 返回总额，分页数据
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(contentId)[0]
     add_operation.delay(7, project_id, "查看项目内容提交项",
-                        f"用户{user['user_id']}于xxx查看{name}项目内容{content}提交项", parameters, user['user_id'])
+                        f"用户{user['user_id']}于xxx查看{name}项目内容{project_id}提交项", parameters, user['user_id'])
     return makePageResult(pg=Page, tn=tn, data=res)  # 封装的函数
     # 查看项目内容提交项
 
@@ -458,9 +456,8 @@ async def renew_all_student_content(request: Request,
                                                                         user_id=user['user_id'])
     parameters = await make_parameters(request)
     name = project_service.get_project_by_id(project_id)[0]
-    content = project_service.get_project_content_submission_by_id(content_id)[0]
     add_operation.delay(7, project_id, "更新项目完成情况",
-                        f"用户{user['user_id']}于xxx更新所有学生{name}项目{content}完成情况",
+                        f"用户{user['user_id']}于xxx更新所有学生{name}项目{project_id}完成情况",
                         parameters,
                         user['user_id'])
     return results
@@ -485,11 +482,6 @@ async def get_project_credits_role(request: Request, project_id: int,
     return role_list
 
 
-ssl_context = ssl.create_default_context()
-ssl_context.check_hostname = False
-ssl_context.verify_mode = ssl.CERT_NONE
-
-
 @projects_router.get("/api/contest/list")
 @standard_response
 async def forward_api1(request: Request,
@@ -497,49 +489,24 @@ async def forward_api1(request: Request,
                        user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/list"  # 替换为API1的目标服务器URL,我都写完了
-    url = httpx.URL(target_url)
-    url = url.copy_with(params=request)
-    # print(url)#这个print没打印，下面的肯定不会打印  是的但是我觉得没问题
-    print(request.query_params)  # 我挂着梯子
 
-    # 假设 target_url, headers 和 request.query_params 已经定义
-    async with httpx.AsyncClient(verify=ssl_context) as client:
-        response = await client.get(
-            target_url,
-            headers=headers,
-            params={key: value for key, value in request.query_params.items()}
-        )
-    data = response.json()
-    print(data)  # 返回了
-    if data['code'] == 0:
-        data1 = data['data']['rows']
-        return_list = []
-        for item in data1:
-            newdict = {"id": item['contestId'],
-                       "name": item['contestTitle'],
-                       "type": "实验",
-                       "tag": "",
-                       "img_id": "",
-                       "active": item['isPublic'],
-                       "create_dt": item['gmtCreate']}
-            return_list.append(newdict)
-        return {
-            "totalPage": data['data']['totalPage'],
-            "totalNum": data['data']['totalNum'],
-            'rows': return_list
-        }
-    else:
-        raise HTTPException(status_code=500, detail="Item not found")
-
-
-async def get_request(url, headers, paras):
-    async with httpx.AsyncClient(verify=ssl_context) as client:
-        response = await client.get(
-            url,
-            headers=headers,
-            params=paras
-        )
-        return response.json()
+    data = await get_request(target_url, headers, get_paras(request))
+    data1 = data['rows']
+    return_list = []
+    for item in data1:
+        newdict = {"id": item['contestId'],
+                   "name": item['contestTitle'],
+                   "type": "实验",
+                   "tag": "",
+                   "img_id": "",
+                   "active": item['isPublic'],
+                   "create_dt": item['gmtCreate']}
+        return_list.append(newdict)
+    return {
+        "totalPage": data['totalPage'],
+        "totalNum": data['totalNum'],
+        'rows': return_list
+    }
 
 
 def get_paras(request: Request):
@@ -598,47 +565,41 @@ async def forward_api1(request: Request,
                        headers=Depends(oj_login),
                        user=Depends(auth_login)
                        ):
-    target_url = "https://43.143.149.67:7359/api/contest/query"  # 替换为API1的目标服务器URL
-
-    data = await get_request(target_url, headers, get_paras(request))
-    if data['code'] == 0:
-        conten_list = []  # 这一部分我们和OJ逻辑
+    contest_info_url = "https://43.143.149.67:7359/api/contest/query"  # 替换为API1的目标服务器URL
+    problem_info_url = "https://43.143.149.67:7359/api/contest/queryProblem"  # 替换为API1的目标服务器URL
+    contest_info = await get_request(contest_info_url, headers, get_paras(request))
+    conten_list = []  # 这一部分我们和OJ逻辑
+    await asyncio.sleep(0.3)
+    for its in contest_info['problems']:
+        params = {
+            "contestId": contest_info['contestId'],
+            "problemCode": its['problemCode']
+        }
+        problem_info = await  get_request(problem_info_url, headers, params)
+        new_dict = {
+            "project_id": contest_info['contestId'],
+            "type": 2,
+            "name": its['problemTitle'],
+            "prefix": "/",
+            "file_id": "",
+            "content": problem_info['problemDescriptionDTO']['markdownDescription'],
+            "weight": its['problemWeight'],
+            "feature": "",
+            "file_time": "",
+            "id": its['problemCode'],
+            "case": problem_info['problemCaseDTOList'],
+            "judgeTemplates": problem_info['judgeTemplates']
+        }
+        conten_list.append(new_dict)
         await asyncio.sleep(0.3)
-        for its in data['data']['problems']:
-            target_url = "https://43.143.149.67:7359/api/contest/queryProblem"  # 替换为API1的目标服务器URL
-            url = httpx.URL(target_url)
-            params = {
-                "contestId": data['data']['contestId'],
-                "problemCode": its['problemCode']
-            }
-            bata = await  get_request(target_url, headers, params)
-            new_dict = {
-                "project_id": data['data']['contestId'],
-                "type": 2,
-                "name": its['problemTitle'],
-                "prefix": "/",
-                "file_id": "",
-                "content": bata['data']['problemDescriptionDTO']['markdownDescription'],
-                "weight": its['problemWeight'],
-                "feature": "",
-                "file_time": "",
-                "id": its['problemCode'],
-                "case": bata['data']['problemCaseDTOList'],
-                "judgeTemplates": bata['data']['judgeTemplates']  # 从这里就报错
-            }
-            conten_list.append(new_dict)
-            await asyncio.sleep(0.3)
-        item = data['data']
-        return {"id": item['contestId'],
-                "name": item['contestTitle'],
-                "type": "实验",
-                "tag": "",
-                "img_id": "",
-                "active": item['isPublic'],
-                "create_dt": item['gmtCreate'],
-                "contents": conten_list}
-    else:
-        raise HTTPException(status_code=500, detail="Item not found")
+    return {"id": contest_info['contestId'],
+            "name": contest_info['contestTitle'],
+            "type": "实验",
+            "tag": "",
+            "img_id": "",
+            "active": contest_info['isPublic'],
+            "create_dt": contest_info['gmtCreate'],
+            "contents": conten_list}
 
 
 @projects_router.get("/api/contest/listSubmission")
@@ -648,12 +609,7 @@ async def forward_api1(request: Request,
                        user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/listSubmission"  # 替换为API1的目标服务器URL
-    data = await get_request(target_url, headers, get_paras(request))
-    print(data)
-    if data['code'] == 0:
-        return data['data']
-    else:
-        raise HTTPException(status_code=500, detail="Item not found")
+    return await get_request(target_url, headers, get_paras(request))
 
 
 @projects_router.get("/api/contest/query/submission")
@@ -663,11 +619,7 @@ async def forward_api1(request: Request,
                        user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/querySubmission"  # 替换为API1的目标服务器URL
-    data = await get_request(target_url, headers, get_paras(request))
-    if data['code']==0:
-        return data['data']
-    else:
-        raise HTTPException(status_code=500, detail="Item not found")
+    return await get_request(target_url, headers, get_paras(request))
 
 
 @projects_router.post("/api/contest/createSubmission")
@@ -676,15 +628,4 @@ async def forward_api1(data: dict, headers=Depends(oj_login),
                        # user=Depends(auth_login)
                        ):
     target_url = "https://43.143.149.67:7359/api/contest/createSubmission"  # 替换为API1的目标服务器URL
-    async with httpx.AsyncClient(verify=ssl_context) as client:
-        response = await client.post(
-            target_url,
-            headers=headers,
-            json=data
-        )
-    data = response.json()
-    if data['code']==0:
-        return data['data']
-    else:
-        raise HTTPException(status_code=500, detail="Item not found")
-
+    return await post_request(target_url, headers, data)

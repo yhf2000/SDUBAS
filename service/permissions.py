@@ -3,7 +3,6 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy import distinct, join
-from sqlalchemy.sql import select
 
 from model.permissions import Role, RolePrivilege, UserRole, Privilege, WorkRole
 from model.user import User ,User_info, School, Major, Class, College
@@ -626,14 +625,14 @@ class permissionModel(dbSession,dbSessionread):
             ).all()
             for item in query:
                 role_list.append(item.role_id)
-            join_tables = join(UserRole, User, UserRole.user_id == User.id)
+            join_tables = join(User, UserRole, UserRole.user_id == User.id)
             join_tables = join(join_tables, User_info, User.id == User_info.user_id)
             join_tables = join(join_tables, Class, User_info.class_id == Class.id)
             join_tables = join(join_tables, Major, User_info.major_id == Major.id)
             join_tables = join(join_tables, College, Major.college_id == College.id)
             join_tables = join(join_tables, School, College.school_id == School.id)
             user = session.query(User.id, User.username, User.card_id, User_info.realname, School.name, Major.name,
-                                 Class.name).select_from(join_tables).filter(
+                                 Class.name, UserRole.role_id).select_from(join_tables).filter(
                 UserRole.role_id.in_(role_list),
                 UserRole.has_delete == 0,
                 User.has_delete == 0,
@@ -653,6 +652,7 @@ class permissionModel(dbSession,dbSessionread):
                     "school": item[4],
                     "major": item[5],
                     "class": item[6],
+                    # "fgfdg": item[7]
                 }
                 res_list.append(temp)
             total_count = user.count()
@@ -727,7 +727,7 @@ class permissionModel(dbSession,dbSessionread):
                     WorkRole.role_id == item.role_id
                 ).first()
                 if work_role is not None:
-                    test_list.append(work_role.service_id)
+                    test_list.append(work_role.role_id)
             if not test_list:
                 raise HTTPException(
                     status_code=408,

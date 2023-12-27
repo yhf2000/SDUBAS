@@ -1,5 +1,5 @@
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import func, join
+from sqlalchemy import func, join, update
 import model.user
 from model.db import dbSession, dbSessionread
 from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College, Education_Program
@@ -275,10 +275,28 @@ class UserinfoModel(dbSession, dbSessionread):
             session.commit()
             return userinfo
 
+    def update_user_oj(self, id: int, username: str, password: str):  # 更改用户oj
+        with self.get_db() as session:
+            update_query = update(User_info).where(User_info.id == id).values(oj_username=username,
+                                                                              oj_password=password)
+
+            session.execute(update_query)
+            session.commit()
+            return id
+
+    def delete_user_oj(self, id: int):  # 更改用户oj
+        with self.get_db() as session:
+            update_query = update(User_info).where(User_info.id == id).values(oj_username=None,
+                                                                              oj_password=None)
+
+            session.execute(update_query)
+            session.commit()
+            return id
+
     def get_oj_exist_by_user_id(self, user_id):  # 根据user_id查询oj账号是否绑定
         with self.get_db_read() as session:
-            exist = session.query(User_info.oj_username,User_info.oj_password).filter(User_info.user_id == user_id,
-                                                                User_info.has_delete == 0).first()
+            exist = session.query(User_info.oj_username, User_info.oj_password).filter(User_info.user_id == user_id,
+                                                                                       User_info.has_delete == 0).first()
             session.commit()
             return exist
 
@@ -300,7 +318,10 @@ class OperationModel(dbSession, dbSessionread):
 
     def get_operation_hash_by_id_list(self, id_list):  # 根据id_list查询operation的hash
         with self.get_db_read() as session:
-            hash_list = session.query(Operation.id, Operation.oper_hash).filter(Operation.id.in_(id_list)).all()
+            hash_list = []
+            for id in id_list:
+                hash = session.query(Operation.id, Operation.oper_hash).filter(Operation.id == id).first()
+                hash_list.append(hash)
             session.commit()
             return hash_list
 
@@ -309,6 +330,17 @@ class OperationModel(dbSession, dbSessionread):
             num = session.query(Operation.id).filter().count()
             session.commit()
             return num
+
+    def get_func_and_time_by_admin(self, page, user_id):  # 查找某操作人的所有操作和时间
+        with self.get_db_read() as session:
+            query = session.query(Operation.func, Operation.oper_dt, Operation.id, Operation.oper_hash).filter(
+                Operation.oper_user_id == user_id)
+            counts = query.count()
+            operations = query.order_by(
+                Operation.id).offset(
+                page.offset()).limit(page.limit()).all()
+            session.commit()
+            return operations, counts
 
     def get_operation_by_service(self, page, user_id, service_type, service_id):  # 查找某操作人的所有操作和时间
         with self.get_db_read() as session:

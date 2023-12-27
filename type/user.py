@@ -9,6 +9,11 @@ class login_interface(BaseModel):
     password: str = None
 
 
+class oj_login_interface(BaseModel):
+    oj_username: str = None
+    oj_password: str = None
+
+
 class register_interface(login_interface):
     email: str = None
 
@@ -117,8 +122,8 @@ class user_info_interface(BaseModel):
     user_id: int = None
     realname: str = None
     gender: int = None
-    major_id: str = None
-    class_id: str = None
+    major_id: int = None
+    class_id: int = None
     enrollment_dt: date = None
     graduation_dt: date = None
 
@@ -129,6 +134,9 @@ class admin_user_add_interface(user_add_interface, user_info_interface):
         from_attributes=True,
     )
     role_id: int
+    school: int = None
+    college: int = None
+    confirm: str = None
 
 
 class parameters_interface(BaseModel):
