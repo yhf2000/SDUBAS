@@ -1,5 +1,5 @@
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import func, join, update
+from sqlalchemy import func, join, update, desc
 import model.user
 from model.db import dbSession, dbSessionread
 from model.user import User, User_info, Session, Operation, Captcha, Major, Class, School, College, Education_Program
@@ -336,9 +336,9 @@ class OperationModel(dbSession, dbSessionread):
             query = session.query(Operation.func, Operation.oper_dt, Operation.id, Operation.oper_hash).filter(
                 Operation.oper_user_id == user_id)
             counts = query.count()
-            operations = query.order_by(
-                Operation.id).offset(
-                page.offset()).limit(page.limit()).all()
+            query = query.order_by(desc(Operation.oper_dt))  # 对查询结果进行降序排序
+            operations = query.all()
+            operations = operations[page.offset():page.offset() + page.limit()]
             session.commit()
             return operations, counts
 
@@ -348,9 +348,9 @@ class OperationModel(dbSession, dbSessionread):
                 Operation.oper_user_id == user_id, Operation.service_type == service_type,
                 Operation.service_id == service_id)
             counts = query.count()
-            operations = query.order_by(
-                Operation.id).offset(
-                page.offset()).limit(page.limit()).all()
+            query = query.order_by(desc(Operation.oper_dt))  # 对查询结果进行降序排序
+            operations = query.all()
+            operations = operations[page.offset():page.offset() + page.limit()]
             session.commit()
             return operations, counts
 
