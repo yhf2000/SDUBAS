@@ -619,22 +619,29 @@ class permissionModel(dbSession,dbSessionread):
         with self.get_db_read() as session:
             role_list = []
             res_list = []
+            user_list = []
             query = session.query(WorkRole).filter(
                 WorkRole.service_type == 0,
                 WorkRole.service_id == user_id
             ).all()
             for item in query:
                 role_list.append(item.role_id)
-            join_tables = join(User, UserRole, UserRole.user_id == User.id)
-            join_tables = join(join_tables, User_info, User.id == User_info.user_id)
+            user = session.query(User).join(
+                UserRole,
+                UserRole.user_id == User.id
+            ).filter(
+                UserRole.role_id.in_(role_list)
+            ).all()
+            for item in user:
+                user_list.append(item.id)
+            join_tables = join(User, User_info, User.id == User_info.user_id)
             join_tables = join(join_tables, Class, User_info.class_id == Class.id)
             join_tables = join(join_tables, Major, User_info.major_id == Major.id)
             join_tables = join(join_tables, College, Major.college_id == College.id)
             join_tables = join(join_tables, School, College.school_id == School.id)
             user = session.query(User.id, User.username, User.card_id, User_info.realname, School.name, Major.name,
-                                 Class.name, UserRole.role_id).select_from(join_tables).filter(
-                UserRole.role_id.in_(role_list),
-                UserRole.has_delete == 0,
+                                 Class.name).select_from(join_tables).filter(
+                User.id.in_(user_list),
                 User.has_delete == 0,
                 User_info.has_delete == 0,
                 School.has_delete == 0,
@@ -652,12 +659,11 @@ class permissionModel(dbSession,dbSessionread):
                     "school": item[4],
                     "major": item[5],
                     "class": item[6],
-                    # "fgfdg": item[7]
                 }
                 res_list.append(temp)
             total_count = user.count()
             return total_count, res_list
-
+            
     def search_specific_role(self, role_list: list, privilege_name: str):
         with self.get_db_read() as session:
             new_role_list = []
