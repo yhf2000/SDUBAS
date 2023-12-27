@@ -176,8 +176,8 @@ async def add_user_in_resources(request: Request, data: User_Name_Add, resource_
     db = permissionModel()
     db.add_work_user(data.username, data.role_id)
     parameters = await make_parameters(request)
-    add_operation.delay(5, resource_id, "删除资源用户",
-                        f"用户{user['user_id']}于xxx删除资源用户{resource_id}，{data.username}",
+    add_operation.delay(5, resource_id, "添加资源用户",
+                        f"用户{user['user_id']}于xxx添加资源用户{resource_id}，{data.username}",
                         parameters,
                         user['user_id'])
     return 'OK'
