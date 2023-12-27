@@ -469,6 +469,8 @@ async def delete_user_in_project(request: Request, project_id: int, delete_user:
                                  user=Depends(auth_permission)):
     db = permissionModel()
     db.delete_work_user(delete_user, project_id)
+    parameters = await make_parameters(request)
+    add_operation.delay(0, 0, "删除项目用户", parameters, user['user_id'])
     return 'OK'
 
 
@@ -478,7 +480,7 @@ async def get_project_credits_role(request: Request, project_id: int,
                                    user=Depends(auth_permission)):
     role_list = project_service.get_project_credits_role_info(project_id)
     parameters = await make_parameters(request)
-    # add_operation.delay(0, 0, "获取能够参加项目学分认定的角色", parameters, user['user_id'])
+    add_operation.delay(0, 0, "获取能够参加项目学分认定的角色", parameters, user['user_id'])
     return role_list
 
 
